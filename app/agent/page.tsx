@@ -10,8 +10,6 @@ import {
   getAgentSettings,
   saveAgentSettings,
 } from "@/lib/storage";
-import { applyPronunciations, detectScriptLanguage } from "@/lib/langDetect";
-import { nextAgentLine } from "@/lib/conversationEngine";
 
 const SUGGESTION_CHIPS = [
   "Always confirm the caller's name before continuing",
@@ -28,36 +26,56 @@ const BACKGROUND_OPTIONS: { id: BackgroundSound; label: string }[] = [
   { id: "traffic", label: "City traffic" },
 ];
 
-type CallState = "idle" | "greeting" | "listening" | "speaking" | "checking" | "ended";
+const VOICES = [
+  { id: "shubh", label: "Shubh — confident & bold (M)" },
+  { id: "anand", label: "Anand — warm & reassuring (M)" },
+  { id: "aditya", label: "Aditya — modern & crisp (M)" },
+  { id: "ishita", label: "Ishita — polished & articulate (F)" },
+  { id: "priya", label: "Priya — cheerful & engaging (F)" },
+  { id: "ritu", label: "Ritu — expressive & lively (F)" },
+];
+
+type CallState = "idle" | "greeting" | "recording" | "sending" | "speaking" | "checking" | "ended";
 type TranscriptLine = { speaker: "agent" | "caller"; text: string; lang: string };
 
-const SILENCE_WARN_MS = 7500;
-const SILENCE_DISCONNECT_MS = 6000;
+const SILENCE_WARN_MS = 7500; // no speech detected at all in this window
+const SILENCE_STOP_MS = 1300; // pause after speech that ends the turn
+const MAX_RECORD_MS = 15000;
+const SPEECH_RMS_THRESHOLD = 0.02;
 
 export default function AgentPage() {
-  const [settings, setSettings] = useState<AgentSettings>(DEFAULT_AGENT_SETTINGS);
+  const [settings, setSettings] = useState<AgentSettings & { speaker: string }>({
+    ...DEFAULT_AGENT_SETTINGS,
+    speaker: "shubh",
+  });
   const [saved, setSaved] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(true);
+  const [micSupported, setMicSupported] = useState(true);
+  const [backendError, setBackendError] = useState("");
 
   const [callState, setCallState] = useState<CallState>("idle");
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const [currentLang, setCurrentLang] = useState("en-IN");
 
-  const recognitionRef = useRef<any>(null);
-  const turnRef = useRef(0);
-  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const disconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const ambienceNodesRef = useRef<{ src: AudioBufferSourceNode; gain: GainNode } | null>(null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const activeRef = useRef(false);
+  const historyRef = useRef<{ role: string; content: string }[]>([]);
+  const currentLangRef = useRef("en-IN");
+
+  const streamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const vadCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const vadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+
+  const ambienceCtxRef = useRef<AudioContext | null>(null);
+  const ambienceNodesRef = useRef<{ src: AudioBufferSourceNode } | null>(null);
 
   useEffect(() => {
-    setSettings(getAgentSettings());
-    const hasRecognition = typeof window !== "undefined" && (("SpeechRecognition" in window) || ("webkitSpeechRecognition" in window));
-    const hasSynthesis = typeof window !== "undefined" && "speechSynthesis" in window;
-    setSpeechSupported(!!hasRecognition && !!hasSynthesis);
+    setSettings((s) => ({ ...s, ...getAgentSettings() }));
+    setMicSupported(typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia);
   }, []);
 
   function handleSave() {
@@ -87,161 +105,241 @@ export default function AgentPage() {
     setSettings((s) => ({ ...s, pronunciations: s.pronunciations.filter((_, idx) => idx !== i) }));
   }
 
-  function pickVoice(lang: string): SpeechSynthesisVoice | null {
-    const voices = window.speechSynthesis.getVoices();
-    return (
-      voices.find((v) => v.lang.toLowerCase() === lang.toLowerCase()) ||
-      voices.find((v) => v.lang.toLowerCase().startsWith(lang.split("-")[0])) ||
-      voices.find((v) => v.lang.toLowerCase().startsWith("en")) ||
-      voices[0] ||
-      null
-    );
-  }
-
-  function speak(text: string, lang: string): Promise<void> {
-    return new Promise((resolve) => {
-      const spoken = applyPronunciations(text, settingsRef.current.pronunciations);
-      const utter = new SpeechSynthesisUtterance(spoken);
-      utter.rate = settingsRef.current.speechRate;
-      utter.pitch = settingsRef.current.speechPitch;
-      const voice = pickVoice(lang);
-      if (voice) utter.voice = voice;
-      utter.lang = lang;
-      utter.onend = () => resolve();
-      utter.onerror = () => resolve();
-      window.speechSynthesis.speak(utter);
-    });
-  }
-
-  function clearTimers() {
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    if (disconnectTimerRef.current) clearTimeout(disconnectTimerRef.current);
-    silenceTimerRef.current = null;
-    disconnectTimerRef.current = null;
-  }
-
   function startAmbience(kind: BackgroundSound) {
     if (kind === "none") return;
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     const ctx = new AudioCtx();
-    audioCtxRef.current = ctx;
+    ambienceCtxRef.current = ctx;
     const bufferSize = 2 * ctx.sampleRate;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     src.loop = true;
-
     const filter = ctx.createBiquadFilter();
     filter.type = "bandpass";
     filter.frequency.value = kind === "traffic" ? 180 : kind === "callcenter" ? 900 : 500;
     filter.Q.value = 0.6;
-
     const gain = ctx.createGain();
     gain.gain.value = kind === "callcenter" ? 0.05 : kind === "traffic" ? 0.045 : 0.025;
-
     src.connect(filter).connect(gain).connect(ctx.destination);
     src.start();
-    ambienceNodesRef.current = { src, gain };
+    ambienceNodesRef.current = { src };
   }
-
   function stopAmbience() {
     ambienceNodesRef.current?.src.stop();
     ambienceNodesRef.current = null;
-    audioCtxRef.current?.close();
-    audioCtxRef.current = null;
+    ambienceCtxRef.current?.close();
+    ambienceCtxRef.current = null;
   }
 
-  function startListening(lang: string) {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const rec = new SR();
-    rec.lang = lang;
-    rec.continuous = false;
-    rec.interimResults = false;
-
-    rec.onresult = (e: any) => {
-      const text = e.results[0][0].transcript as string;
-      clearTimers();
-      handleCallerSpeech(text);
-    };
-    rec.onerror = () => {
-      // stay silent — the silence timer handles the "are you still there" flow
-    };
-    recognitionRef.current = rec;
-    rec.start();
-    setCallState("listening");
-
-    silenceTimerRef.current = setTimeout(() => {
-      recognitionRef.current?.stop();
-      handleSilenceWarning();
-    }, SILENCE_WARN_MS);
+  function playBase64Audio(base64: string): Promise<void> {
+    return new Promise((resolve) => {
+      const audio = new Audio(`data:audio/wav;base64,${base64}`);
+      audioElRef.current = audio;
+      audio.onended = () => resolve();
+      audio.onerror = () => resolve();
+      audio.play().catch(() => resolve());
+    });
   }
 
-  async function handleSilenceWarning() {
-    if (!activeRef.current) return;
-    setCallState("checking");
-    await speak("Sorry, are you still there? I just want to check you can hear me.", currentLang);
-    setTranscript((t) => [...t, { speaker: "agent", text: "Sorry, are you still there? I just want to check you can hear me.", lang: currentLang }]);
-    if (!activeRef.current) return;
+  async function callBackend(fd: FormData) {
+    const res = await fetch("/api/test-call", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    return data;
+  }
 
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const rec = new SR();
-    rec.lang = currentLang;
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.onresult = (e: any) => {
-      const text = e.results[0][0].transcript as string;
-      clearTimers();
-      handleCallerSpeech(text);
-    };
-    recognitionRef.current = rec;
-    rec.start();
-    setCallState("listening");
+  async function ensureMic(): Promise<MediaStream> {
+    if (streamRef.current) return streamRef.current;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    streamRef.current = stream;
+    return stream;
+  }
 
-    disconnectTimerRef.current = setTimeout(async () => {
-      recognitionRef.current?.stop();
+  function stopVadLoop() {
+    if (vadIntervalRef.current) clearInterval(vadIntervalRef.current);
+    vadIntervalRef.current = null;
+    vadCtxRef.current?.close().catch(() => {});
+    vadCtxRef.current = null;
+    analyserRef.current = null;
+  }
+
+  async function recordOneTurn(): Promise<{ blob: Blob | null; timedOutSilent: boolean }> {
+    const stream = await ensureMic();
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    const ctx = new AudioCtx();
+    vadCtxRef.current = ctx;
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+    analyserRef.current = analyser;
+
+    const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+    recorderRef.current = recorder;
+    chunksRef.current = [];
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+
+    return new Promise((resolve) => {
+      let hasSpoken = false;
+      let lastAbove = Date.now();
+      const start = Date.now();
+      const data = new Uint8Array(analyser.frequencyBinCount);
+
+      recorder.start();
+      setCallState("recording");
+
+      vadIntervalRef.current = setInterval(() => {
+        analyser.getByteTimeDomainData(data);
+        let sumSq = 0;
+        for (let i = 0; i < data.length; i++) {
+          const v = (data[i] - 128) / 128;
+          sumSq += v * v;
+        }
+        const rms = Math.sqrt(sumSq / data.length);
+        const now = Date.now();
+        if (rms > SPEECH_RMS_THRESHOLD) {
+          hasSpoken = true;
+          lastAbove = now;
+        }
+
+        if (hasSpoken && now - lastAbove > SILENCE_STOP_MS) {
+          finish(false);
+        } else if (!hasSpoken && now - start > SILENCE_WARN_MS) {
+          finish(true);
+        } else if (now - start > MAX_RECORD_MS) {
+          finish(!hasSpoken);
+        }
+      }, 100);
+
+      function finish(timedOutSilent: boolean) {
+        stopVadLoop();
+        recorder.onstop = () => {
+          const blob = timedOutSilent ? null : new Blob(chunksRef.current, { type: "audio/webm" });
+          resolve({ blob, timedOutSilent });
+        };
+        if (recorder.state !== "inactive") recorder.stop();
+      }
+    });
+  }
+
+  async function conversationLoop() {
+    while (activeRef.current) {
+      const { blob, timedOutSilent } = await recordOneTurn();
+      if (!activeRef.current) return;
+
+      if (timedOutSilent) {
+        setCallState("checking");
+        try {
+          const fd = new FormData();
+          fd.append("mode", "greeting");
+          fd.append("text", "Sorry, are you still there? I just want to check you can hear me.");
+          fd.append("language", currentLangRef.current);
+          fd.append("speaker", settingsRef.current.speaker);
+          fd.append("pace", String(settingsRef.current.speechRate));
+          const data = await callBackend(fd);
+          setTranscript((t) => [...t, { speaker: "agent", text: "Sorry, are you still there? I just want to check you can hear me.", lang: currentLangRef.current }]);
+          if (data.audioBase64) await playBase64Audio(data.audioBase64);
+        } catch { /* keep going even if the check-in line fails */ }
+        if (!activeRef.current) return;
+
+        // one more short chance to respond, then end
+        const second = await recordOneTurn();
+        if (!activeRef.current) return;
+        if (second.timedOutSilent || !second.blob) {
+          setCallState("speaking");
+          try {
+            const fd = new FormData();
+            fd.append("mode", "greeting");
+            fd.append("text", "I'll let you go for now — thank you for your time, have a good day.");
+            fd.append("language", currentLangRef.current);
+            fd.append("speaker", settingsRef.current.speaker);
+            fd.append("pace", String(settingsRef.current.speechRate));
+            const data = await callBackend(fd);
+            setTranscript((t) => [...t, { speaker: "agent", text: "I'll let you go for now — thank you for your time, have a good day.", lang: currentLangRef.current }]);
+            if (data.audioBase64) await playBase64Audio(data.audioBase64);
+          } catch { /* ignore */ }
+          endConversation();
+          return;
+        }
+        await sendTurn(second.blob);
+        continue;
+      }
+
+      if (blob) await sendTurn(blob);
+    }
+  }
+
+  async function sendTurn(blob: Blob) {
+    setCallState("sending");
+    try {
+      const fd = new FormData();
+      fd.append("mode", "turn");
+      fd.append("audio", blob, "audio.webm");
+      fd.append("history", JSON.stringify(historyRef.current));
+      fd.append("instructions", settingsRef.current.instructions);
+      fd.append("language", currentLangRef.current);
+      fd.append("speaker", settingsRef.current.speaker);
+      fd.append("pace", String(settingsRef.current.speechRate));
+
+      const data = await callBackend(fd);
+      if (data.silent) return; // nothing understood, just listen again
+
+      setCurrentLang(data.detectedLanguage);
+      currentLangRef.current = data.detectedLanguage;
+      setTranscript((t) => [...t, { speaker: "caller", text: data.transcript, lang: data.detectedLanguage }]);
+      historyRef.current.push({ role: "user", content: data.transcript });
+
       setCallState("speaking");
-      const bye = "I'll let you go for now — thank you for your time, have a good day.";
-      setTranscript((t) => [...t, { speaker: "agent", text: bye, lang: currentLang }]);
-      await speak(bye, currentLang);
+      setTranscript((t) => [...t, { speaker: "agent", text: data.replyText, lang: data.detectedLanguage }]);
+      historyRef.current.push({ role: "assistant", content: data.replyText });
+      if (data.audioBase64) await playBase64Audio(data.audioBase64);
+    } catch (err: any) {
+      setBackendError(err?.message || "Something went wrong talking to Sarvam.");
       endConversation();
-    }, SILENCE_DISCONNECT_MS);
-  }
-
-  async function handleCallerSpeech(text: string) {
-    const detected = detectScriptLanguage(text) || currentLang;
-    setCurrentLang(detected);
-    setTranscript((t) => [...t, { speaker: "caller", text, lang: detected }]);
-    setCallState("speaking");
-
-    const reply = nextAgentLine(turnRef.current, text);
-    turnRef.current += 1;
-    setTranscript((t) => [...t, { speaker: "agent", text: reply, lang: detected }]);
-    await speak(reply, detected);
-
-    if (activeRef.current) startListening(detected);
+    }
   }
 
   async function startConversation() {
+    setBackendError("");
     setTranscript([]);
-    turnRef.current = 0;
+    historyRef.current = [];
     activeRef.current = true;
     const lang = settings.startingLanguage;
     setCurrentLang(lang);
+    currentLangRef.current = lang;
     setCallState("greeting");
     startAmbience(settings.backgroundSound);
-    setTranscript([{ speaker: "agent", text: settings.greeting, lang }]);
-    await speak(settings.greeting, lang);
-    startListening(lang);
+
+    try {
+      await ensureMic();
+      const fd = new FormData();
+      fd.append("mode", "greeting");
+      fd.append("text", settings.greeting);
+      fd.append("language", lang);
+      fd.append("speaker", settings.speaker);
+      fd.append("pace", String(settings.speechRate));
+      const data = await callBackend(fd);
+      setTranscript([{ speaker: "agent", text: settings.greeting, lang }]);
+      if (data.audioBase64) await playBase64Audio(data.audioBase64);
+    } catch (err: any) {
+      setBackendError(err?.message || "Couldn't reach Sarvam.");
+      activeRef.current = false;
+      setCallState("idle");
+      stopAmbience();
+      return;
+    }
+
+    if (activeRef.current) conversationLoop();
   }
 
   function endConversation() {
     activeRef.current = false;
-    clearTimers();
-    recognitionRef.current?.stop();
-    window.speechSynthesis.cancel();
+    stopVadLoop();
+    if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
+    audioElRef.current?.pause();
     stopAmbience();
     setCallState("ended");
     setTimeout(() => setCallState("idle"), 1400);
@@ -250,7 +348,8 @@ export default function AgentPage() {
   const stateLabel: Record<CallState, string> = {
     idle: "",
     greeting: "Agent speaking…",
-    listening: "Listening…",
+    recording: "Listening…",
+    sending: "Thinking…",
     speaking: "Agent speaking…",
     checking: "Checking in…",
     ended: "Call ended",
@@ -266,12 +365,11 @@ export default function AgentPage() {
         <div>
           <h1 className="font-display text-[26px] font-semibold m-0">Agent</h1>
           <div className="text-[13px] text-ink-soft mt-1">
-            Tell your AI agent how to talk, tune its voice, then test it right here — no phone number needed.
+            Tell your AI agent how to talk, tune its voice, then test it right here — real Sarvam voice, real conversation.
           </div>
         </div>
 
         <div className="grid grid-cols-[1.1fr_0.9fr] gap-5 items-start">
-          {/* Left column */}
           <div className="flex flex-col gap-5">
             <div className="bg-raised border border-line rounded-[10px] p-6 flex flex-col gap-4">
               <div>
@@ -306,11 +404,8 @@ export default function AgentPage() {
                 <div className="text-xs text-ink-soft mb-2">Quick add</div>
                 <div className="flex flex-wrap gap-2">
                   {SUGGESTION_CHIPS.map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => addChip(c)}
-                      className="text-xs px-3 py-1.5 rounded-full border border-line bg-paper hover:bg-signal-tint hover:border-signal hover:text-signal text-ink-soft"
-                    >
+                    <button key={c} onClick={() => addChip(c)}
+                      className="text-xs px-3 py-1.5 rounded-full border border-line bg-paper hover:bg-signal-tint hover:border-signal hover:text-signal text-ink-soft">
                       + {c}
                     </button>
                   ))}
@@ -318,32 +413,39 @@ export default function AgentPage() {
               </div>
             </div>
 
-            {/* Voice & behavior */}
             <div className="bg-raised border border-line rounded-[10px] p-6 flex flex-col gap-5">
               <div className="text-[15px] font-semibold">Voice &amp; behavior</div>
+
+              <div>
+                <label className="text-[13px] font-semibold block mb-1.5">Voice</label>
+                <select
+                  value={settings.speaker}
+                  onChange={(e) => setSettings((s) => ({ ...s, speaker: e.target.value }))}
+                  className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal"
+                >
+                  {VOICES.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+                </select>
+              </div>
 
               <div className="grid grid-cols-2 gap-5">
                 <div>
                   <label className="text-[13px] font-semibold block mb-1.5">
-                    Speaking speed <span className="font-normal text-ink-soft">{settings.speechRate.toFixed(1)}x</span>
+                    Speaking pace <span className="font-normal text-ink-soft">{settings.speechRate.toFixed(1)}x</span>
                   </label>
-                  <input
-                    type="range" min={0.6} max={1.6} step={0.1}
+                  <input type="range" min={0.5} max={2.0} step={0.1}
                     value={settings.speechRate}
                     onChange={(e) => setSettings((s) => ({ ...s, speechRate: parseFloat(e.target.value) }))}
-                    className="w-full accent-signal"
-                  />
+                    className="w-full accent-signal" />
                 </div>
                 <div>
                   <label className="text-[13px] font-semibold block mb-1.5">
                     Pitch <span className="font-normal text-ink-soft">{settings.speechPitch.toFixed(1)}</span>
                   </label>
-                  <input
-                    type="range" min={0.5} max={1.8} step={0.1}
+                  <input type="range" min={0.5} max={1.8} step={0.1}
                     value={settings.speechPitch}
                     onChange={(e) => setSettings((s) => ({ ...s, speechPitch: parseFloat(e.target.value) }))}
-                    className="w-full accent-signal"
-                  />
+                    className="w-full accent-signal" />
+                  <div className="text-[11px] text-ink-soft mt-1">Not yet supported by the real voice engine — pick a Voice above for tone instead.</div>
                 </div>
               </div>
 
@@ -354,12 +456,10 @@ export default function AgentPage() {
                   onChange={(e) => setSettings((s) => ({ ...s, startingLanguage: e.target.value }))}
                   className="border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal"
                 >
-                  {LANGUAGES.map((l) => (
-                    <option key={l.code} value={l.code}>{l.label}</option>
-                  ))}
+                  {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
                 </select>
                 <div className="text-[11.5px] text-ink-soft mt-1.5">
-                  The agent opens in this language, then switches automatically to match whatever the caller speaks.
+                  The agent opens in this language, then switches automatically to match whatever the caller actually speaks.
                 </div>
               </div>
 
@@ -367,13 +467,8 @@ export default function AgentPage() {
                 <label className="text-[13px] font-semibold block mb-1.5">Background sound</label>
                 <div className="flex gap-2 flex-wrap">
                   {BACKGROUND_OPTIONS.map((b) => (
-                    <button
-                      key={b.id}
-                      onClick={() => setSettings((s) => ({ ...s, backgroundSound: b.id }))}
-                      className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-full border ${
-                        settings.backgroundSound === b.id ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"
-                      }`}
-                    >
+                    <button key={b.id} onClick={() => setSettings((s) => ({ ...s, backgroundSound: b.id }))}
+                      className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-full border ${settings.backgroundSound === b.id ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"}`}>
                       {b.label}
                     </button>
                   ))}
@@ -382,63 +477,52 @@ export default function AgentPage() {
 
               <div>
                 <label className="text-[13px] font-semibold block mb-1.5">Pronunciation overrides</label>
-                <div className="text-[11.5px] text-ink-soft mb-2">
-                  If the agent says a word wrong, tell it how to say it instead.
-                </div>
+                <div className="text-[11.5px] text-ink-soft mb-2">If the agent says a word wrong, tell it how to say it instead.</div>
                 <div className="flex flex-col gap-2">
                   {settings.pronunciations.map((p, i) => (
                     <div key={i} className="flex items-center gap-2">
-                      <input
-                        value={p.word}
-                        onChange={(e) => updatePronunciation(i, "word", e.target.value)}
-                        placeholder="Word (e.g. DBMCI)"
-                        className="flex-1 border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none focus:border-signal"
-                      />
+                      <input value={p.word} onChange={(e) => updatePronunciation(i, "word", e.target.value)} placeholder="Word (e.g. DBMCI)"
+                        className="flex-1 border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none focus:border-signal" />
                       <span className="text-ink-soft text-xs">→</span>
-                      <input
-                        value={p.sayAs}
-                        onChange={(e) => updatePronunciation(i, "sayAs", e.target.value)}
-                        placeholder="Say it as (e.g. D B M C I)"
-                        className="flex-1 border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none focus:border-signal"
-                      />
+                      <input value={p.sayAs} onChange={(e) => updatePronunciation(i, "sayAs", e.target.value)} placeholder="Say it as (e.g. D B M C I)"
+                        className="flex-1 border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none focus:border-signal" />
                       <button onClick={() => removePronunciation(i)} className="text-miss text-xs font-semibold px-1">✕</button>
                     </div>
                   ))}
-                  <button onClick={addPronunciation} className="text-[12.5px] font-semibold text-signal text-left mt-1">
-                    + Add a word
-                  </button>
+                  <button onClick={addPronunciation} className="text-[12.5px] font-semibold text-signal text-left mt-1">+ Add a word</button>
                 </div>
+                <div className="text-[11px] text-ink-soft mt-2">Applies once wired into the live call script — not yet applied to the real voice below.</div>
               </div>
 
               <div className="flex items-center gap-3 pt-1 border-t border-line">
-                <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">
-                  Save changes
-                </button>
+                <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">Save changes</button>
                 {saved && <span className="text-[13px] text-signal font-medium mt-4">Saved ✓</span>}
               </div>
             </div>
           </div>
 
-          {/* Right column — test conversation */}
           <div className="bg-raised border border-line rounded-[10px] p-6 flex flex-col gap-4 sticky top-11">
             <div>
               <div className="text-[15px] font-semibold">Test this agent</div>
               <div className="text-[12.5px] text-ink-soft mt-1">
-                Have a real spoken conversation with it, right in your browser — no phone number required.
+                Real conversation through Sarvam — speech-to-text, Sarvam-105B, and Bulbul voice. No phone number required.
               </div>
             </div>
 
-            {!speechSupported && (
+            {!micSupported && (
               <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">
-                Your browser doesn't support live voice conversations. Please try this in Chrome on desktop or Android.
+                Your browser doesn't support microphone access. Please try Chrome.
+              </div>
+            )}
+            {backendError && (
+              <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">
+                {backendError}
               </div>
             )}
 
-            {speechSupported && callState === "idle" && (
-              <button
-                onClick={startConversation}
-                className="bg-signal text-white rounded-lg px-5 py-3 text-[13.5px] font-semibold flex items-center justify-center gap-2"
-              >
+            {micSupported && callState === "idle" && (
+              <button onClick={startConversation}
+                className="bg-signal text-white rounded-lg px-5 py-3 text-[13.5px] font-semibold flex items-center justify-center gap-2">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4" />
@@ -447,11 +531,9 @@ export default function AgentPage() {
               </button>
             )}
 
-            {speechSupported && callState !== "idle" && (
+            {micSupported && callState !== "idle" && (
               <div className="flex flex-col items-center gap-2 py-3">
-                <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
-                  callState === "listening" ? "bg-signal-tint text-signal" : "bg-warm-tint text-warm"
-                } ${callState !== "listening" && callState !== "ended" ? "animate-pulse" : ""}`}>
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center ${callState === "recording" ? "bg-signal-tint text-signal" : "bg-warm-tint text-warm"} ${callState !== "recording" && callState !== "ended" ? "animate-pulse" : ""}`}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                     <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4" />
@@ -460,9 +542,7 @@ export default function AgentPage() {
                 <div className="text-[13.5px] font-semibold">{stateLabel[callState]}</div>
                 <div className="text-[11.5px] text-ink-soft">Speaking: {currentLangLabel}</div>
                 {callState !== "ended" && (
-                  <button onClick={endConversation} className="bg-miss text-white rounded-lg px-4 py-1.5 text-[12.5px] font-semibold mt-1">
-                    End conversation
-                  </button>
+                  <button onClick={endConversation} className="bg-miss text-white rounded-lg px-4 py-1.5 text-[12.5px] font-semibold mt-1">End conversation</button>
                 )}
               </div>
             )}
@@ -473,9 +553,7 @@ export default function AgentPage() {
               )}
               {transcript.map((line, i) => (
                 <div key={i} className={`flex ${line.speaker === "agent" ? "justify-start" : "justify-end"}`}>
-                  <div className={`max-w-[85%] rounded-lg px-3 py-1.5 text-[12.5px] ${
-                    line.speaker === "agent" ? "bg-paper text-ink" : "bg-signal-tint text-signal font-medium"
-                  }`}>
+                  <div className={`max-w-[85%] rounded-lg px-3 py-1.5 text-[12.5px] ${line.speaker === "agent" ? "bg-paper text-ink" : "bg-signal-tint text-signal font-medium"}`}>
                     {line.text}
                   </div>
                 </div>
@@ -483,7 +561,7 @@ export default function AgentPage() {
             </div>
 
             <div className="text-[11.5px] text-ink-soft border-t border-line pt-3">
-              Preview conversation logic — real replies connect once your agent is linked to calling. Voice, speed, pitch, language switching, and silence handling are all live right now.
+              This is going through real Sarvam APIs — speech recognition, Sarvam-105B for the reply, and Bulbul for the voice. Requires <code className="bg-paper px-1 rounded">SARVAM_API_KEY</code> to be set on the server.
             </div>
           </div>
         </div>
