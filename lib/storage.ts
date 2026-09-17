@@ -1,5 +1,7 @@
 "use client";
 
+import { PronunciationOverride } from "./langDetect";
+
 export type ScriptId = "neet-reactivation" | "fee-reminder" | "new-batch" | "custom";
 
 export type Campaign = {
@@ -19,14 +21,34 @@ export type Campaign = {
   createdAt: number;
 };
 
+export type BackgroundSound = "none" | "office" | "callcenter" | "traffic";
+
 export type AgentSettings = {
   agentName: string;
   greeting: string;
   instructions: string;
+  speechRate: number;
+  speechPitch: number;
+  startingLanguage: string;
+  backgroundSound: BackgroundSound;
+  pronunciations: PronunciationOverride[];
 };
 
+export const LANGUAGES: { code: string; label: string }[] = [
+  { code: "en-IN", label: "English" },
+  { code: "hi-IN", label: "Hindi" },
+  { code: "te-IN", label: "Telugu" },
+  { code: "bn-IN", label: "Bengali" },
+  { code: "gu-IN", label: "Gujarati" },
+  { code: "kn-IN", label: "Kannada" },
+  { code: "ml-IN", label: "Malayalam" },
+  { code: "mr-IN", label: "Marathi" },
+  { code: "ta-IN", label: "Tamil" },
+  { code: "pa-IN", label: "Punjabi" },
+];
+
 const CAMPAIGNS_KEY = "rana_ai_campaigns_v1";
-const AGENT_KEY = "rana_ai_agent_settings_v1";
+const AGENT_KEY = "rana_ai_agent_settings_v2";
 
 export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   agentName: "Ananya",
@@ -36,6 +58,11 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
     "Ask about their exam target and which attempt this is. If they mention budget concerns, " +
     "acknowledge it and offer to have a counsellor call back with EMI options. If they sound ready, " +
     "offer to book a counselling session. Keep responses short and natural, like a real phone call.",
+  speechRate: 1,
+  speechPitch: 1,
+  startingLanguage: "en-IN",
+  backgroundSound: "none",
+  pronunciations: [{ word: "DBMCI", sayAs: "D B M C I" }],
 };
 
 function safeParse<T>(raw: string | null, fallback: T): T {
@@ -60,7 +87,8 @@ export function addCampaign(campaign: Campaign) {
 
 export function getAgentSettings(): AgentSettings {
   if (typeof window === "undefined") return DEFAULT_AGENT_SETTINGS;
-  return safeParse<AgentSettings>(window.localStorage.getItem(AGENT_KEY), DEFAULT_AGENT_SETTINGS);
+  const parsed = safeParse<Partial<AgentSettings>>(window.localStorage.getItem(AGENT_KEY), {});
+  return { ...DEFAULT_AGENT_SETTINGS, ...parsed };
 }
 
 export function saveAgentSettings(settings: AgentSettings) {
