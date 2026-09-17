@@ -24,7 +24,7 @@ async function sarvamChat(messages: ChatMessage[], apiKey: string) {
       model: "sarvam-105b",
       messages,
       temperature: 0.7,
-      max_tokens: 300,
+      max_tokens: 120,
       reasoning_effort: null, // disable "thinking" — a phone call needs an immediate reply, not chain-of-thought
     }),
   });
