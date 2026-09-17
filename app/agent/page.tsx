@@ -272,8 +272,22 @@ export default function AgentPage() {
     }
   }
 
+  function playFillerCue() {
+    try {
+      const fillers = ["Mm-hmm.", "I see.", "Okay.", "Right."];
+      const phrase = fillers[Math.floor(Math.random() * fillers.length)];
+      const utter = new SpeechSynthesisUtterance(phrase);
+      utter.rate = 1.1;
+      const voices = window.speechSynthesis.getVoices();
+      const match = voices.find((v) => v.lang.toLowerCase().startsWith(currentLangRef.current.split("-")[0]));
+      if (match) utter.voice = match;
+      window.speechSynthesis.speak(utter);
+    } catch { /* purely cosmetic — never block the real reply on this */ }
+  }
+
   async function sendTurn(blob: Blob) {
     setCallState("sending");
+    playFillerCue();
     try {
       const fd = new FormData();
       fd.append("mode", "turn");
