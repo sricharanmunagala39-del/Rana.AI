@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type NavKey = "overview" | "outbound" | "inbound";
+type NavKey = "overview" | "outbound" | "inbound" | "agent";
 
 const items: { key: NavKey; label: string; href: string; icon: React.ReactNode }[] = [
   {
@@ -35,6 +35,17 @@ const items: { key: NavKey; label: string; href: string; icon: React.ReactNode }
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 7L7 17" />
         <path d="M16 17H7V8" />
+      </svg>
+    ),
+  },
+  {
+    key: "agent",
+    label: "Agent",
+    href: "/agent",
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
       </svg>
     ),
   },
