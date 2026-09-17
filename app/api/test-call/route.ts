@@ -20,11 +20,18 @@ async function sarvamChat(messages: ChatMessage[], apiKey: string) {
   const res = await fetch("https://api.sarvam.ai/v1/chat/completions", {
     method: "POST",
     headers: { "api-subscription-key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "sarvam-105b", messages, temperature: 0.7, max_tokens: 150 }),
+    body: JSON.stringify({
+      model: "sarvam-105b",
+      messages,
+      temperature: 0.7,
+      max_tokens: 300,
+      reasoning_effort: null, // disable "thinking" — a phone call needs an immediate reply, not chain-of-thought
+    }),
   });
   if (!res.ok) throw new Error(`Sarvam Chat failed (${res.status}): ${await res.text()}`);
   const data = await res.json();
-  return data.choices?.[0]?.message?.content as string;
+  const content = data.choices?.[0]?.message?.content as string | undefined;
+  return (content || "").trim();
 }
 
 async function sarvamTTS(text: string, languageCode: string, speaker: string, pace: number, apiKey: string) {
@@ -89,7 +96,8 @@ export async function POST(req: Request) {
       { role: "user", content: transcript },
     ];
 
-    const replyText = await sarvamChat(messages, apiKey);
+    let replyText = await sarvamChat(messages, apiKey);
+    if (!replyText) replyText = "Sorry, could you say that again?";
     const audioBase64 = await sarvamTTS(replyText, detectedLanguage, speaker, pace, apiKey);
 
     return Response.json({ transcript, detectedLanguage, replyText, audioBase64 });
