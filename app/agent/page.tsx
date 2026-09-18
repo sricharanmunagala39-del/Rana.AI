@@ -7,10 +7,15 @@ import {
   BackgroundSound,
   DEFAULT_AGENT_SETTINGS,
   LANGUAGES,
+  ScriptVersion,
+  deleteScriptVersion,
   getAgentSettings,
+  getScriptVersions,
   saveAgentSettings,
+  saveScriptVersion,
 } from "@/lib/storage";
 
+/* ── constants ── */
 const SUGGESTION_CHIPS = [
   "Always confirm the caller's name before continuing",
   "Speak in Telugu if the caller prefers it",
@@ -55,11 +60,24 @@ export default function AgentPage() {
   });
   const [tab,   setTab]   = useState<Tab>("instructions");
   const [saved, setSaved] = useState(false);
+
+  /* script versions */
+  const [versions,     setVersions]     = useState<ScriptVersion[]>([]);
+  const [versionLabel, setVersionLabel] = useState("");
+  const [savingVer,    setSavingVer]    = useState(false);
+  const [savedVerMsg,  setSavedVerMsg]  = useState("");
+  const [showVerPanel, setShowVerPanel] = useState(false);
+
+  /* AI edit panel */
   const [editInput,   setEditInput]   = useState("");
   const [editLog,     setEditLog]     = useState<{ request: string; summary: string; time: string }[]>([]);
   const [editLoading, setEditLoading] = useState(false);
   const [editError,   setEditError]   = useState("");
+
+  /* test sub-tabs */
   const [testTab, setTestTab] = useState<TestTab>("voice");
+
+  /* voice call */
   const [micSupported, setMicSupported] = useState(true);
   const [backendError, setBackendError] = useState("");
   const [callState,    setCallState]    = useState<CallState>("idle");
@@ -67,14 +85,19 @@ export default function AgentPage() {
   const [currentLang,  setCurrentLang]  = useState("en-IN");
   const [previewTurns, setPreviewTurns] = useState(0);
   const [previewDone,  setPreviewDone]  = useState(false);
+
+  /* phone call */
   const [phoneNumber,  setPhoneNumber]  = useState("");
   const [phoneLoading, setPhoneLoading] = useState(false);
-  const [phoneStatus,  setPhoneStatus]  = useState<"idle" | "calling" | "error">("idle");
+  const [phoneStatus,  setPhoneStatus]  = useState<"idle" | "calling" | "done" | "error">("idle");
   const [phoneError,   setPhoneError]   = useState("");
+
+  /* chat test */
   const [chatInput,   setChatInput]   = useState("");
   const [chatHistory, setChatHistory] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
 
+  /* refs */
   const settingsRef      = useRef(settings); settingsRef.current = settings;
   const activeRef        = useRef(false);
   const previewTurnsRef  = useRef(0);
@@ -92,20 +115,54 @@ export default function AgentPage() {
 
   useEffect(() => {
     setSettings((s) => ({ ...s, ...getAgentSettings() }));
+    setVersions(getScriptVersions());
     setMicSupported(typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia);
   }, []);
 
   function persist(next: AgentSettings & { speaker: string }) { setSettings(next); saveAgentSettings(next); }
   function handleSave() { saveAgentSettings(settings); setSaved(true); setTimeout(() => setSaved(false), 2200); }
+
+  function handleSaveVersion() {
+    setSavingVer(true);
+    const label = versionLabel.trim() || undefined;
+    saveScriptVersion({
+      label: label ?? "",
+      greeting: settings.greeting,
+      instructions: settings.instructions,
+      facts: settings.facts,
+      speaker: settings.speaker,
+      speechRate: settings.speechRate,
+      speechPitch: settings.speechPitch,
+      startingLanguage: settings.startingLanguage,
+    }, label);
+    const updated = getScriptVersions();
+    setVersions(updated);
+    setSavingVer(false);
+    setVersionLabel("");
+    setSavedVerMsg(`Saved as ${updated[0].label}`);
+    setTimeout(() => setSavedVerMsg(""), 2500);
+  }
+
+  function handleRestoreVersion(v: ScriptVersion) {
+    const next = { ...settings, greeting: v.greeting, instructions: v.instructions, facts: v.facts,
+      speaker: v.speaker, speechRate: v.speechRate, speechPitch: v.speechPitch, startingLanguage: v.startingLanguage };
+    persist(next);
+  }
+
+  function handleDeleteVersion(vnum: number) {
+    deleteScriptVersion(vnum);
+    setVersions(getScriptVersions());
+  }
+
   function addChip(text: string) {
     setSettings((s) => ({ ...s, instructions: s.instructions.trim() ? `${s.instructions.trim()}\n- ${text}` : `- ${text}` }));
   }
-  function addFact()                        { setSettings((s) => ({ ...s, facts: [...s.facts, ""] })); }
-  function updateFact(i: number, v: string) { setSettings((s) => { const f = [...s.facts]; f[i] = v; return { ...s, facts: f }; }); }
-  function removeFact(i: number)            { setSettings((s) => ({ ...s, facts: s.facts.filter((_, x) => x !== i) })); }
-  function addPron()                        { setSettings((s) => ({ ...s, pronunciations: [...s.pronunciations, { word: "", sayAs: "" }] })); }
-  function updatePron(i: number, field: "word" | "sayAs", v: string) {
-    setSettings((s) => { const p = [...s.pronunciations]; p[i] = { ...p[i], [field]: v }; return { ...s, pronunciations: p }; });
+  function addFact()                          { setSettings((s) => ({ ...s, facts: [...s.facts, ""] })); }
+  function updateFact(i: number, v: string)   { setSettings((s) => { const f = [...s.facts]; f[i] = v; return { ...s, facts: f }; }); }
+  function removeFact(i: number)              { setSettings((s) => ({ ...s, facts: s.facts.filter((_, x) => x !== i) })); }
+  function addPron()                          { setSettings((s) => ({ ...s, pronunciations: [...s.pronunciations, { word: "", sayAs: "" }] })); }
+  function updatePron(i: number, f: "word" | "sayAs", v: string) {
+    setSettings((s) => { const p = [...s.pronunciations]; p[i] = { ...p[i], [f]: v }; return { ...s, pronunciations: p }; });
   }
   function removePron(i: number) { setSettings((s) => ({ ...s, pronunciations: s.pronunciations.filter((_, x) => x !== i) })); }
 
@@ -143,18 +200,11 @@ export default function AgentPage() {
     setChatHistory((h) => [...h, { role: "user", text: userText }]);
     setChatLoading(true);
     try {
-      const fd = new FormData();
-      fd.append("mode", "turn");
-      fd.append("instructions", settings.instructions + "\n\nFacts:\n" + settings.facts.map((f) => `- ${f}`).join("\n"));
-      fd.append("history", JSON.stringify(chatHistory.map((m) => ({ role: m.role, content: m.text }))));
-      const silence = new Blob([], { type: "audio/webm" });
-      fd.append("audio", silence, "silence.webm");
-      fd.append("text_override", userText);
-      fd.append("language", settings.startingLanguage);
-      fd.append("speaker", settings.speaker || "shubh");
-      fd.append("pace", "1");
-      fd.append("chat_only", "true");
-      const res = await fetch("/api/test-call", { method: "POST", body: fd });
+      const history = chatHistory.map((m) => ({ role: m.role, content: m.text }));
+      const res = await fetch("/api/test-call", { method: "POST",
+        body: (() => { const fd = new FormData(); fd.append("mode", "chat");
+          fd.append("instructions", settings.instructions + "\n\nFacts:\n" + settings.facts.map((f) => `- ${f}`).join("\n"));
+          fd.append("text", userText); fd.append("history", JSON.stringify(history)); return fd; })() });
       const data = await res.json();
       setChatHistory((h) => [...h, { role: "assistant", text: data.replyText || "(no response)" }]);
     } catch { setChatHistory((h) => [...h, { role: "assistant", text: "(Error — check your API key)" }]); }
@@ -200,8 +250,8 @@ export default function AgentPage() {
     const stream = await ensureMic();
     const Ctx = window.AudioContext || (window as any).webkitAudioContext;
     const ctx = new Ctx(); vadCtxRef.current = ctx;
-    const src2 = ctx.createMediaStreamSource(stream);
-    const an = ctx.createAnalyser(); an.fftSize = 512; src2.connect(an); analyserRef.current = an;
+    const src = ctx.createMediaStreamSource(stream);
+    const an = ctx.createAnalyser(); an.fftSize = 512; src.connect(an); analyserRef.current = an;
     const rec = new MediaRecorder(stream, { mimeType: "audio/webm" }); recorderRef.current = rec;
     chunksRef.current = []; rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
     return new Promise((resolve) => {
@@ -239,39 +289,35 @@ export default function AgentPage() {
         try { const dck = await callBackend(fd); setTranscript((t) => [...t, { speaker:"agent", text:"Sorry, are you still there?", lang: currentLangRef.current }]); if (dck.audioBase64) await playBase64Audio(dck.audioBase64); } catch {}
         if (!activeRef.current) return;
         const { blob: b2, silent: s2 } = await recordOneTurn(); if (!activeRef.current) return;
-        if (s2 || !b2) {
-          const fdBye = new FormData(); fdBye.append("mode","greeting"); fdBye.append("text","I\'ll let you go — thank you, have a good day!");
-          fdBye.append("language", currentLangRef.current); fdBye.append("speaker", settingsRef.current.speaker); fdBye.append("pace","1");
-          try { const dBye = await callBackend(fdBye); setTranscript((t) => [...t, { speaker:"agent", text:"I\'ll let you go — thank you, have a good day!", lang: currentLangRef.current }]); if (dBye.audioBase64) await playBase64Audio(dBye.audioBase64); } catch {}
-          endConversation(); return;
-        }
+        if (s2 || !b2) { await sendTurn(new Blob([], { type: "audio/webm" }), true); return; }
         await sendTurn(b2);
       } else if (blob) { await sendTurn(blob); }
     }
   }
-  async function sendTurn(blob: Blob) {
+  async function sendTurn(blob: Blob, goodbye = false) {
     setCallState("sending"); playFiller();
+    const text = goodbye ? "I'll let you go — thank you, have a good day!" : undefined;
     try {
-      const fd = new FormData(); fd.append("mode","turn"); fd.append("audio", blob, "audio.webm");
-      fd.append("history", JSON.stringify(historyRef.current));
+      const fd = new FormData(); fd.append("mode", goodbye ? "greeting" : "turn");
+      if (goodbye) { fd.append("text", text!); }
+      else { fd.append("audio", blob, "audio.webm"); fd.append("history", JSON.stringify(historyRef.current)); }
       fd.append("instructions", settingsRef.current.instructions + "\n\nFacts:\n" + settingsRef.current.facts.map((f) => `- ${f}`).join("\n"));
       fd.append("language", currentLangRef.current); fd.append("speaker", settingsRef.current.speaker); fd.append("pace", String(settingsRef.current.speechRate));
-      const d = await callBackend(fd); if (d.silent) return;
-      setCurrentLang(d.detectedLanguage); currentLangRef.current = d.detectedLanguage;
-      setTranscript((t) => [...t, { speaker:"caller", text: d.transcript, lang: d.detectedLanguage }]);
-      historyRef.current.push({ role:"user", content: d.transcript });
-      setCallState("speaking");
-      setTranscript((t) => [...t, { speaker:"agent", text: d.replyText, lang: d.detectedLanguage }]);
-      historyRef.current.push({ role:"assistant", content: d.replyText });
-      // increment turn counter
-      previewTurnsRef.current += 1;
-      setPreviewTurns(previewTurnsRef.current);
+      const d = await callBackend(fd); if (!goodbye && d.silent) return;
+      if (!goodbye) { setCurrentLang(d.detectedLanguage); currentLangRef.current = d.detectedLanguage; setTranscript((t) => [...t, { speaker:"caller", text: d.transcript, lang: d.detectedLanguage }]); historyRef.current.push({ role:"user", content: d.transcript }); }
+      const replyText = goodbye ? text! : d.replyText;
+      setCallState("speaking"); setTranscript((t) => [...t, { speaker:"agent", text: replyText, lang: currentLangRef.current }]);
+      if (!goodbye) {
+        historyRef.current.push({ role:"assistant", content: replyText });
+        previewTurnsRef.current += 1;
+        setPreviewTurns(previewTurnsRef.current);
+      }
       if (d.audioBase64) await playBase64Audio(d.audioBase64);
-      // hit preview cap
+      if (goodbye) { endConversation(); return; }
       if (previewTurnsRef.current >= PREVIEW_MAX) {
         const fdWrap = new FormData();
         fdWrap.append("mode","greeting");
-        fdWrap.append("text","That\'s a great preview! Your script sounds good. Head over to Outbound to launch a campaign.");
+        fdWrap.append("text","That's a great preview! Your script sounds good. Head over to Outbound to launch a campaign.");
         fdWrap.append("language", currentLangRef.current); fdWrap.append("speaker", settingsRef.current.speaker); fdWrap.append("pace","1");
         try { const dw = await callBackend(fdWrap); if (dw.audioBase64) await playBase64Audio(dw.audioBase64); } catch {}
         activeRef.current = false; stopVad(); stopAmbience();
@@ -290,7 +336,7 @@ export default function AgentPage() {
       fd.append("language", lang); fd.append("speaker", settings.speaker); fd.append("pace", String(settings.speechRate));
       const d = await callBackend(fd); setTranscript([{ speaker:"agent", text: settings.greeting, lang }]);
       if (d.audioBase64) await playBase64Audio(d.audioBase64);
-    } catch (err: any) { setBackendError(err?.message || "Couldn\'t reach Sarvam."); activeRef.current = false; setCallState("idle"); stopAmbience(); return; }
+    } catch (err: any) { setBackendError(err?.message || "Couldn't reach Sarvam."); activeRef.current = false; setCallState("idle"); stopAmbience(); return; }
     if (activeRef.current) conversationLoop();
   }
   function endConversation() {
@@ -299,7 +345,7 @@ export default function AgentPage() {
     audioElRef.current?.pause(); stopAmbience(); setCallState("ended");
     setTimeout(() => setCallState("idle"), 1400);
   }
-  const stateLabel: Record<CallState, string> = { idle:"", greeting:"Agent speaking…", recording:"Listening…", sending:"Thinking…", speaking:"Agent speaking…", checking:"Checking in…", ended:"Preview ended" };
+  const stateLabel: Record<CallState, string> = { idle:"", greeting:"Agent speaking…", recording:"Listening…", sending:"Thinking…", speaking:"Agent speaking…", checking:"Checking in…", ended:"Call ended" };
   const langLabel = LANGUAGES.find((l) => l.code === currentLang)?.label ?? currentLang;
 
   return (
@@ -317,7 +363,7 @@ export default function AgentPage() {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.95.36 1.87.68 2.75a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.33-1.34a2 2 0 0 1 2.11-.45c.88.32 1.8.55 2.75.68A2 2 0 0 1 22 16.92z" />
             </svg>
-            Preview agent
+            Test agent
           </button>
         </div>
         <div className="flex flex-1 overflow-hidden">
@@ -360,9 +406,67 @@ export default function AgentPage() {
                     <button onClick={addFact} className="text-[13px] font-semibold text-signal text-left mt-1 ml-4">+ Add a fact</button>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold">Save changes</button>
-                  {saved && <span className="text-[13px] text-signal font-medium">Saved ✓</span>}
+
+                {/* SAVE ROW + VERSIONING */}
+                <div className="flex flex-col gap-4 border-t border-line pt-5">
+                  <div className="flex items-center gap-3">
+                    <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold">Save changes</button>
+                    {saved && <span className="text-[13px] text-signal font-medium">Saved ✓</span>}
+                  </div>
+
+                  <div className="bg-paper border border-line rounded-xl p-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-[13px] font-semibold">Save as version</div>
+                        <div className="text-[12px] text-ink-soft mt-0.5">
+                          Lock this script before launching a campaign.
+                          {versions.length > 0 && <span className="ml-1 text-signal font-medium">Latest: {versions[0].label}</span>}
+                        </div>
+                      </div>
+                      {versions.length > 0 && (
+                        <button onClick={() => setShowVerPanel((v) => !v)}
+                          className="text-[12px] text-ink-soft border border-line rounded-lg px-2.5 py-1 hover:bg-white">
+                          {showVerPanel ? "Hide history" : `History (${versions.length})`}
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <input value={versionLabel} onChange={(e) => setVersionLabel(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleSaveVersion(); }}
+                        placeholder={`e.g. "Medical college outbound" (optional)`}
+                        className="flex-1 border border-line rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:border-signal" />
+                      <button onClick={handleSaveVersion} disabled={savingVer}
+                        className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold whitespace-nowrap disabled:opacity-50">
+                        Save version
+                      </button>
+                    </div>
+                    {savedVerMsg && <div className="text-[12.5px] text-signal font-medium">{savedVerMsg} ✓</div>}
+
+                    {showVerPanel && versions.length > 0 && (
+                      <div className="flex flex-col gap-2 mt-1">
+                        <div className="text-[11.5px] text-ink-soft uppercase tracking-wide font-semibold">Version history</div>
+                        {versions.map((v) => (
+                          <div key={v.version} className="flex items-center gap-2 border border-line rounded-lg bg-white px-3 py-2.5">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[13px] font-semibold truncate">{v.label}</div>
+                              <div className="text-[11.5px] text-ink-soft">
+                                {new Date(v.savedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                                {" · "}{v.speaker} · {v.startingLanguage.split("-")[0].toUpperCase()}
+                              </div>
+                            </div>
+                            <button onClick={() => handleRestoreVersion(v)}
+                              className="text-[12px] font-semibold text-signal border border-signal/30 rounded-lg px-2.5 py-1 hover:bg-signal-tint shrink-0">
+                              Restore
+                            </button>
+                            <button onClick={() => handleDeleteVersion(v.version)}
+                              className="text-[12px] font-semibold text-miss border border-miss/20 rounded-lg px-2 py-1 hover:bg-miss-tint shrink-0">
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -370,7 +474,7 @@ export default function AgentPage() {
             {tab === "variables" && (
               <div className="max-w-[600px] text-center py-20">
                 <div className="text-[15px] font-semibold mb-1.5">Variables</div>
-                <div className="text-[13.5px] text-ink-soft">Personalize calls with per-contact values like name or city. Coming in Feature #2.</div>
+                <div className="text-[13.5px] text-ink-soft">Personalize calls with per-contact values like name or city. Coming soon.</div>
               </div>
             )}
             {tab === "tools" && (
@@ -449,11 +553,9 @@ export default function AgentPage() {
                   ))}
                 </div>
 
-                {/* VOICE TAB */}
+                {/* VOICE */}
                 {testTab === "voice" && (
                   <div className="flex flex-col gap-4">
-
-                    {/* header: description + dot counter */}
                     <div className="flex items-center justify-between">
                       <p className="text-[13px] text-ink-soft">Free preview — browser mic, no real call. Up to {PREVIEW_MAX} turns.</p>
                       {(callState !== "idle" || previewTurns > 0) && !previewDone && (
@@ -465,41 +567,27 @@ export default function AgentPage() {
                         </div>
                       )}
                     </div>
-
                     {!micSupported && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">Mic not supported — try Chrome.</div>}
                     {backendError && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">{backendError}</div>}
 
-                    {/* PREVIEW COMPLETE CARD */}
                     {previewDone && (
                       <div className="border-2 border-signal rounded-xl bg-signal-tint p-5 flex flex-col gap-3">
                         <div className="flex items-center gap-2">
                           <span className="text-signal text-lg">✓</span>
-                          <span className="text-[14.5px] font-semibold text-signal">Preview complete — {PREVIEW_MAX} turns done</span>
+                          <span className="text-[14px] font-semibold text-signal">Preview complete — {PREVIEW_MAX} turns done</span>
                         </div>
-                        <p className="text-[13px] text-ink leading-relaxed">
-                          Happy with how it sounds? Tweak the script further, or go straight to Outbound and launch your campaign.
-                        </p>
+                        <p className="text-[13px] text-ink leading-relaxed">Happy with how the agent sounds? Tweak the script further, or launch an outbound campaign.</p>
                         <div className="flex gap-2 flex-wrap">
-                          <button
-                            onClick={() => { setPreviewDone(false); setPreviewTurns(0); previewTurnsRef.current = 0; setTranscript([]); }}
-                            className="border border-signal text-signal rounded-lg px-4 py-2 text-[13px] font-semibold">
-                            Preview again
-                          </button>
-                          <button
-                            onClick={() => setTab("instructions")}
-                            className="border border-line bg-white text-ink rounded-lg px-4 py-2 text-[13px] font-semibold">
-                            Edit script
-                          </button>
-                          <button
-                            onClick={() => { window.location.href = "/outbound/new"; }}
-                            className="bg-ink text-white rounded-lg px-4 py-2 text-[13px] font-semibold flex items-center gap-1.5">
-                            Launch campaign →
-                          </button>
+                          <button onClick={() => { setPreviewDone(false); setPreviewTurns(0); previewTurnsRef.current = 0; setTranscript([]); }}
+                            className="border border-signal text-signal rounded-lg px-4 py-2 text-[13px] font-semibold">Preview again</button>
+                          <button onClick={() => setTab("instructions")}
+                            className="border border-line bg-white text-ink rounded-lg px-4 py-2 text-[13px] font-semibold">Edit script</button>
+                          <button onClick={() => { window.location.href = "/outbound/new"; }}
+                            className="bg-ink text-white rounded-lg px-4 py-2 text-[13px] font-semibold">Launch campaign →</button>
                         </div>
                       </div>
                     )}
 
-                    {/* START / ACTIVE STATE */}
                     {!previewDone && micSupported && callState === "idle" && (
                       <button onClick={startConversation} className="bg-signal text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold flex items-center gap-2 w-fit">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
@@ -520,8 +608,6 @@ export default function AgentPage() {
                         {callState !== "ended" && <button onClick={endConversation} className="bg-miss text-white rounded-lg px-4 py-1.5 text-[12.5px] font-semibold mt-1 mb-2">End preview</button>}
                       </div>
                     )}
-
-                    {/* TRANSCRIPT */}
                     {transcript.length > 0 && (
                       <div className="border border-line rounded-xl bg-white min-h-[180px] max-h-[300px] overflow-y-auto p-3.5 flex flex-col gap-2.5">
                         {transcript.map((line, i) => (
@@ -539,10 +625,10 @@ export default function AgentPage() {
                   </div>
                 )}
 
-                {/* PHONE TAB */}
+                {/* PHONE */}
                 {testTab === "phone" && (
                   <div className="flex flex-col gap-4">
-                    <p className="text-[13px] text-ink-soft">Enter a number — Sarvam calls it using your DBMCI agent at full quality. Same pipeline as their “Connect to phone” button.</p>
+                    <p className="text-[13px] text-ink-soft">Enter a number — Sarvam calls it using your DBMCI agent at full quality.</p>
                     <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-4">
                       {phoneStatus !== "calling" && (
                         <>
@@ -555,12 +641,9 @@ export default function AgentPage() {
                           <button onClick={triggerPhoneCall} disabled={phoneLoading || !phoneNumber.trim()}
                             className="bg-signal text-white rounded-lg py-2.5 text-[13.5px] font-semibold flex items-center justify-center gap-2 disabled:opacity-40">
                             {phoneLoading ? "Connecting to Sarvam…" : (
-                              <>
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.13 12 19.79 19.79 0 0 1 1.06 3.38 2 2 0 0 1 3.05 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16z"/>
-                                </svg>
-                                Call this number
-                              </>
+                              <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.13 12 19.79 19.79 0 0 1 1.06 3.38 2 2 0 0 1 3.05 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16z"/>
+                              </svg>Call this number</>
                             )}
                           </button>
                           {phoneStatus === "error" && phoneError && (
@@ -581,22 +664,20 @@ export default function AgentPage() {
                           <div className="text-[15px] font-semibold text-signal">Calling {phoneNumber}…</div>
                           <div className="text-[12.5px] text-ink-soft text-center max-w-[280px]">Sarvam is ringing the number. Pick up — your DBMCI agent will speak immediately.</div>
                           <button onClick={() => { setPhoneStatus("idle"); setPhoneNumber(""); }}
-                            className="text-[12.5px] font-semibold text-ink-soft border border-line rounded-lg px-4 py-1.5 mt-1">
-                            Make another call
-                          </button>
+                            className="text-[12.5px] font-semibold text-ink-soft border border-line rounded-lg px-4 py-1.5 mt-1">Make another call</button>
                         </div>
                       )}
                     </div>
                     <div className="text-[11.5px] text-ink-soft bg-paper border border-line rounded-lg px-3 py-2.5 leading-relaxed">
-                      ℹ️ Uses your <span className="font-mono">SARVAM_ORG_ID</span>, <span className="font-mono">SARVAM_APP_ID</span>, <span className="font-mono">SARVAM_CONNECTION_ID</span> env vars via Sarvam’s Instant Outbound API.
+                      ℹ️ Uses <span className="font-mono">SARVAM_ORG_ID</span>, <span className="font-mono">SARVAM_WORKSPACE_ID</span>, <span className="font-mono">SARVAM_APP_ID</span>, <span className="font-mono">SARVAM_CONNECTION_ID</span> env vars.
                     </div>
                   </div>
                 )}
 
-                {/* CHAT TAB */}
+                {/* CHAT */}
                 {testTab === "chat" && (
                   <div className="flex flex-col gap-4">
-                    <p className="text-[13px] text-ink-soft">Text-only test — same agent instructions, no audio. Good for quickly checking responses.</p>
+                    <p className="text-[13px] text-ink-soft">Text-only test — same agent instructions, no audio.</p>
                     <div className="border border-line rounded-xl bg-white min-h-[260px] max-h-[360px] overflow-y-auto p-3.5 flex flex-col gap-2.5">
                       {chatHistory.length === 0 && <div className="text-[12.5px] text-ink-soft text-center py-8">Type a message below to start.</div>}
                       {chatHistory.map((m, i) => (
@@ -619,14 +700,13 @@ export default function AgentPage() {
               </div>
             )}
 
-            {/* READY CARD */}
             {tab === "instructions" && (
               <div className="absolute bottom-8 left-10 bg-raised border border-line rounded-xl p-4 w-[230px] shadow-sm">
                 <div className="flex items-center gap-1.5 mb-2 text-[12px] font-semibold text-signal">
                   <span className="w-1.5 h-1.5 rounded-full bg-signal" /> Ready
                 </div>
-                <div className="text-[13px] font-medium mb-3">Preview how your agent sounds</div>
-                <button onClick={() => setTab("tests")} className="w-full bg-ink text-white rounded-lg py-2 text-[12.5px] font-semibold">Preview agent</button>
+                <div className="text-[13px] font-medium mb-3">Your agent is ready to test</div>
+                <button onClick={() => setTab("tests")} className="w-full bg-ink text-white rounded-lg py-2 text-[12.5px] font-semibold">Test agent</button>
               </div>
             )}
           </div>
@@ -645,7 +725,7 @@ export default function AgentPage() {
                   <div className="flex items-center gap-1.5 text-[11px] text-ink-soft"><span className="text-signal">✓</span> {e.summary} · {e.time}</div>
                 </div>
               ))}
-              {editError && <div className="text-[12.5px] text-miss bg-miss-tint rounded-lg px-3 py-2">{editError}</div>}
+              {editError   && <div className="text-[12.5px] text-miss bg-miss-tint rounded-lg px-3 py-2">{editError}</div>}
               {editLoading && <div className="text-[12.5px] text-ink-soft">Rewriting…</div>}
             </div>
             <div className="p-3 border-t border-line flex items-end gap-2">
