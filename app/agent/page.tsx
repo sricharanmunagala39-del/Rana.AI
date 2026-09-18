@@ -47,6 +47,7 @@ const SILENCE_WARN_MS = 7500;
 const SILENCE_STOP_MS = 1300;
 const MAX_RECORD_MS   = 15000;
 const SPEECH_RMS      = 0.02;
+const PREVIEW_MAX     = 5;
 
 export default function AgentPage() {
   const [settings, setSettings] = useState<AgentSettings & { speaker: string }>({
@@ -64,6 +65,8 @@ export default function AgentPage() {
   const [callState,    setCallState]    = useState<CallState>("idle");
   const [transcript,   setTranscript]   = useState<TranscriptLine[]>([]);
   const [currentLang,  setCurrentLang]  = useState("en-IN");
+  const [previewTurns, setPreviewTurns] = useState(0);
+  const [previewDone,  setPreviewDone]  = useState(false);
   const [phoneNumber,  setPhoneNumber]  = useState("");
   const [phoneLoading, setPhoneLoading] = useState(false);
   const [phoneStatus,  setPhoneStatus]  = useState<"idle" | "calling" | "error">("idle");
@@ -72,18 +75,19 @@ export default function AgentPage() {
   const [chatHistory, setChatHistory] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
 
-  const settingsRef    = useRef(settings);  settingsRef.current = settings;
-  const activeRef      = useRef(false);
-  const historyRef     = useRef<{ role: string; content: string }[]>([]);
-  const currentLangRef = useRef("en-IN");
-  const streamRef      = useRef<MediaStream | null>(null);
-  const recorderRef    = useRef<MediaRecorder | null>(null);
-  const chunksRef      = useRef<Blob[]>([]);
-  const vadCtxRef      = useRef<AudioContext | null>(null);
-  const analyserRef    = useRef<AnalyserNode | null>(null);
-  const vadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const audioElRef     = useRef<HTMLAudioElement | null>(null);
-  const ambienceCtxRef = useRef<AudioContext | null>(null);
+  const settingsRef      = useRef(settings); settingsRef.current = settings;
+  const activeRef        = useRef(false);
+  const previewTurnsRef  = useRef(0);
+  const historyRef       = useRef<{ role: string; content: string }[]>([]);
+  const currentLangRef   = useRef("en-IN");
+  const streamRef        = useRef<MediaStream | null>(null);
+  const recorderRef      = useRef<MediaRecorder | null>(null);
+  const chunksRef        = useRef<Blob[]>([]);
+  const vadCtxRef        = useRef<AudioContext | null>(null);
+  const analyserRef      = useRef<AnalyserNode | null>(null);
+  const vadIntervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioElRef       = useRef<HTMLAudioElement | null>(null);
+  const ambienceCtxRef   = useRef<AudioContext | null>(null);
   const ambienceNodesRef = useRef<{ src: AudioBufferSourceNode } | null>(null);
 
   useEffect(() => {
@@ -96,10 +100,10 @@ export default function AgentPage() {
   function addChip(text: string) {
     setSettings((s) => ({ ...s, instructions: s.instructions.trim() ? `${s.instructions.trim()}\n- ${text}` : `- ${text}` }));
   }
-  function addFact()                          { setSettings((s) => ({ ...s, facts: [...s.facts, ""] })); }
-  function updateFact(i: number, v: string)   { setSettings((s) => { const f = [...s.facts]; f[i] = v; return { ...s, facts: f }; }); }
-  function removeFact(i: number)              { setSettings((s) => ({ ...s, facts: s.facts.filter((_, x) => x !== i) })); }
-  function addPron()                          { setSettings((s) => ({ ...s, pronunciations: [...s.pronunciations, { word: "", sayAs: "" }] })); }
+  function addFact()                        { setSettings((s) => ({ ...s, facts: [...s.facts, ""] })); }
+  function updateFact(i: number, v: string) { setSettings((s) => { const f = [...s.facts]; f[i] = v; return { ...s, facts: f }; }); }
+  function removeFact(i: number)            { setSettings((s) => ({ ...s, facts: s.facts.filter((_, x) => x !== i) })); }
+  function addPron()                        { setSettings((s) => ({ ...s, pronunciations: [...s.pronunciations, { word: "", sayAs: "" }] })); }
   function updatePron(i: number, field: "word" | "sayAs", v: string) {
     setSettings((s) => { const p = [...s.pronunciations]; p[i] = { ...p[i], [field]: v }; return { ...s, pronunciations: p }; });
   }
@@ -164,10 +168,10 @@ export default function AgentPage() {
     const buf = ctx.createBuffer(1, 2 * ctx.sampleRate, ctx.sampleRate);
     const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-    const f = ctx.createBiquadFilter(); f.type = "bandpass";
-    f.frequency.value = kind === "traffic" ? 180 : kind === "callcenter" ? 900 : 500; f.Q.value = 0.6;
+    const fil = ctx.createBiquadFilter(); fil.type = "bandpass";
+    fil.frequency.value = kind === "traffic" ? 180 : kind === "callcenter" ? 900 : 500; fil.Q.value = 0.6;
     const g = ctx.createGain(); g.gain.value = 0.03;
-    src.connect(f).connect(g).connect(ctx.destination); src.start();
+    src.connect(fil).connect(g).connect(ctx.destination); src.start();
     ambienceNodesRef.current = { src };
   }
   function stopAmbience() {
@@ -232,13 +236,13 @@ export default function AgentPage() {
         setCallState("checking");
         const fd = new FormData(); fd.append("mode","greeting"); fd.append("text","Sorry, are you still there?");
         fd.append("language", currentLangRef.current); fd.append("speaker", settingsRef.current.speaker); fd.append("pace","1");
-        try { const d2 = await callBackend(fd); setTranscript((t) => [...t, { speaker:"agent", text:"Sorry, are you still there?", lang: currentLangRef.current }]); if (d2.audioBase64) await playBase64Audio(d2.audioBase64); } catch {}
+        try { const dck = await callBackend(fd); setTranscript((t) => [...t, { speaker:"agent", text:"Sorry, are you still there?", lang: currentLangRef.current }]); if (dck.audioBase64) await playBase64Audio(dck.audioBase64); } catch {}
         if (!activeRef.current) return;
         const { blob: b2, silent: s2 } = await recordOneTurn(); if (!activeRef.current) return;
         if (s2 || !b2) {
-          const fd2 = new FormData(); fd2.append("mode","greeting"); fd2.append("text","I'll let you go — thank you, have a good day!");
-          fd2.append("language", currentLangRef.current); fd2.append("speaker", settingsRef.current.speaker); fd2.append("pace","1");
-          try { const d3 = await callBackend(fd2); setTranscript((t) => [...t, { speaker:"agent", text:"I'll let you go — thank you, have a good day!", lang: currentLangRef.current }]); if (d3.audioBase64) await playBase64Audio(d3.audioBase64); } catch {}
+          const fdBye = new FormData(); fdBye.append("mode","greeting"); fdBye.append("text","I\'ll let you go — thank you, have a good day!");
+          fdBye.append("language", currentLangRef.current); fdBye.append("speaker", settingsRef.current.speaker); fdBye.append("pace","1");
+          try { const dBye = await callBackend(fdBye); setTranscript((t) => [...t, { speaker:"agent", text:"I\'ll let you go — thank you, have a good day!", lang: currentLangRef.current }]); if (dBye.audioBase64) await playBase64Audio(dBye.audioBase64); } catch {}
           endConversation(); return;
         }
         await sendTurn(b2);
@@ -259,11 +263,25 @@ export default function AgentPage() {
       setCallState("speaking");
       setTranscript((t) => [...t, { speaker:"agent", text: d.replyText, lang: d.detectedLanguage }]);
       historyRef.current.push({ role:"assistant", content: d.replyText });
+      // increment turn counter
+      previewTurnsRef.current += 1;
+      setPreviewTurns(previewTurnsRef.current);
       if (d.audioBase64) await playBase64Audio(d.audioBase64);
+      // hit preview cap
+      if (previewTurnsRef.current >= PREVIEW_MAX) {
+        const fdWrap = new FormData();
+        fdWrap.append("mode","greeting");
+        fdWrap.append("text","That\'s a great preview! Your script sounds good. Head over to Outbound to launch a campaign.");
+        fdWrap.append("language", currentLangRef.current); fdWrap.append("speaker", settingsRef.current.speaker); fdWrap.append("pace","1");
+        try { const dw = await callBackend(fdWrap); if (dw.audioBase64) await playBase64Audio(dw.audioBase64); } catch {}
+        activeRef.current = false; stopVad(); stopAmbience();
+        setCallState("idle"); setPreviewDone(true); return;
+      }
     } catch (err: any) { setBackendError(err?.message || "Error."); endConversation(); }
   }
   async function startConversation() {
     setBackendError(""); setTranscript([]); historyRef.current = []; activeRef.current = true;
+    setPreviewTurns(0); setPreviewDone(false); previewTurnsRef.current = 0;
     const lang = settings.startingLanguage; setCurrentLang(lang); currentLangRef.current = lang;
     setCallState("greeting"); startAmbience(settings.backgroundSound);
     try {
@@ -272,7 +290,7 @@ export default function AgentPage() {
       fd.append("language", lang); fd.append("speaker", settings.speaker); fd.append("pace", String(settings.speechRate));
       const d = await callBackend(fd); setTranscript([{ speaker:"agent", text: settings.greeting, lang }]);
       if (d.audioBase64) await playBase64Audio(d.audioBase64);
-    } catch (err: any) { setBackendError(err?.message || "Couldn't reach Sarvam."); activeRef.current = false; setCallState("idle"); stopAmbience(); return; }
+    } catch (err: any) { setBackendError(err?.message || "Couldn\'t reach Sarvam."); activeRef.current = false; setCallState("idle"); stopAmbience(); return; }
     if (activeRef.current) conversationLoop();
   }
   function endConversation() {
@@ -281,7 +299,7 @@ export default function AgentPage() {
     audioElRef.current?.pause(); stopAmbience(); setCallState("ended");
     setTimeout(() => setCallState("idle"), 1400);
   }
-  const stateLabel: Record<CallState, string> = { idle:"", greeting:"Agent speaking…", recording:"Listening…", sending:"Thinking…", speaking:"Agent speaking…", checking:"Checking in…", ended:"Call ended" };
+  const stateLabel: Record<CallState, string> = { idle:"", greeting:"Agent speaking…", recording:"Listening…", sending:"Thinking…", speaking:"Agent speaking…", checking:"Checking in…", ended:"Preview ended" };
   const langLabel = LANGUAGES.find((l) => l.code === currentLang)?.label ?? currentLang;
 
   return (
@@ -299,7 +317,7 @@ export default function AgentPage() {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.95.36 1.87.68 2.75a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.33-1.34a2 2 0 0 1 2.11-.45c.88.32 1.8.55 2.75.68A2 2 0 0 1 22 16.92z" />
             </svg>
-            Test agent
+            Preview agent
           </button>
         </div>
         <div className="flex flex-1 overflow-hidden">
@@ -312,6 +330,8 @@ export default function AgentPage() {
             ))}
           </div>
           <div className="flex-1 overflow-y-auto p-10 relative">
+
+            {/* INSTRUCTIONS */}
             {tab === "instructions" && (
               <div className="max-w-[680px] flex flex-col gap-8">
                 <div>
@@ -346,10 +366,11 @@ export default function AgentPage() {
                 </div>
               </div>
             )}
+
             {tab === "variables" && (
               <div className="max-w-[600px] text-center py-20">
                 <div className="text-[15px] font-semibold mb-1.5">Variables</div>
-                <div className="text-[13.5px] text-ink-soft">Personalize calls with per-contact values like name or city. Coming soon.</div>
+                <div className="text-[13.5px] text-ink-soft">Personalize calls with per-contact values like name or city. Coming in Feature #2.</div>
               </div>
             )}
             {tab === "tools" && (
@@ -358,6 +379,8 @@ export default function AgentPage() {
                 <div className="text-[13.5px] text-ink-soft">Let the agent book slots, transfer to a salesperson, or look up a record. Coming soon.</div>
               </div>
             )}
+
+            {/* SETTINGS */}
             {tab === "settings" && (
               <div className="max-w-[600px] flex flex-col gap-6">
                 <div>
@@ -413,6 +436,8 @@ export default function AgentPage() {
                 </div>
               </div>
             )}
+
+            {/* TESTS */}
             {tab === "tests" && (
               <div className="max-w-[560px] flex flex-col gap-5">
                 <div className="flex gap-1 border border-line rounded-xl p-1 bg-paper w-fit">
@@ -423,20 +448,67 @@ export default function AgentPage() {
                     </button>
                   ))}
                 </div>
+
+                {/* VOICE TAB */}
                 {testTab === "voice" && (
                   <div className="flex flex-col gap-4">
-                    <p className="text-[13px] text-ink-soft">Browser mic → Sarvam STT → AI → Sarvam TTS. No phone needed.</p>
+
+                    {/* header: description + dot counter */}
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] text-ink-soft">Free preview — browser mic, no real call. Up to {PREVIEW_MAX} turns.</p>
+                      {(callState !== "idle" || previewTurns > 0) && !previewDone && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {[...Array(PREVIEW_MAX)].map((_, i) => (
+                            <span key={i} className={`w-2 h-2 rounded-full transition-colors ${i < previewTurns ? "bg-signal" : "bg-line"}`} />
+                          ))}
+                          <span className="text-[11.5px] text-ink-soft ml-1">{previewTurns}/{PREVIEW_MAX}</span>
+                        </div>
+                      )}
+                    </div>
+
                     {!micSupported && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">Mic not supported — try Chrome.</div>}
                     {backendError && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">{backendError}</div>}
-                    {micSupported && callState === "idle" && (
+
+                    {/* PREVIEW COMPLETE CARD */}
+                    {previewDone && (
+                      <div className="border-2 border-signal rounded-xl bg-signal-tint p-5 flex flex-col gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-signal text-lg">✓</span>
+                          <span className="text-[14.5px] font-semibold text-signal">Preview complete — {PREVIEW_MAX} turns done</span>
+                        </div>
+                        <p className="text-[13px] text-ink leading-relaxed">
+                          Happy with how it sounds? Tweak the script further, or go straight to Outbound and launch your campaign.
+                        </p>
+                        <div className="flex gap-2 flex-wrap">
+                          <button
+                            onClick={() => { setPreviewDone(false); setPreviewTurns(0); previewTurnsRef.current = 0; setTranscript([]); }}
+                            className="border border-signal text-signal rounded-lg px-4 py-2 text-[13px] font-semibold">
+                            Preview again
+                          </button>
+                          <button
+                            onClick={() => setTab("instructions")}
+                            className="border border-line bg-white text-ink rounded-lg px-4 py-2 text-[13px] font-semibold">
+                            Edit script
+                          </button>
+                          <button
+                            onClick={() => { window.location.href = "/outbound/new"; }}
+                            className="bg-ink text-white rounded-lg px-4 py-2 text-[13px] font-semibold flex items-center gap-1.5">
+                            Launch campaign →
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* START / ACTIVE STATE */}
+                    {!previewDone && micSupported && callState === "idle" && (
                       <button onClick={startConversation} className="bg-signal text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold flex items-center gap-2 w-fit">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/>
                         </svg>
-                        Start conversation
+                        {previewTurns > 0 ? "Continue preview" : "Start preview"}
                       </button>
                     )}
-                    {micSupported && callState !== "idle" && (
+                    {!previewDone && micSupported && callState !== "idle" && (
                       <div className="flex flex-col items-center gap-2 py-4 border border-line rounded-xl bg-white">
                         <div className={`w-14 h-14 rounded-full flex items-center justify-center mt-1 ${callState === "recording" ? "bg-signal-tint text-signal" : "bg-warm-tint text-warm"} ${callState !== "recording" && callState !== "ended" ? "animate-pulse" : ""}`}>
                           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -445,19 +517,29 @@ export default function AgentPage() {
                         </div>
                         <div className="text-[13.5px] font-semibold">{stateLabel[callState]}</div>
                         <div className="text-[11.5px] text-ink-soft">Language: {langLabel}</div>
-                        {callState !== "ended" && <button onClick={endConversation} className="bg-miss text-white rounded-lg px-4 py-1.5 text-[12.5px] font-semibold mt-1 mb-2">End conversation</button>}
+                        {callState !== "ended" && <button onClick={endConversation} className="bg-miss text-white rounded-lg px-4 py-1.5 text-[12.5px] font-semibold mt-1 mb-2">End preview</button>}
                       </div>
                     )}
-                    <div className="border border-line rounded-xl bg-white min-h-[220px] max-h-[340px] overflow-y-auto p-3.5 flex flex-col gap-2.5">
-                      {transcript.length === 0 && <div className="text-[12.5px] text-ink-soft text-center py-8">Your conversation will appear here.</div>}
-                      {transcript.map((line, i) => (
-                        <div key={i} className={`flex ${line.speaker === "agent" ? "justify-start" : "justify-end"}`}>
-                          <div className={`max-w-[85%] rounded-lg px-3 py-1.5 text-[12.5px] ${line.speaker === "agent" ? "bg-paper text-ink" : "bg-signal-tint text-signal font-medium"}`}>{line.text}</div>
-                        </div>
-                      ))}
-                    </div>
+
+                    {/* TRANSCRIPT */}
+                    {transcript.length > 0 && (
+                      <div className="border border-line rounded-xl bg-white min-h-[180px] max-h-[300px] overflow-y-auto p-3.5 flex flex-col gap-2.5">
+                        {transcript.map((line, i) => (
+                          <div key={i} className={`flex ${line.speaker === "agent" ? "justify-start" : "justify-end"}`}>
+                            <div className={`max-w-[85%] rounded-lg px-3 py-1.5 text-[12.5px] ${line.speaker === "agent" ? "bg-paper text-ink" : "bg-signal-tint text-signal font-medium"}`}>{line.text}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {transcript.length === 0 && !previewDone && (
+                      <div className="border border-line rounded-xl bg-white min-h-[100px] flex items-center justify-center">
+                        <span className="text-[12.5px] text-ink-soft">Transcript will appear here as you speak.</span>
+                      </div>
+                    )}
                   </div>
                 )}
+
+                {/* PHONE TAB */}
                 {testTab === "phone" && (
                   <div className="flex flex-col gap-4">
                     <p className="text-[13px] text-ink-soft">Enter a number — Sarvam calls it using your DBMCI agent at full quality. Same pipeline as their “Connect to phone” button.</p>
@@ -510,6 +592,8 @@ export default function AgentPage() {
                     </div>
                   </div>
                 )}
+
+                {/* CHAT TAB */}
                 {testTab === "chat" && (
                   <div className="flex flex-col gap-4">
                     <p className="text-[13px] text-ink-soft">Text-only test — same agent instructions, no audio. Good for quickly checking responses.</p>
@@ -534,16 +618,20 @@ export default function AgentPage() {
                 )}
               </div>
             )}
+
+            {/* READY CARD */}
             {tab === "instructions" && (
               <div className="absolute bottom-8 left-10 bg-raised border border-line rounded-xl p-4 w-[230px] shadow-sm">
                 <div className="flex items-center gap-1.5 mb-2 text-[12px] font-semibold text-signal">
                   <span className="w-1.5 h-1.5 rounded-full bg-signal" /> Ready
                 </div>
-                <div className="text-[13px] font-medium mb-3">Your agent is ready to test</div>
-                <button onClick={() => setTab("tests")} className="w-full bg-ink text-white rounded-lg py-2 text-[12.5px] font-semibold">Test agent</button>
+                <div className="text-[13px] font-medium mb-3">Preview how your agent sounds</div>
+                <button onClick={() => setTab("tests")} className="w-full bg-ink text-white rounded-lg py-2 text-[12.5px] font-semibold">Preview agent</button>
               </div>
             )}
           </div>
+
+          {/* AI COPILOT */}
           <div className="w-[340px] border-l border-line flex flex-col shrink-0">
             <div className="px-4 py-3.5 border-b border-line flex items-center gap-1.5">
               <span className="text-signal">✨</span>
