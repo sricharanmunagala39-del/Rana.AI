@@ -21,6 +21,19 @@ export type Campaign = {
   createdAt: number;
 };
 
+export type ScriptVersion = {
+  version: number;          // 1, 2, 3…
+  label: string;            // e.g. "v3 – Medical College outbound"
+  greeting: string;
+  instructions: string;
+  facts: string[];
+  speaker: string;
+  speechRate: number;
+  speechPitch: number;
+  startingLanguage: string;
+  savedAt: number;          // Unix ms
+};
+
 export type BackgroundSound = "none" | "office" | "callcenter" | "traffic";
 
 export type AgentSettings = {
@@ -49,7 +62,8 @@ export const LANGUAGES: { code: string; label: string }[] = [
 ];
 
 const CAMPAIGNS_KEY = "rana_ai_campaigns_v1";
-const AGENT_KEY = "rana_ai_agent_settings_v3";
+const VERSIONS_KEY  = "rana_ai_script_versions_v1";
+const AGENT_KEY     = "rana_ai_agent_settings_v3";
 
 export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   agentName: "Ananya",
@@ -107,4 +121,38 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/* ── Script versions ── */
+
+export function getScriptVersions(): ScriptVersion[] {
+  if (typeof window === "undefined") return [];
+  return safeParse<ScriptVersion[]>(window.localStorage.getItem(VERSIONS_KEY), []);
+}
+
+export function saveScriptVersion(
+  partial: Omit<ScriptVersion, "version" | "savedAt">,
+  customLabel?: string
+): ScriptVersion {
+  const existing = getScriptVersions();
+  const nextNum  = existing.length > 0 ? existing[0].version + 1 : 1;
+  const ver: ScriptVersion = {
+    ...partial,
+    version: nextNum,
+    label: customLabel ? `v${nextNum} – ${customLabel}` : `v${nextNum}`,
+    savedAt: Date.now(),
+  };
+  window.localStorage.setItem(VERSIONS_KEY, JSON.stringify([ver, ...existing]));
+  return ver;
+}
+
+export function deleteScriptVersion(version: number) {
+  if (typeof window === "undefined") return;
+  const existing = getScriptVersions().filter((v) => v.version !== version);
+  window.localStorage.setItem(VERSIONS_KEY, JSON.stringify(existing));
+}
+
+export function getLatestVersion(): ScriptVersion | null {
+  const versions = getScriptVersions();
+  return versions.length > 0 ? versions[0] : null;
 }
