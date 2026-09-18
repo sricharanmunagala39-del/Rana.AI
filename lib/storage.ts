@@ -17,7 +17,9 @@ export type Campaign = {
   windowEnd: string;
   days: string[];
   dialRate: string;
-  status: "Scheduled" | "Active";
+  status: "Scheduled" | "Active" | "Launching" | "Error";
+  sarvamCampaignId?: string;   // set after successful Sarvam API call
+  sarvamError?: string;        // set if Sarvam API call failed
   createdAt: number;
 };
 
@@ -76,7 +78,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   facts: [
     "Institute: Dr. Bhatia Medical Coaching Institute (DBMCI), Hyderabad franchise.",
     "Covers all NEET PG subjects, plus FMGE coaching, fully online.",
-    "INICET preparation is covered as part of the same NEET PG coaching — no separate course.",
+    "INICET preparation is covered as part of the same NEET PG coaching \u2014 no separate course.",
     "Centres: Hyderabad INDRA, Hyderabad ASC, Vizag ASC, Vijayawada INDRA.",
   ],
   speechRate: 1,
@@ -123,7 +125,7 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/* ── Script versions ── */
+/* \u2500\u2500 Script versions \u2500\u2500 */
 
 export function getScriptVersions(): ScriptVersion[] {
   if (typeof window === "undefined") return [];
@@ -139,7 +141,7 @@ export function saveScriptVersion(
   const ver: ScriptVersion = {
     ...partial,
     version: nextNum,
-    label: customLabel ? `v${nextNum} – ${customLabel}` : `v${nextNum}`,
+    label: customLabel ? `v${nextNum} \u2013 ${customLabel}` : `v${nextNum}`,
     savedAt: Date.now(),
   };
   window.localStorage.setItem(VERSIONS_KEY, JSON.stringify([ver, ...existing]));
