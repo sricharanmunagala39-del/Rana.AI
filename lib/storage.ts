@@ -27,6 +27,7 @@ export type AgentSettings = {
   agentName: string;
   greeting: string;
   instructions: string;
+  facts: string[];
   speechRate: number;
   speechPitch: number;
   startingLanguage: string;
@@ -48,7 +49,7 @@ export const LANGUAGES: { code: string; label: string }[] = [
 ];
 
 const CAMPAIGNS_KEY = "rana_ai_campaigns_v1";
-const AGENT_KEY = "rana_ai_agent_settings_v2";
+const AGENT_KEY = "rana_ai_agent_settings_v3";
 
 export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   agentName: "Ananya",
@@ -58,6 +59,12 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
     "Ask about their exam target and which attempt this is. If they mention budget concerns, " +
     "acknowledge it and offer to have a counsellor call back with EMI options. If they sound ready, " +
     "offer to book a counselling session. Keep responses short and natural, like a real phone call.",
+  facts: [
+    "Institute: Dr. Bhatia Medical Coaching Institute (DBMCI), Hyderabad franchise.",
+    "Covers all NEET PG subjects, plus FMGE coaching, fully online.",
+    "INICET preparation is covered as part of the same NEET PG coaching — no separate course.",
+    "Centres: Hyderabad INDRA, Hyderabad ASC, Vizag ASC, Vijayawada INDRA.",
+  ],
   speechRate: 1,
   speechPitch: 1,
   startingLanguage: "en-IN",
