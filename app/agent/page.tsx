@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-// @ts-ignore — sarvam-conv-ai-sdk/browser added in package.json
-import { ConversationAgent, BrowserAudioInterface, InteractionType, AgentState } from "sarvam-conv-ai-sdk/browser";
 import Sidebar from "@/components/Sidebar";
 import {
   AgentSettings,
@@ -50,11 +48,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 ];
 type CallState = "idle" | "greeting" | "recording" | "sending" | "speaking" | "checking" | "ended";
 type TranscriptLine = { speaker: "agent" | "caller"; text: string; lang: string };
-const SILENCE_WARN_MS = 7500;
-const SILENCE_STOP_MS = 1300;
-const MAX_RECORD_MS   = 15000;
-const SPEECH_RMS      = 0.02;
-const PREVIEW_MAX     = 5;
+const PREVIEW_MAX = 5;
 
 export default function AgentPage() {
   const [settings, setSettings] = useState<AgentSettings & { speaker: string }>({
@@ -100,9 +94,11 @@ export default function AgentPage() {
   const [chatLoading, setChatLoading] = useState(false);
 
   /* refs */
-  const settingsRef      = useRef(settings); settingsRef.current = settings;
-  const previewTurnsRef  = useRef(0);
-  const agentRef         = useRef<any>(null);  // ConversationAgent instance
+  const settingsRef     = useRef(settings); settingsRef.current = settings;
+  const previewTurnsRef = useRef(0);
+  const wsRef           = useRef<WebSocket | null>(null);
+  const mediaStreamRef  = useRef<MediaStream | null>(null);
+  const audioCtxRef     = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     setSettings((s) => ({ ...s, ...getAgentSettings() }));
@@ -202,77 +198,148 @@ export default function AgentPage() {
     finally { setChatLoading(false); }
   }
 
-  /* ── Sarvam SDK voice preview (no STT/TTS credit cost) ── */
+  /* ── Voice preview via /api/sarvam-session proxy (no npm SDK needed) ── */
   async function startConversation() {
     setBackendError(""); setTranscript([]);
     setPreviewTurns(0); setPreviewDone(false); previewTurnsRef.current = 0;
     setCallState("greeting");
 
-    const orgId       = process.env.NEXT_PUBLIC_SARVAM_ORG_ID;
-    const workspaceId = process.env.NEXT_PUBLIC_SARVAM_WORKSPACE_ID;
-    const appId       = process.env.NEXT_PUBLIC_SARVAM_APP_ID;
-
     try {
-      const audioInterface = new BrowserAudioInterface(16000, { prebufferMs: 500 });
-      const agent = new ConversationAgent({
-        apiKey: "",                          // key never in browser
-        baseUrl: "/api/sarvam-session/",     // server-side proxy adds the key
-        config: {
-          org_id:               orgId       ?? "",
-          workspace_id:         workspaceId ?? "",
-          app_id:               appId       ?? "",
-          user_identifier:      "rana-preview",
+      // Step 1: Create session via server proxy (keeps API key server-side)
+      const orgId       = process.env.NEXT_PUBLIC_SARVAM_ORG_ID       ?? "";
+      const workspaceId = process.env.NEXT_PUBLIC_SARVAM_WORKSPACE_ID  ?? "";
+      const appId       = process.env.NEXT_PUBLIC_SARVAM_APP_ID        ?? "";
+
+      const sessionRes = await fetch("/api/sarvam-session/conversation/v1/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          org_id: orgId,
+          workspace_id: workspaceId,
+          app_id: appId,
+          user_identifier: "rana-preview",
           user_identifier_type: "custom",
-          interaction_type:     InteractionType.CALL,
-          input_sample_rate:    16000,
-          output_sample_rate:   16000,
-          initial_language_name: settingsRef.current.startingLanguage === "hi-IN" ? "Hindi"
-                               : settingsRef.current.startingLanguage === "te-IN" ? "Telugu"
-                               : "English",
-        },
-        audioInterface,
-        stateCallback: async (state: AgentState) => {
-          if (state === AgentState.LISTENING)   setCallState("recording");
-          if (state === AgentState.SPEAKING)    setCallState("speaking");
-          if (state === AgentState.CONNECTING)  setCallState("greeting");
-          if (state === AgentState.CONNECTED)   setCallState("recording");
-          if (state === AgentState.IDLE)        setCallState("idle");
-        },
-        transcriptCallback: async (msg: { role: string; content: string }) => {
-          const speaker = msg.role === "USER" ? "caller" : "agent";
-          setTranscript((t) => [...t, { speaker, text: msg.content, lang: settingsRef.current.startingLanguage }]);
-          if (msg.role !== "USER") {
-            previewTurnsRef.current += 1;
-            setPreviewTurns(previewTurnsRef.current);
-            if (previewTurnsRef.current >= PREVIEW_MAX) {
-              setTimeout(() => { endConversation(); setPreviewDone(true); }, 2000);
-            }
-          }
-        },
-        endCallback: async () => {
-          agentRef.current = null;
-          setCallState("idle");
-        },
+          interaction_type: "CALL",
+          input_sample_rate: 16000,
+          output_sample_rate: 16000,
+        }),
       });
 
-      agentRef.current = agent;
-      await agent.start();
-      const connected = await agent.waitForConnect(10);
-      if (!connected) throw new Error("Connection timed out. Check your Sarvam app_id and workspace settings.");
+      if (!sessionRes.ok) {
+        const err = await sessionRes.text();
+        throw new Error(`Session start failed (${sessionRes.status}): ${err}`);
+      }
+
+      const session = await sessionRes.json();
+      const wsUrl: string = session.ws_url ?? session.websocket_url ?? session.url ?? "";
+      if (!wsUrl) throw new Error("No WebSocket URL returned from Sarvam. Check your app_id and env vars.");
+
+      // Step 2: Get mic access
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1 } });
+      mediaStreamRef.current = stream;
+
+      // Step 3: Open WebSocket directly to Sarvam
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+      ws.binaryType = "arraybuffer";
+
+      ws.onopen = () => {
+        setCallState("recording");
+        // Stream mic audio as PCM16 via ScriptProcessor
+        const audioCtx = new AudioContext({ sampleRate: 16000 });
+        audioCtxRef.current = audioCtx;
+        const source = audioCtx.createMediaStreamSource(stream);
+        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+        processor.onaudioprocess = (e) => {
+          if (ws.readyState !== WebSocket.OPEN) return;
+          const float32 = e.inputBuffer.getChannelData(0);
+          const pcm16 = new Int16Array(float32.length);
+          for (let i = 0; i < float32.length; i++) {
+            pcm16[i] = Math.max(-32768, Math.min(32767, float32[i] * 32768));
+          }
+          ws.send(pcm16.buffer);
+        };
+        source.connect(processor);
+        processor.connect(audioCtx.destination);
+      };
+
+      ws.onmessage = (event) => {
+        if (typeof event.data === "string") {
+          try {
+            const msg = JSON.parse(event.data);
+            // Handle transcript events
+            if (msg.type === "transcript" || msg.transcript) {
+              const text: string = msg.transcript ?? msg.text ?? msg.content ?? "";
+              const role: string = msg.role ?? (msg.speaker === "agent" ? "assistant" : "user");
+              if (text) {
+                const speaker = role === "assistant" || role === "AGENT" ? "agent" : "caller";
+                setTranscript((t) => [...t, { speaker, text, lang: settingsRef.current.startingLanguage }]);
+                if (speaker === "agent") {
+                  previewTurnsRef.current += 1;
+                  setPreviewTurns(previewTurnsRef.current);
+                  if (previewTurnsRef.current >= PREVIEW_MAX) {
+                    setTimeout(() => { endConversation(); setPreviewDone(true); }, 2000);
+                  }
+                }
+              }
+            }
+            if (msg.type === "state") {
+              if (msg.state === "speaking") setCallState("speaking");
+              if (msg.state === "listening") setCallState("recording");
+            }
+          } catch { /* non-JSON text message, ignore */ }
+        } else {
+          // Binary = audio from agent — play it
+          setCallState("speaking");
+          const audioCtx = audioCtxRef.current ?? new AudioContext({ sampleRate: 16000 });
+          const int16 = new Int16Array(event.data as ArrayBuffer);
+          const float32 = new Float32Array(int16.length);
+          for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+          const buffer = audioCtx.createBuffer(1, float32.length, 16000);
+          buffer.copyToChannel(float32, 0);
+          const src = audioCtx.createBufferSource();
+          src.buffer = buffer;
+          src.connect(audioCtx.destination);
+          src.start();
+          src.onended = () => {
+            if (callState !== "ended") setCallState("recording");
+          };
+        }
+      };
+
+      ws.onclose = () => {
+        stopMic();
+        setCallState("idle");
+      };
+
+      ws.onerror = () => {
+        setBackendError("WebSocket error. Check your Sarvam app_id, org_id, and workspace_id env vars.");
+        stopMic();
+        setCallState("idle");
+      };
 
     } catch (err: any) {
       setBackendError(err?.message || "Couldn't connect to Sarvam agent.");
-      agentRef.current = null;
+      stopMic();
       setCallState("idle");
     }
   }
 
+  function stopMic() {
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
+    audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+  }
+
   function endConversation() {
-    agentRef.current?.stop().catch(() => {});
-    agentRef.current = null;
+    wsRef.current?.close();
+    wsRef.current = null;
+    stopMic();
     setCallState("ended");
     setTimeout(() => setCallState("idle"), 1000);
   }
+
   const stateLabel: Record<CallState, string> = { idle:"", greeting:"Connecting…", recording:"Listening…", sending:"Thinking…", speaking:"Agent speaking…", checking:"Checking in…", ended:"Call ended" };
   const langLabel = LANGUAGES.find((l) => l.code === currentLang)?.label ?? currentLang;
 
@@ -596,9 +663,6 @@ export default function AgentPage() {
                         </div>
                       )}
                     </div>
-                    <div className="text-[11.5px] text-ink-soft bg-paper border border-line rounded-lg px-3 py-2.5 leading-relaxed">
-                      ℹ️ Uses <span className="font-mono">SARVAM_ORG_ID</span>, <span className="font-mono">SARVAM_WORKSPACE_ID</span>, <span className="font-mono">SARVAM_APP_ID</span>, <span className="font-mono">SARVAM_CONNECTION_ID</span> env vars.
-                    </div>
                   </div>
                 )}
 
@@ -646,7 +710,7 @@ export default function AgentPage() {
               <span className="text-[14px] font-semibold">Edit with AI</span>
             </div>
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-              {editLog.length === 0 && <div className="text-[12.5px] text-ink-soft leading-relaxed">Describe a change — e.g. “mention we now offer EMI options” or “make the greeting shorter” — and I’ll rewrite Greeting, Instructions, and Facts.</div>}
+              {editLog.length === 0 && <div className="text-[12.5px] text-ink-soft leading-relaxed">Describe a change — e.g. "mention we now offer EMI options" or "make the greeting shorter" — and I'll rewrite Greeting, Instructions, and Facts.</div>}
               {editLog.map((e, i) => (
                 <div key={i} className="flex flex-col gap-1.5">
                   <div className="bg-paper rounded-lg px-3 py-2 text-[12.5px] self-end max-w-[85%]">{e.request}</div>

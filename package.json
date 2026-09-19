@@ -11,8 +11,7 @@
   "dependencies": {
     "next": "14.2.5",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "sarvam-conv-ai-sdk": "0.0.42"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "typescript": "^5.5.4",
