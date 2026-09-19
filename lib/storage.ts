@@ -4,6 +4,17 @@ import { PronunciationOverride } from "./langDetect";
 
 export type ScriptId = "neet-reactivation" | "fee-reminder" | "new-batch" | "custom";
 
+export type CampaignStats = {
+  total: number;
+  connected: number;
+  failed: number;
+  connectRate: number;      // percent 0-100
+  avgDuration: number;      // seconds
+  totalDuration: number;    // seconds
+  breakdown: Record<string, number>;
+  fetchedAt: string;        // ISO timestamp
+};
+
 export type Campaign = {
   id: string;
   name: string;
@@ -20,6 +31,7 @@ export type Campaign = {
   status: "Scheduled" | "Active" | "Launching" | "Error";
   sarvamCampaignId?: string;   // set after successful Sarvam API call
   sarvamError?: string;        // set if Sarvam API call failed
+  stats?: CampaignStats;       // live analytics pulled from Sarvam
   createdAt: number;
 };
 
@@ -79,7 +91,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   facts: [
     "Institute: Dr. Bhatia Medical Coaching Institute (DBMCI), Hyderabad franchise.",
     "Covers all NEET PG subjects, plus FMGE coaching, fully online.",
-    "INICET preparation is covered as part of the same NEET PG coaching \u2014 no separate course.",
+    "INICET preparation is covered as part of the same NEET PG coaching — no separate course.",
     "Centres: Hyderabad INDRA, Hyderabad ASC, Vizag ASC, Vijayawada INDRA.",
   ],
   speechRate: 1,
@@ -132,7 +144,7 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/* \u2500\u2500 Script versions \u2500\u2500 */
+/* ── Script versions ── */
 
 export function getScriptVersions(): ScriptVersion[] {
   if (typeof window === "undefined") return [];
@@ -148,7 +160,7 @@ export function saveScriptVersion(
   const version: ScriptVersion = {
     ...partial,
     version: nextNum,
-    label: customLabel ? `v${nextNum} \u2013 ${customLabel}` : `v${nextNum}`,
+    label: customLabel ?? `v${nextNum}`,
     savedAt: Date.now(),
   };
   window.localStorage.setItem(
@@ -168,3 +180,4 @@ export function getLatestVersion(): ScriptVersion | null {
   const versions = getScriptVersions();
   return versions.length > 0 ? versions[0] : null;
 }
+
