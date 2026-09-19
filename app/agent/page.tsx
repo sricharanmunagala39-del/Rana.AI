@@ -205,34 +205,26 @@ export default function AgentPage() {
     setCallState("greeting");
 
     try {
-      // Step 1: Create session via server proxy (keeps API key server-side)
+      // Step 1: Get signed WebSocket URL via server proxy (keeps API key server-side)
+      // Exact same pattern as sarvam-conv-ai-sdk internally:
+      // GET https://apps.sarvam.ai/api/app-runtime/orgs/{org}/workspaces/{ws}/apps/{app}/url
       const orgId       = process.env.NEXT_PUBLIC_SARVAM_ORG_ID       ?? "";
       const workspaceId = process.env.NEXT_PUBLIC_SARVAM_WORKSPACE_ID  ?? "";
       const appId       = process.env.NEXT_PUBLIC_SARVAM_APP_ID        ?? "";
 
-      const sessionRes = await fetch("/api/sarvam-session/conversation/v1/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          org_id: orgId,
-          workspace_id: workspaceId,
-          app_id: appId,
-          user_identifier: "rana-preview",
-          user_identifier_type: "custom",
-          interaction_type: "CALL",
-          input_sample_rate: 16000,
-          output_sample_rate: 16000,
-        }),
-      });
+      const tokenUrl = `/api/sarvam-session/orgs/${orgId}/workspaces/${workspaceId}/apps/${appId}/url?interaction_type=CALL&user_identifier=rana-preview&user_identifier_type=custom`;
+
+      const sessionRes = await fetch(tokenUrl, { method: "GET" });
 
       if (!sessionRes.ok) {
         const err = await sessionRes.text();
-        throw new Error(`Session start failed (${sessionRes.status}): ${err}`);
+        throw new Error(`Session start failed (${sessionRes.status}): ${err.slice(0, 200)}`);
       }
 
       const session = await sessionRes.json();
-      const wsUrl: string = session.ws_url ?? session.websocket_url ?? session.url ?? "";
-      if (!wsUrl) throw new Error("No WebSocket URL returned from Sarvam. Check your app_id and env vars.");
+      // SDK expects: { url: "wss://...", reference_id: "..." }
+      const wsUrl: string = session.url ?? session.ws_url ?? session.websocket_url ?? "";
+      if (!wsUrl) throw new Error(`No WebSocket URL in response: ${JSON.stringify(session).slice(0, 200)}`);
 
       // Step 2: Get mic access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1 } });

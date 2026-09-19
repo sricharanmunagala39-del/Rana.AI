@@ -1,6 +1,6 @@
 /**
- * Base route — redirects to catch-all [...path]/route.ts
- * This handles /api/sarvam-session (no trailing path)
+ * Catch-all proxy — keeps SARVAM_API_KEY server-side.
+ * Handles /api/sarvam-session/* → forwards to https://apps.sarvam.ai/api/app-runtime/*
  */
 export const runtime = "nodejs";
 
@@ -11,20 +11,21 @@ async function proxy(req: Request, method: string) {
   }
 
   const incomingUrl = new URL(req.url);
-  const path = incomingUrl.pathname.replace(/^\/api\/sarvam-session/, "") || "/";
-  const sarvamUrl = `https://apps.sarvam.ai${path}${incomingUrl.search}`;
+  // Strip /api/sarvam-session prefix → append to Sarvam base
+  const subPath = incomingUrl.pathname.replace(/^\/api\/sarvam-session\/?/, "");
+  const sarvamUrl = `https://apps.sarvam.ai/api/app-runtime/${subPath}${incomingUrl.search}`;
+
+  console.log(`[sarvam-proxy] ${method} ${sarvamUrl}`);
 
   const body = method !== "GET" ? await req.text().catch(() => undefined) : undefined;
 
   const forwarded = await fetch(sarvamUrl, {
     method,
     headers: {
-      ...(req.headers.get("Content-Type")
-        ? { "Content-Type": req.headers.get("Content-Type")! }
-        : {}),
+      "Content-Type": "application/json",
       "X-API-Key": apiKey,
     },
-    body,
+    ...(body ? { body } : {}),
   });
 
   const text = await forwarded.text();
