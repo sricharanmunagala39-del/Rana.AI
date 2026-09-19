@@ -36,6 +36,7 @@ export type ScriptVersion = {
   savedAt: number;          // Unix ms
 };
 
+
 export type BackgroundSound = "none" | "office" | "callcenter" | "traffic";
 
 export type AgentSettings = {
@@ -43,9 +44,9 @@ export type AgentSettings = {
   greeting: string;
   instructions: string;
   facts: string[];
-  speechRate: number;
-  speechPitch: number;
-  startingLanguage: string;
+  speechRate: number; // 0.5 - 2
+  speechPitch: number; // 0 - 2
+  startingLanguage: string; // BCP-47, e.g. "en-IN"
   backgroundSound: BackgroundSound;
   pronunciations: PronunciationOverride[];
 };
@@ -64,8 +65,8 @@ export const LANGUAGES: { code: string; label: string }[] = [
 ];
 
 const CAMPAIGNS_KEY = "rana_ai_campaigns_v1";
-const VERSIONS_KEY  = "rana_ai_script_versions_v1";
-const AGENT_KEY     = "rana_ai_agent_settings_v3";
+const VERSIONS_KEY   = "rana_ai_script_versions_v1";
+const AGENT_KEY = "rana_ai_agent_settings_v3";
 
 export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   agentName: "Ananya",
@@ -108,6 +109,12 @@ export function addCampaign(campaign: Campaign) {
   window.localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify([campaign, ...existing]));
 }
 
+export function updateCampaign(id: string, patch: Partial<Campaign>) {
+  if (typeof window === "undefined") return;
+  const updated = getCampaigns().map((c) => c.id === id ? { ...c, ...patch } : c);
+  window.localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(updated));
+}
+
 export function getAgentSettings(): AgentSettings {
   if (typeof window === "undefined") return DEFAULT_AGENT_SETTINGS;
   const parsed = safeParse<Partial<AgentSettings>>(window.localStorage.getItem(AGENT_KEY), {});
@@ -138,14 +145,17 @@ export function saveScriptVersion(
 ): ScriptVersion {
   const existing = getScriptVersions();
   const nextNum  = existing.length > 0 ? existing[0].version + 1 : 1;
-  const ver: ScriptVersion = {
+  const version: ScriptVersion = {
     ...partial,
     version: nextNum,
     label: customLabel ? `v${nextNum} \u2013 ${customLabel}` : `v${nextNum}`,
     savedAt: Date.now(),
   };
-  window.localStorage.setItem(VERSIONS_KEY, JSON.stringify([ver, ...existing]));
-  return ver;
+  window.localStorage.setItem(
+    VERSIONS_KEY,
+    JSON.stringify([version, ...existing])
+  );
+  return version;
 }
 
 export function deleteScriptVersion(version: number) {
