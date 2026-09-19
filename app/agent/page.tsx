@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+// @ts-ignore — sarvam-conv-ai-sdk/browser added in package.json
+import { ConversationAgent, BrowserAudioInterface, InteractionType, AgentState } from "sarvam-conv-ai-sdk/browser";
 import Sidebar from "@/components/Sidebar";
 import {
   AgentSettings,
@@ -99,19 +101,8 @@ export default function AgentPage() {
 
   /* refs */
   const settingsRef      = useRef(settings); settingsRef.current = settings;
-  const activeRef        = useRef(false);
   const previewTurnsRef  = useRef(0);
-  const historyRef       = useRef<{ role: string; content: string }[]>([]);
-  const currentLangRef   = useRef("en-IN");
-  const streamRef        = useRef<MediaStream | null>(null);
-  const recorderRef      = useRef<MediaRecorder | null>(null);
-  const chunksRef        = useRef<Blob[]>([]);
-  const vadCtxRef        = useRef<AudioContext | null>(null);
-  const analyserRef      = useRef<AnalyserNode | null>(null);
-  const vadIntervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  const audioElRef       = useRef<HTMLAudioElement | null>(null);
-  const ambienceCtxRef   = useRef<AudioContext | null>(null);
-  const ambienceNodesRef = useRef<{ src: AudioBufferSourceNode } | null>(null);
+  const agentRef         = useRef<any>(null);  // ConversationAgent instance
 
   useEffect(() => {
     setSettings((s) => ({ ...s, ...getAgentSettings() }));
@@ -211,141 +202,78 @@ export default function AgentPage() {
     finally { setChatLoading(false); }
   }
 
-  function startAmbience(kind: BackgroundSound) {
-    if (kind === "none") return;
-    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-    const ctx = new Ctx(); ambienceCtxRef.current = ctx;
-    const buf = ctx.createBuffer(1, 2 * ctx.sampleRate, ctx.sampleRate);
-    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-    const fil = ctx.createBiquadFilter(); fil.type = "bandpass";
-    fil.frequency.value = kind === "traffic" ? 180 : kind === "callcenter" ? 900 : 500; fil.Q.value = 0.6;
-    const g = ctx.createGain(); g.gain.value = 0.03;
-    src.connect(fil).connect(g).connect(ctx.destination); src.start();
-    ambienceNodesRef.current = { src };
-  }
-  function stopAmbience() {
-    ambienceNodesRef.current?.src.stop(); ambienceNodesRef.current = null;
-    ambienceCtxRef.current?.close(); ambienceCtxRef.current = null;
-  }
-  function playBase64Audio(b64: string): Promise<void> {
-    return new Promise((res) => {
-      const a = new Audio(`data:audio/wav;base64,${b64}`); audioElRef.current = a;
-      a.onended = () => res(); a.onerror = () => res(); a.play().catch(() => res());
-    });
-  }
-  async function callBackend(fd: FormData) {
-    const r = await fetch("/api/test-call", { method: "POST", body: fd });
-    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Request failed"); return d;
-  }
-  async function ensureMic(): Promise<MediaStream> {
-    if (streamRef.current) return streamRef.current;
-    const s = await navigator.mediaDevices.getUserMedia({ audio: true }); streamRef.current = s; return s;
-  }
-  function stopVad() {
-    if (vadIntervalRef.current) clearInterval(vadIntervalRef.current); vadIntervalRef.current = null;
-    vadCtxRef.current?.close().catch(() => {}); vadCtxRef.current = null; analyserRef.current = null;
-  }
-  async function recordOneTurn(): Promise<{ blob: Blob | null; silent: boolean }> {
-    const stream = await ensureMic();
-    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-    const ctx = new Ctx(); vadCtxRef.current = ctx;
-    const src = ctx.createMediaStreamSource(stream);
-    const an = ctx.createAnalyser(); an.fftSize = 512; src.connect(an); analyserRef.current = an;
-    const rec = new MediaRecorder(stream, { mimeType: "audio/webm" }); recorderRef.current = rec;
-    chunksRef.current = []; rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-    return new Promise((resolve) => {
-      let spoken = false, lastAbove = Date.now(); const start = Date.now();
-      const data = new Uint8Array(an.frequencyBinCount);
-      rec.start(); setCallState("recording");
-      vadIntervalRef.current = setInterval(() => {
-        an.getByteTimeDomainData(data);
-        let sq = 0; for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sq += v * v; }
-        const rms = Math.sqrt(sq / data.length); const now = Date.now();
-        if (rms > SPEECH_RMS) { spoken = true; lastAbove = now; }
-        if (spoken && now - lastAbove > SILENCE_STOP_MS) fin(false);
-        else if (!spoken && now - start > SILENCE_WARN_MS) fin(true);
-        else if (now - start > MAX_RECORD_MS) fin(!spoken);
-      }, 100);
-      function fin(silent: boolean) {
-        stopVad(); rec.onstop = () => resolve({ blob: silent ? null : new Blob(chunksRef.current, { type: "audio/webm" }), silent });
-        if (rec.state !== "inactive") rec.stop();
-      }
-    });
-  }
-  function playFiller() {
+  /* ── Sarvam SDK voice preview (no STT/TTS credit cost) ── */
+  async function startConversation() {
+    setBackendError(""); setTranscript([]);
+    setPreviewTurns(0); setPreviewDone(false); previewTurnsRef.current = 0;
+    setCallState("greeting");
+
+    const orgId       = process.env.NEXT_PUBLIC_SARVAM_ORG_ID;
+    const workspaceId = process.env.NEXT_PUBLIC_SARVAM_WORKSPACE_ID;
+    const appId       = process.env.NEXT_PUBLIC_SARVAM_APP_ID;
+
     try {
-      const u = new SpeechSynthesisUtterance(["Mm-hmm.","I see.","Okay.","Right."][Math.floor(Math.random() * 4)]);
-      u.rate = 1.1; window.speechSynthesis.speak(u);
-    } catch {}
-  }
-  async function conversationLoop() {
-    while (activeRef.current) {
-      const { blob, silent } = await recordOneTurn(); if (!activeRef.current) return;
-      if (silent) {
-        setCallState("checking");
-        const fd = new FormData(); fd.append("mode","greeting"); fd.append("text","Sorry, are you still there?");
-        fd.append("language", currentLangRef.current); fd.append("speaker", settingsRef.current.speaker); fd.append("pace","1");
-        try { const dck = await callBackend(fd); setTranscript((t) => [...t, { speaker:"agent", text:"Sorry, are you still there?", lang: currentLangRef.current }]); if (dck.audioBase64) await playBase64Audio(dck.audioBase64); } catch {}
-        if (!activeRef.current) return;
-        const { blob: b2, silent: s2 } = await recordOneTurn(); if (!activeRef.current) return;
-        if (s2 || !b2) { await sendTurn(new Blob([], { type: "audio/webm" }), true); return; }
-        await sendTurn(b2);
-      } else if (blob) { await sendTurn(blob); }
+      const audioInterface = new BrowserAudioInterface(16000, { prebufferMs: 500 });
+      const agent = new ConversationAgent({
+        apiKey: "",                          // key never in browser
+        baseUrl: "/api/sarvam-session/",     // server-side proxy adds the key
+        config: {
+          org_id:               orgId       ?? "",
+          workspace_id:         workspaceId ?? "",
+          app_id:               appId       ?? "",
+          user_identifier:      "rana-preview",
+          user_identifier_type: "custom",
+          interaction_type:     InteractionType.CALL,
+          input_sample_rate:    16000,
+          output_sample_rate:   16000,
+          initial_language_name: settingsRef.current.startingLanguage === "hi-IN" ? "Hindi"
+                               : settingsRef.current.startingLanguage === "te-IN" ? "Telugu"
+                               : "English",
+        },
+        audioInterface,
+        stateCallback: async (state: AgentState) => {
+          if (state === AgentState.LISTENING)   setCallState("recording");
+          if (state === AgentState.SPEAKING)    setCallState("speaking");
+          if (state === AgentState.CONNECTING)  setCallState("greeting");
+          if (state === AgentState.CONNECTED)   setCallState("recording");
+          if (state === AgentState.IDLE)        setCallState("idle");
+        },
+        transcriptCallback: async (msg: { role: string; content: string }) => {
+          const speaker = msg.role === "USER" ? "caller" : "agent";
+          setTranscript((t) => [...t, { speaker, text: msg.content, lang: settingsRef.current.startingLanguage }]);
+          if (msg.role !== "USER") {
+            previewTurnsRef.current += 1;
+            setPreviewTurns(previewTurnsRef.current);
+            if (previewTurnsRef.current >= PREVIEW_MAX) {
+              setTimeout(() => { endConversation(); setPreviewDone(true); }, 2000);
+            }
+          }
+        },
+        endCallback: async () => {
+          agentRef.current = null;
+          setCallState("idle");
+        },
+      });
+
+      agentRef.current = agent;
+      await agent.start();
+      const connected = await agent.waitForConnect(10);
+      if (!connected) throw new Error("Connection timed out. Check your Sarvam app_id and workspace settings.");
+
+    } catch (err: any) {
+      setBackendError(err?.message || "Couldn't connect to Sarvam agent.");
+      agentRef.current = null;
+      setCallState("idle");
     }
   }
-  async function sendTurn(blob: Blob, goodbye = false) {
-    setCallState("sending"); playFiller();
-    const text = goodbye ? "I'll let you go — thank you, have a good day!" : undefined;
-    try {
-      const fd = new FormData(); fd.append("mode", goodbye ? "greeting" : "turn");
-      if (goodbye) { fd.append("text", text!); }
-      else { fd.append("audio", blob, "audio.webm"); fd.append("history", JSON.stringify(historyRef.current)); }
-      fd.append("instructions", settingsRef.current.instructions + "\n\nFacts:\n" + settingsRef.current.facts.map((f) => `- ${f}`).join("\n"));
-      fd.append("language", currentLangRef.current); fd.append("speaker", settingsRef.current.speaker); fd.append("pace", String(settingsRef.current.speechRate));
-      const d = await callBackend(fd); if (!goodbye && d.silent) return;
-      if (!goodbye) { setCurrentLang(d.detectedLanguage); currentLangRef.current = d.detectedLanguage; setTranscript((t) => [...t, { speaker:"caller", text: d.transcript, lang: d.detectedLanguage }]); historyRef.current.push({ role:"user", content: d.transcript }); }
-      const replyText = goodbye ? text! : d.replyText;
-      setCallState("speaking"); setTranscript((t) => [...t, { speaker:"agent", text: replyText, lang: currentLangRef.current }]);
-      if (!goodbye) {
-        historyRef.current.push({ role:"assistant", content: replyText });
-        previewTurnsRef.current += 1;
-        setPreviewTurns(previewTurnsRef.current);
-      }
-      if (d.audioBase64) await playBase64Audio(d.audioBase64);
-      if (goodbye) { endConversation(); return; }
-      if (previewTurnsRef.current >= PREVIEW_MAX) {
-        const fdWrap = new FormData();
-        fdWrap.append("mode","greeting");
-        fdWrap.append("text","That's a great preview! Your script sounds good. Head over to Outbound to launch a campaign.");
-        fdWrap.append("language", currentLangRef.current); fdWrap.append("speaker", settingsRef.current.speaker); fdWrap.append("pace","1");
-        try { const dw = await callBackend(fdWrap); if (dw.audioBase64) await playBase64Audio(dw.audioBase64); } catch {}
-        activeRef.current = false; stopVad(); stopAmbience();
-        setCallState("idle"); setPreviewDone(true); return;
-      }
-    } catch (err: any) { setBackendError(err?.message || "Error."); endConversation(); }
-  }
-  async function startConversation() {
-    setBackendError(""); setTranscript([]); historyRef.current = []; activeRef.current = true;
-    setPreviewTurns(0); setPreviewDone(false); previewTurnsRef.current = 0;
-    const lang = settings.startingLanguage; setCurrentLang(lang); currentLangRef.current = lang;
-    setCallState("greeting"); startAmbience(settings.backgroundSound);
-    try {
-      await ensureMic();
-      const fd = new FormData(); fd.append("mode","greeting"); fd.append("text", settings.greeting);
-      fd.append("language", lang); fd.append("speaker", settings.speaker); fd.append("pace", String(settings.speechRate));
-      const d = await callBackend(fd); setTranscript([{ speaker:"agent", text: settings.greeting, lang }]);
-      if (d.audioBase64) await playBase64Audio(d.audioBase64);
-    } catch (err: any) { setBackendError(err?.message || "Couldn't reach Sarvam."); activeRef.current = false; setCallState("idle"); stopAmbience(); return; }
-    if (activeRef.current) conversationLoop();
-  }
+
   function endConversation() {
-    activeRef.current = false; stopVad();
-    if (recorderRef.current?.state !== "inactive") recorderRef.current?.stop();
-    audioElRef.current?.pause(); stopAmbience(); setCallState("ended");
-    setTimeout(() => setCallState("idle"), 1400);
+    agentRef.current?.stop().catch(() => {});
+    agentRef.current = null;
+    setCallState("ended");
+    setTimeout(() => setCallState("idle"), 1000);
   }
-  const stateLabel: Record<CallState, string> = { idle:"", greeting:"Agent speaking…", recording:"Listening…", sending:"Thinking…", speaking:"Agent speaking…", checking:"Checking in…", ended:"Call ended" };
+  const stateLabel: Record<CallState, string> = { idle:"", greeting:"Connecting…", recording:"Listening…", sending:"Thinking…", speaking:"Agent speaking…", checking:"Checking in…", ended:"Call ended" };
   const langLabel = LANGUAGES.find((l) => l.code === currentLang)?.label ?? currentLang;
 
   return (
@@ -557,7 +485,7 @@ export default function AgentPage() {
                 {testTab === "voice" && (
                   <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between">
-                      <p className="text-[13px] text-ink-soft">Free preview — browser mic, no real call. Up to {PREVIEW_MAX} turns.</p>
+                      <p className="text-[13px] text-ink-soft">Free preview — browser mic, direct agent session. Up to {PREVIEW_MAX} turns, no credits used.</p>
                       {(callState !== "idle" || previewTurns > 0) && !previewDone && (
                         <div className="flex items-center gap-1.5 shrink-0">
                           {[...Array(PREVIEW_MAX)].map((_, i) => (
