@@ -552,7 +552,7 @@ export default function AgentPage() {
                         {[
                           "Click the button below — opens Sarvam in a new tab",
                           "Go to your agent → Tests → Voice tab",
-                          "Click "Test agent" and speak — it works instantly",
+                          "Click “Test agent” and speak — it works instantly",
                         ].map((step, i) => (
                           <div key={i} className="flex items-start gap-2.5">
                             <span className="w-5 h-5 rounded-full bg-signal text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
