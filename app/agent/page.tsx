@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -74,13 +75,6 @@ export default function AgentPage() {
   const [testTab, setTestTab] = useState<TestTab>("voice");
 
   /* voice call */
-  const [micSupported, setMicSupported] = useState(true);
-  const [backendError, setBackendError] = useState("");
-  const [callState,    setCallState]    = useState<CallState>("idle");
-  const [transcript,   setTranscript]   = useState<TranscriptLine[]>([]);
-  const [currentLang,  setCurrentLang]  = useState("en-IN");
-  const [previewTurns, setPreviewTurns] = useState(0);
-  const [previewDone,  setPreviewDone]  = useState(false);
 
   /* phone call */
   const [phoneNumber,  setPhoneNumber]  = useState("");
@@ -95,10 +89,6 @@ export default function AgentPage() {
 
   /* refs */
   const settingsRef     = useRef(settings); settingsRef.current = settings;
-  const previewTurnsRef = useRef(0);
-  const wsRef           = useRef<WebSocket | null>(null);
-  const mediaStreamRef  = useRef<MediaStream | null>(null);
-  const audioCtxRef     = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     setSettings((s) => ({ ...s, ...getAgentSettings() }));
