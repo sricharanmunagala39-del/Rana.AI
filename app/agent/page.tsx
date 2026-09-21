@@ -542,73 +542,64 @@ export default function AgentPage() {
 
                 {/* VOICE */}
                 {testTab === "voice" && (
-                  <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[13px] text-ink-soft">Free preview — browser mic, direct agent session. Up to {PREVIEW_MAX} turns, no credits used.</p>
-                      {(callState !== "idle" || previewTurns > 0) && !previewDone && (
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {[...Array(PREVIEW_MAX)].map((_, i) => (
-                            <span key={i} className={`w-2 h-2 rounded-full transition-colors ${i < previewTurns ? "bg-signal" : "bg-line"}`} />
-                          ))}
-                          <span className="text-[11.5px] text-ink-soft ml-1">{previewTurns}/{PREVIEW_MAX}</span>
-                        </div>
-                      )}
-                    </div>
-                    {!micSupported && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">Mic not supported — try Chrome.</div>}
-                    {backendError && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">{backendError}</div>}
-
-                    {previewDone && (
-                      <div className="border-2 border-signal rounded-xl bg-signal-tint p-5 flex flex-col gap-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-signal text-lg">✓</span>
-                          <span className="text-[14px] font-semibold text-signal">Preview complete — {PREVIEW_MAX} turns done</span>
-                        </div>
-                        <p className="text-[13px] text-ink leading-relaxed">Happy with how the agent sounds? Tweak the script further, or launch an outbound campaign.</p>
-                        <div className="flex gap-2 flex-wrap">
-                          <button onClick={() => { setPreviewDone(false); setPreviewTurns(0); previewTurnsRef.current = 0; setTranscript([]); }}
-                            className="border border-signal text-signal rounded-lg px-4 py-2 text-[13px] font-semibold">Preview again</button>
-                          <button onClick={() => setTab("instructions")}
-                            className="border border-line bg-white text-ink rounded-lg px-4 py-2 text-[13px] font-semibold">Edit script</button>
-                          <button onClick={() => { window.location.href = "/outbound/new"; }}
-                            className="bg-ink text-white rounded-lg px-4 py-2 text-[13px] font-semibold">Launch campaign →</button>
-                        </div>
-                      </div>
-                    )}
-
-                    {!previewDone && micSupported && callState === "idle" && (
-                      <button onClick={startConversation} className="bg-signal text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold flex items-center gap-2 w-fit">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/>
-                        </svg>
-                        {previewTurns > 0 ? "Continue preview" : "Start preview"}
-                      </button>
-                    )}
-                    {!previewDone && micSupported && callState !== "idle" && (
-                      <div className="flex flex-col items-center gap-2 py-4 border border-line rounded-xl bg-white">
-                        <div className={`w-14 h-14 rounded-full flex items-center justify-center mt-1 ${callState === "recording" ? "bg-signal-tint text-signal" : "bg-warm-tint text-warm"} ${callState !== "recording" && callState !== "ended" ? "animate-pulse" : ""}`}>
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <div className="flex flex-col gap-5">
+                    <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-4">
+                      {/* Header */}
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-signal-tint flex items-center justify-center shrink-0">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-signal">
                             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/>
                           </svg>
                         </div>
-                        <div className="text-[13.5px] font-semibold">{stateLabel[callState]}</div>
-                        <div className="text-[11.5px] text-ink-soft">Language: {langLabel}</div>
-                        {callState !== "ended" && <button onClick={endConversation} className="bg-miss text-white rounded-lg px-4 py-1.5 text-[12.5px] font-semibold mt-1 mb-2">End preview</button>}
+                        <div>
+                          <div className="text-[14px] font-semibold">Test your agent on Sarvam</div>
+                          <div className="text-[12.5px] text-ink-soft mt-0.5">Opens the live voice tester on apps.sarvam.ai — speak directly with your DBMCI agent, no credits charged to RANA.</div>
+                        </div>
                       </div>
-                    )}
-                    {transcript.length > 0 && (
-                      <div className="border border-line rounded-xl bg-white min-h-[180px] max-h-[300px] overflow-y-auto p-3.5 flex flex-col gap-2.5">
-                        {transcript.map((line, i) => (
-                          <div key={i} className={`flex ${line.speaker === "agent" ? "justify-start" : "justify-end"}`}>
-                            <div className={`max-w-[85%] rounded-lg px-3 py-1.5 text-[12.5px] ${line.speaker === "agent" ? "bg-paper text-ink" : "bg-signal-tint text-signal font-medium"}`}>{line.text}</div>
+
+                      {/* Steps */}
+                      <div className="flex flex-col gap-2 bg-paper rounded-lg p-3.5">
+                        {[
+                          "Click the button below — opens Sarvam in a new tab",
+                          "Go to your agent → Tests → Voice tab",
+                          "Click "Test agent" and speak — it works instantly",
+                        ].map((step, i) => (
+                          <div key={i} className="flex items-start gap-2.5">
+                            <span className="w-5 h-5 rounded-full bg-signal text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                            <span className="text-[12.5px] text-ink leading-relaxed">{step}</span>
                           </div>
                         ))}
                       </div>
-                    )}
-                    {transcript.length === 0 && !previewDone && (
-                      <div className="border border-line rounded-xl bg-white min-h-[100px] flex items-center justify-center">
-                        <span className="text-[12.5px] text-ink-soft">Transcript will appear here as you speak.</span>
+
+                      {/* CTA */}
+                      <a
+                        href="https://apps.sarvam.ai"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-signal text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold flex items-center gap-2 w-fit"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                        Open Sarvam Voice Tester
+                      </a>
+
+                      <div className="text-[11.5px] text-ink-soft border-t border-line pt-3">
+                        💡 After testing, come back here to edit the script with AI or launch an outbound campaign.
                       </div>
-                    )}
+                    </div>
+
+                    {/* Quick actions */}
+                    <div className="flex gap-2 flex-wrap">
+                      <button onClick={() => setTab("instructions")}
+                        className="border border-line bg-white text-ink rounded-lg px-4 py-2 text-[12.5px] font-semibold hover:bg-paper">
+                        ✏️ Edit script
+                      </button>
+                      <button onClick={() => { window.location.href = "/outbound/new"; }}
+                        className="bg-ink text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold">
+                        Launch campaign →
+                      </button>
+                    </div>
                   </div>
                 )}
 
