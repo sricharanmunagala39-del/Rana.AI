@@ -405,16 +405,16 @@ export default function AgentPage() {
                         </div>
                         <div>
                           <div className="text-[14px] font-semibold">Test your agent on Sarvam</div>
-                          <div className="text-[12.5px] text-ink-soft mt-0.5">Opens the live voice tester on apps.sarvam.ai — speak directly with your DBMCI agent, no credits charged to RANA.</div>
+                          <div className="text-[12.5px] text-ink-soft mt-0.5">Opens your DBMCI agent on Sarvam — click "Test agent" there to speak with it directly. No credits charged to RANA.</div>
                         </div>
                       </div>
 
                       {/* Steps */}
                       <div className="flex flex-col gap-2 bg-paper rounded-lg p-3.5">
                         {[
-                          "Click the button below — opens Sarvam in a new tab",
-                          "Go to your agent → Tests → Voice tab",
-                          "Click “Test agent” and speak — it works instantly",
+                          "Click the button below — opens your DBMCI agent on Sarvam",
+                          "Click the \"Test agent\" button (top right of the Sarvam page)",
+                          "Speak — the agent responds instantly, no credits charged",
                         ].map((step, i) => (
                           <div key={i} className="flex items-start gap-2.5">
                             <span className="w-5 h-5 rounded-full bg-signal text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
@@ -425,7 +425,7 @@ export default function AgentPage() {
 
                       {/* CTA */}
                       <a
-                        href="https://apps.sarvam.ai"
+                        href="https://indus.sarvam.ai/samvaad/build/update-agent/Conversatio-3b1430ca-82ed"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-signal text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold flex items-center gap-2 w-fit"
@@ -433,7 +433,7 @@ export default function AgentPage() {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
                         </svg>
-                        Open Sarvam Voice Tester
+                        Open DBMCI Agent on Sarvam
                       </a>
 
                       <div className="text-[11.5px] text-ink-soft border-t border-line pt-3">
