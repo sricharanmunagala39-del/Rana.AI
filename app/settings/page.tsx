@@ -36,17 +36,24 @@ export default function SettingsPage() {
     finally { setLoading(false); }
   }
 
-  async function connect(deploymentId: string) {
+  async function connect(deploymentId: string, wasActive: boolean) {
     setSettingId(deploymentId);
-    setResultMsg((m) => ({ ...m, [deploymentId]: "" }));
+    setResultMsg((m) => ({ ...m, [deploymentId]: wasActive ? "Pausing to edit…" : "" }));
     try {
       const res = await fetch("/api/admin/sarvam-webhook", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deploymentId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ? `${data.error}${data.detail ? " — " + JSON.stringify(data.detail) : ""}` : "Failed");
-      setResultMsg((m) => ({ ...m, [deploymentId]: "Connected ✓" }));
+      if (!res.ok) {
+        const detail = data.error ? `${data.error}${data.detail ? " — " + JSON.stringify(data.detail) : ""}` : "Failed";
+        // A failed resume is the one outcome worse than the original problem — the line may
+        // still be down — so it gets its own unmistakable message instead of the generic error.
+        if (data.resumeError) throw new Error(`⚠ ${detail}`);
+        throw new Error(detail);
+      }
+      const note = data.wasPausedForUpdate ? " (line was paused briefly, then resumed)" : "";
+      setResultMsg((m) => ({ ...m, [deploymentId]: `Connected ✓${note}` }));
       check();
     } catch (e: any) {
       setResultMsg((m) => ({ ...m, [deploymentId]: `Error: ${e.message}` }));
@@ -82,28 +89,36 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {diag.matchingDeployments.map((d) => (
-              <div key={d.deployment_id} className="bg-raised border border-line rounded-lg p-4 flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-[14px] font-semibold">{d.name || d.deployment_id}</div>
-                    <div className="text-[12px] text-ink-soft">{d.channel_direction} · v{d.app_version} · {d.status}</div>
+            {diag.matchingDeployments.map((d) => {
+              const isLive = d.status === "active";
+              return (
+                <div key={d.deployment_id} className="bg-raised border border-line rounded-lg p-4 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[14px] font-semibold">{d.name || d.deployment_id}</div>
+                      <div className="text-[12px] text-ink-soft">{d.channel_direction} · v{d.app_version} · {d.status}</div>
+                    </div>
+                    {d.already_correct ? (
+                      <span className="text-[12px] font-semibold text-signal bg-signal-tint px-2.5 py-1 rounded-full">Connected ✓</span>
+                    ) : (
+                      <button onClick={() => connect(d.deployment_id, isLive)} disabled={settingId === d.deployment_id}
+                        className="text-[12.5px] font-semibold bg-signal text-white rounded-lg px-3 py-1.5 disabled:opacity-50">
+                        {settingId === d.deployment_id ? "Connecting…" : "Connect webhook"}
+                      </button>
+                    )}
                   </div>
-                  {d.already_correct ? (
-                    <span className="text-[12px] font-semibold text-signal bg-signal-tint px-2.5 py-1 rounded-full">Connected ✓</span>
-                  ) : (
-                    <button onClick={() => connect(d.deployment_id)} disabled={settingId === d.deployment_id}
-                      className="text-[12.5px] font-semibold bg-signal text-white rounded-lg px-3 py-1.5 disabled:opacity-50">
-                      {settingId === d.deployment_id ? "Connecting…" : "Connect webhook"}
-                    </button>
+                  <div className="text-[11.5px] text-ink-soft font-mono break-all">
+                    current: {d.current_webhook_config?.url || "(none set)"}
+                  </div>
+                  {isLive && !d.already_correct && (
+                    <div className="text-[11.5px] text-ink-soft italic">
+                      This line is live. Sarvam only allows editing webhooks on a paused deployment, so connecting will briefly pause it (no calls accepted) and resume it automatically once done — usually a few seconds.
+                    </div>
                   )}
+                  {resultMsg[d.deployment_id] && <div className="text-[12.5px] whitespace-pre-wrap break-all">{resultMsg[d.deployment_id]}</div>}
                 </div>
-                <div className="text-[11.5px] text-ink-soft font-mono break-all">
-                  current: {d.current_webhook_config?.url || "(none set)"}
-                </div>
-                {resultMsg[d.deployment_id] && <div className="text-[12.5px] whitespace-pre-wrap break-all">{resultMsg[d.deployment_id]}</div>}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
