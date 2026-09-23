@@ -2,6 +2,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 type NavKey = "overview" | "scripts" | "outbound" | "inbound" | "agent";
 type Client = { id: string; name: string; industry: string; sarvam_app_id: string | null } | null;
@@ -14,8 +15,13 @@ const items = [
   { key: "inbound", label: "Inbound", href: "/inbound", icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 7L7 17"/><path d="M16 17H7V8"/></svg> },
 ];
 
-export default function Sidebar({ active, client }: { active: string; client?: Client }) {
+export default function Sidebar({ active, client: clientProp }: { active: string; client?: Client }) {
   const router = useRouter();
+  const [client, setClient] = useState<Client>(clientProp ?? null);
+  useEffect(() => {
+    if (clientProp) { setClient(clientProp); return; }
+    fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).then((c) => c && setClient(c)).catch(() => {});
+  }, [clientProp]);
   async function handleLogout() {
     await fetch("/api/auth/me", { method: "POST" });
     router.push("/login");

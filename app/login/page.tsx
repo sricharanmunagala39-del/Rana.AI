@@ -16,7 +16,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim(), password }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed");
-      router.push("/scripts");
+      const next = new URLSearchParams(window.location.search).get("next"); router.push(next && next.startsWith("/") ? next : "/");
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
   }

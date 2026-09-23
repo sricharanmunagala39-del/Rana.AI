@@ -209,12 +209,12 @@ export default function AgentPage() {
     setCallStatus("requesting");
 
     try {
-      const tokenRes = await fetch("/api/voice-token", { method: "POST" });
-      if (!tokenRes.ok) {
-        const err = await tokenRes.json().catch(() => ({}));
-        throw new Error(err.error || "Could not get voice token");
+      const cfgRes = await fetch("/api/voice-config", { method: "POST" });
+      if (!cfgRes.ok) {
+        const err = await cfgRes.json().catch(() => ({}));
+        throw new Error(err.error || "Could not start voice session");
       }
-      const { apiKey, orgId, workspaceId, appId, userId } = await tokenRes.json();
+      const { orgId, workspaceId, appId, userId, baseUrl } = await cfgRes.json();
 
       setCallStatus("connecting");
 
@@ -223,8 +223,11 @@ export default function AgentPage() {
 
       const audioInterface = new BrowserAudioInterface();
 
+      // The engine key never reaches the browser. The SDK's signed-URL request goes to our
+      // own /api/sarvam-session proxy, which injects the key server-side.
       const agent = new ConversationAgent({
-        apiKey,
+        apiKey: "rana-proxy",
+        baseUrl: `${window.location.origin}${baseUrl}`,
         platform: "browser",
         config: {
           user_identifier_type: "custom",
