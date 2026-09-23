@@ -20,6 +20,7 @@ import {
   saveScriptVersion,
   stepsToInstructions,
 } from "@/lib/storage";
+import { CartesiaVoiceCall } from "@/lib/cartesia-voice-client";
 
 /* ── constants ── */
 const SUGGESTION_CHIPS = [
@@ -106,7 +107,7 @@ export default function AgentPage() {
   const [callDuration, setCallDuration] = useState(0);
   const [transcript,   setTranscript]   = useState<{ role: "agent" | "user"; text: string }[]>([]);
   const [isMuted,      setIsMuted]      = useState(false);
-  const agentRef      = useRef<any>(null);
+  const cartesiaCallRef = useRef<CartesiaVoiceCall | null>(null);
   const durationRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
@@ -326,104 +327,71 @@ export default function AgentPage() {
     finally { setChatLoading(false); }
   }
 
-  /* ─────────── EMBEDDED VOICE CALL (still Sarvam — Cartesia's browser test call is next) ─────────── */
+  /* ─────────── EMBEDDED VOICE CALL — real audio from your published Cartesia agent ───────────
+     Cartesia doesn't ship a browser SDK for this yet, so lib/cartesia-voice-client.ts
+     hand-rolls the raw WebSocket protocol (mic capture, resampling, playback scheduling). */
   const startVoiceCall = useCallback(async () => {
     if (callStatus !== "idle" && callStatus !== "error") return;
+    if (!publishInfo?.agentId) {
+      setCallStatus("error");
+      setCallError("Publish your agent to Cartesia first (Overview tab) — there's nothing live to call yet.");
+      return;
+    }
     setCallError("");
     setTranscript([]);
     setCallDuration(0);
-    setCallStatus("requesting");
+    setCallStatus("connecting");
 
-    try {
-      const cfgRes = await fetch("/api/voice-config", { method: "POST" });
-      if (!cfgRes.ok) {
-        const err = await cfgRes.json().catch(() => ({}));
-        throw new Error(err.error || "Could not start voice session");
-      }
-      const { orgId, workspaceId, appId, userId, baseUrl } = await cfgRes.json();
-
-      setCallStatus("connecting");
-
-      const { ConversationAgent, BrowserAudioInterface, InteractionType } =
-        await import("sarvam-conv-ai-sdk/browser");
-
-      const audioInterface = new BrowserAudioInterface();
-
-      const agent = new ConversationAgent({
-        apiKey: "rana-proxy",
-        baseUrl: `${window.location.origin}${baseUrl}`,
-        platform: "browser",
-        config: {
-          user_identifier_type: "custom",
-          user_identifier: userId,
-          org_id: orgId,
-          workspace_id: workspaceId,
-          app_id: appId,
-          interaction_type: InteractionType.CALL,
-          input_sample_rate: 16000,
-          output_sample_rate: 16000,
-        },
-        audioInterface,
-
-        transcriptCallback: async (msg: any) => {
-          if (msg?.content) {
-            const role = msg.role === "bot" ? "agent" : "user";
-            setTranscript((t) => {
-              const last = t[t.length - 1];
-              if (last && last.role === role) {
-                return [...t.slice(0, -1), { role, text: last.text + msg.content }];
-              }
-              return [...t, { role, text: msg.content }];
-            });
+    const call = new CartesiaVoiceCall((evt) => {
+      if (evt.type === "live") {
+        setCallStatus("live");
+        durationRef.current = setInterval(() => setCallDuration((d) => d + 1), 1000);
+      } else if (evt.type === "transcript") {
+        setTranscript((t) => {
+          const last = t[t.length - 1];
+          if (last && last.role === evt.role) {
+            return [...t.slice(0, -1), { role: evt.role, text: `${last.text} ${evt.text}`.trim() }];
           }
-        },
+          return [...t, { role: evt.role, text: evt.text }];
+        });
+      } else if (evt.type === "ended") {
+        setCallStatus("idle");
+        if (durationRef.current) { clearInterval(durationRef.current); durationRef.current = null; }
+      } else if (evt.type === "error") {
+        setCallStatus("error");
+        setCallError(evt.message);
+        if (durationRef.current) { clearInterval(durationRef.current); durationRef.current = null; }
+      }
+    });
 
-        startCallback: async () => {
-          setCallStatus("live");
-          durationRef.current = setInterval(() => {
-            setCallDuration((d) => d + 1);
-          }, 1000);
-        },
-
-        endCallback: async () => {
-          setCallStatus("idle");
-          if (durationRef.current) { clearInterval(durationRef.current); durationRef.current = null; }
-        },
-      });
-
-      agentRef.current = agent;
-      await agent.start();
-      const connected = await agent.waitForConnect(15);
-      if (!connected) throw new Error("Connection timed out — check your network");
-
+    cartesiaCallRef.current = call;
+    try {
+      await call.start(publishInfo.agentId);
     } catch (err: any) {
       setCallStatus("error");
       setCallError(err?.message || "Failed to start call");
-      if (durationRef.current) { clearInterval(durationRef.current); durationRef.current = null; }
-      agentRef.current = null;
+      cartesiaCallRef.current = null;
     }
-  }, [callStatus]);
+  }, [callStatus, publishInfo]);
 
   const stopVoiceCall = useCallback(async () => {
-    if (!agentRef.current) return;
+    if (!cartesiaCallRef.current) return;
     setCallStatus("ending");
-    try {
-      await agentRef.current.stop();
-    } catch { /* ignore */ }
-    agentRef.current = null;
+    cartesiaCallRef.current.stop();
+    cartesiaCallRef.current = null;
     if (durationRef.current) { clearInterval(durationRef.current); durationRef.current = null; }
     setCallStatus("idle");
     setIsMuted(false);
   }, []);
 
   const toggleMute = useCallback(() => {
-    if (!agentRef.current) return;
-    if (isMuted) { agentRef.current.unmute(); setIsMuted(false); }
-    else          { agentRef.current.mute();   setIsMuted(true);  }
+    if (!cartesiaCallRef.current) return;
+    if (isMuted) { cartesiaCallRef.current.unmute(); setIsMuted(false); }
+    else          { cartesiaCallRef.current.mute();   setIsMuted(true);  }
   }, [isMuted]);
 
   useEffect(() => () => {
-    if (agentRef.current) { agentRef.current.stop().catch(() => {}); }
+    cartesiaCallRef.current?.stop();
     if (durationRef.current) clearInterval(durationRef.current);
   }, []);
 
@@ -895,9 +863,15 @@ export default function AgentPage() {
 
             {testTab === "voice" && (
               <div className="flex flex-col gap-4">
-                <div className="text-[11.5px] text-ink-soft bg-paper border border-line rounded-lg px-3 py-2">
-                  This still talks to your old Sarvam agent — Cartesia's own browser test call is the next thing we wire up.
-                </div>
+                {publishInfo?.agentId ? (
+                  <div className="text-[11.5px] text-ink-soft bg-paper border border-line rounded-lg px-3 py-2">
+                    This is your real, published Cartesia agent — same brain, same voice as a real call. First test may take a beat to connect.
+                  </div>
+                ) : (
+                  <div className="text-[11.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2">
+                    Not published yet — go to Overview and click Publish first, there's nothing live to call.
+                  </div>
+                )}
 
                 {(isLive || isConnecting || callStatus === "ending") && (
                   <div className="border border-signal/30 rounded-2xl bg-white overflow-hidden">
@@ -988,7 +962,7 @@ export default function AgentPage() {
                       </div>
                       <div>
                         <div className="text-[14px] font-semibold">Test your agent — right here</div>
-                        <div className="text-[12.5px] text-ink-soft mt-0.5">Speak directly with your DBMCI voice agent in this browser. No Sarvam login needed. No redirects.</div>
+                        <div className="text-[12.5px] text-ink-soft mt-0.5">Speak directly with your DBMCI voice agent, running live on Cartesia, in this browser.</div>
                       </div>
                     </div>
 
@@ -1012,12 +986,12 @@ export default function AgentPage() {
                       </div>
                     )}
 
-                    <button onClick={startVoiceCall}
-                      className="bg-signal text-white rounded-lg px-5 py-3 text-[13.5px] font-semibold flex items-center gap-2 w-fit">
+                    <button onClick={startVoiceCall} disabled={!publishInfo?.agentId}
+                      className="bg-signal text-white rounded-lg px-5 py-3 text-[13.5px] font-semibold flex items-center gap-2 w-fit disabled:opacity-40">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/>
                       </svg>
-                      {callStatus === "error" ? "Try again" : "Start call"}
+                      {!publishInfo?.agentId ? "Publish first" : callStatus === "error" ? "Try again" : "Start call"}
                     </button>
 
                     <div className="text-[11.5px] text-ink-soft border-t border-line pt-3">
