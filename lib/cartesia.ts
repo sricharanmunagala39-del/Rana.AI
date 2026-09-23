@@ -117,10 +117,22 @@ export async function listCartesiaModels(): Promise<any[]> {
   return data?.data ?? data ?? [];
 }
 
-/** GET /voices — full voice catalog. Filter client-side by `.language` (e.g. "te", "hi", "en"). */
+/** GET /voices — full voice catalog, fully paginated (Cartesia caps each page at 100), with
+ *  preview_file_url requested so a real "play sample" button is possible. Filter client-side
+ *  by `.language`, `.gender`, etc. */
 export async function listCartesiaVoices(): Promise<any[]> {
-  const data = await cartesiaFetch("/voices", { method: "GET" });
-  return data?.data ?? data ?? [];
+  const all: any[] = [];
+  let startingAfter: string | undefined;
+  for (let page = 0; page < 30; page++) { // hard cap: 30 * 100 = 3000 voices, comfortably above the real catalog size
+    const qs = `limit=100&expand%5B%5D=preview_file_url${startingAfter ? `&starting_after=${encodeURIComponent(startingAfter)}` : ""}`;
+    const data = await cartesiaFetch(`/voices?${qs}`, { method: "GET" });
+    const batch = data?.data ?? [];
+    all.push(...batch);
+    if (!data?.has_more || batch.length === 0) break;
+    startingAfter = data?.next_page || batch[batch.length - 1]?.id;
+    if (!startingAfter) break;
+  }
+  return all;
 }
 
 /** Maps RANA's startingLanguage (BCP-47, e.g. "te-IN") to Cartesia's ISO 639-1 primary language code. */
