@@ -4,6 +4,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import VoicePickerModal, { PickerVoice } from "@/components/VoicePickerModal";
 import { LANGUAGES, STRICTNESS_LABELS, stepsToInstructions } from "@/lib/storage";
 
 type Step = { id: string; title: string; body: string };
@@ -41,10 +42,11 @@ function WizardInner() {
   const [strictness, setStrictness] = useState(3);
 
   // ── Cartesia catalog ──
-  const [voices, setVoices] = useState<{ id: string; name: string; language: string | null; tagline?: string | null }[]>([]);
+  const [voices, setVoices] = useState<PickerVoice[]>([]);
   const [models, setModels] = useState<{ id: string; name: string; provider?: string | null }[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
 
   // ── save/publish state ──
   const [savedId, setSavedId] = useState<string | null>(editId);
@@ -243,13 +245,26 @@ function WizardInner() {
                   {catalogError && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2">{catalogError}</div>}
                   <div>
                     <label className="text-[13px] font-semibold block mb-1.5">Voice</label>
-                    <select value={voiceId} onChange={(e) => setVoiceId(e.target.value)}
-                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-white outline-none focus:border-signal">
-                      <option value="">{catalogLoading ? "Loading voices…" : "Let Cartesia pick a voice matching the language"}</option>
-                      {voices.map((v) => (
-                        <option key={v.id} value={v.id}>{v.name}{v.language ? ` — ${v.language}` : ""}{v.tagline ? ` (${v.tagline})` : ""}</option>
-                      ))}
-                    </select>
+                    <button type="button" onClick={() => setVoiceModalOpen(true)} disabled={catalogLoading}
+                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-white outline-none focus:border-signal flex items-center justify-between disabled:opacity-60">
+                      <span className="truncate text-left">
+                        {catalogLoading
+                          ? "Loading voices…"
+                          : selectedVoice
+                          ? <>{selectedVoice.name}{selectedVoice.tagline ? <span className="text-ink-soft"> — {selectedVoice.tagline}</span> : null}</>
+                          : "Let Cartesia pick a voice matching the language"}
+                      </span>
+                      <span className="text-[12.5px] font-semibold text-signal shrink-0 ml-3">{selectedVoice ? "Change" : "Browse"}</span>
+                    </button>
+                    {catalogError && <div className="text-[11.5px] text-miss mt-1">{catalogError}</div>}
+                    {voiceModalOpen && (
+                      <VoicePickerModal
+                        voices={voices}
+                        currentId={voiceId}
+                        onSelect={(v) => { setVoiceId(v.id); setVoiceModalOpen(false); }}
+                        onClose={() => setVoiceModalOpen(false)}
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="text-[13px] font-semibold block mb-1.5">Pace <span className="font-normal text-ink-soft">{speechRate.toFixed(1)}x</span></label>
