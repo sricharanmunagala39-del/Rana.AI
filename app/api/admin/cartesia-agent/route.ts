@@ -3,13 +3,10 @@ import { getClientById, updateClient } from "@/lib/supabase";
 import {
   createCartesiaAgent,
   updateCartesiaAgent,
-  createCartesiaWebhook,
-  attachWebhookToAgent,
   listCartesiaModels,
   listCartesiaVoices,
   toCartesiaLanguage,
 } from "@/lib/cartesia";
-import crypto from "crypto";
 
 // Single-tenant for now, matching the existing /api/outbound-call and /api/voice-config
 // routes — DBMCI is RANA's only client today. Revisit with a session-based client_id lookup
@@ -21,7 +18,6 @@ export async function GET() {
   if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
   return Response.json({
     agentId: client.cartesia_agent_id ?? null,
-    hasWebhook: !!client.cartesia_webhook_id,
   });
 }
 
@@ -96,18 +92,17 @@ export async function POST(req: Request) {
       await updateClient(client.id, { cartesia_agent_id: agentId });
     }
 
-    let webhookId = client.cartesia_webhook_id;
-    if (!webhookId) {
-      const base = process.env.NEXT_PUBLIC_APP_URL || "https://rana-ai-roan.vercel.app";
-      const webhookSecret = crypto.randomBytes(16).toString("hex");
-      const webhookUrl = `${base}/api/webhooks/cartesia?key=${webhookSecret}`;
-      const createdWebhook = await createCartesiaWebhook(webhookUrl, webhookSecret, `RANA — ${name}`);
-      webhookId = createdWebhook.id;
-      await updateClient(client.id, { cartesia_webhook_id: webhookId, cartesia_webhook_secret: webhookSecret });
-      await attachWebhookToAgent(agentId!, webhookId);
-    }
+    // NOTE: agent-level webhooks are NOT part of the Cartesia API version this app is
+    // pinned to (Cartesia-Version 2026-08-14) — confirmed directly against the live
+    // OpenAPI schema: neither Create Agent nor Update Agent has a `webhook_id` field on
+    // this version, and the Webhooks endpoints (POST/PATCH /agents/webhooks) only appear
+    // under the older 2026-03-01 docs, not 2026-08-14's. Attaching one here always 400s
+    // with "Unrecognized key: webhook_id". Call-outcome ingestion for Cartesia calls will
+    // need to poll GET /v1/agents/calls (and GET /v1/agents/calls/{id} for a transcript)
+    // instead of relying on a pushed webhook — not built yet. Deliberately not attempting
+    // webhook setup here so it can't block Publish.
 
-    return Response.json({ ok: true, agentId, webhookId, voiceId: resolvedVoiceId, modelId: resolvedModelId, language });
+    return Response.json({ ok: true, agentId, voiceId: resolvedVoiceId, modelId: resolvedModelId, language });
   } catch (err: any) {
     console.error("[cartesia publish] failed", err?.message);
     return Response.json({ error: err?.message || "Failed to publish to Cartesia" }, { status: 500 });
