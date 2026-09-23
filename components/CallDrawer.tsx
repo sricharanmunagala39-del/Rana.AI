@@ -7,6 +7,7 @@ import { LEAD_LABEL, LEAD_TONE, LEAD_ORDER, fmtDuration, fmtPhone, fmtClock, fmt
 export default function CallDrawer({ call, onClose, onUpdated }: { call: CallRow | null; onClose: () => void; onUpdated: (c: CallRow) => void }) {
   const [notes, setNotes] = useState(call?.notes ?? "");
   const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
   useEffect(() => { setNotes(call?.notes ?? ""); }, [call?.id]);
   if (!call) return null;
 
@@ -19,6 +20,14 @@ export default function CallDrawer({ call, onClose, onUpdated }: { call: CallRow
     } finally { setSaving(false); }
   }
 
+  function copyCallId() {
+    if (!call?.interaction_id) return;
+    navigator.clipboard.writeText(call.interaction_id).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    }).catch(() => {});
+  }
+
   const vars = Object.entries(call.agent_variables || {}).filter(([, v]) => typeof v !== "object");
 
   return (
@@ -29,6 +38,13 @@ export default function CallDrawer({ call, onClose, onUpdated }: { call: CallRow
           <div>
             <div className="font-display text-[19px] font-semibold">{call.caller_name || "Unknown caller"}</div>
             <div className="text-[13px] text-ink-soft">{fmtPhone(call.caller_phone)} · {call.direction === "inbound" ? "Inbound" : "Outbound"} · {fmtDate(call.created_at)} {fmtClock(call.created_at)}</div>
+            {call.interaction_id && (
+              <button onClick={copyCallId}
+                className="mt-1.5 flex items-center gap-1.5 text-[11px] font-mono text-ink-soft hover:text-ink hover:border-ink border border-line rounded-md px-2 py-1">
+                <span className="truncate max-w-[260px]">{call.interaction_id}</span>
+                <span className="text-signal font-sans font-semibold shrink-0">{copied ? "Copied ✓" : "Copy call ID"}</span>
+              </button>
+            )}
           </div>
           <button onClick={onClose} className="text-ink-soft hover:text-ink text-lg leading-none">×</button>
         </div>
@@ -69,6 +85,21 @@ export default function CallDrawer({ call, onClose, onUpdated }: { call: CallRow
               </div>
             </div>
           )}
+
+          <div>
+            <div className="text-[12.5px] font-semibold text-ink-soft mb-1.5">Recording</div>
+            {call.recording_url ? (
+              <div className="flex flex-col gap-2">
+                <audio controls src={call.recording_url} className="w-full h-9" />
+                <a href={call.recording_url} download target="_blank" rel="noreferrer"
+                  className="text-[12.5px] font-semibold text-signal self-start">Download recording</a>
+              </div>
+            ) : (
+              <div className="text-[13px] text-ink-soft">
+                {call.duration_seconds > 0 ? "Recording not available for this call." : "No recording — the call did not connect."}
+              </div>
+            )}
+          </div>
 
           <div>
             <div className="text-[12.5px] font-semibold text-ink-soft mb-1.5">Notes for sales team</div>
