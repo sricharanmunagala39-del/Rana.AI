@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
 import {
   AgentSettings,
@@ -48,6 +48,8 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "tests",        label: "Tests",        icon: "✓"  },
 ];
 
+/* ── voice call state ── */
+type CallStatus = "idle" | "requesting" | "connecting" | "live" | "ending" | "error";
 
 export default function AgentPage() {
   const [settings, setSettings] = useState<AgentSettings & { speaker: string }>({
@@ -72,7 +74,16 @@ export default function AgentPage() {
   /* test sub-tabs */
   const [testTab, setTestTab] = useState<TestTab>("voice");
 
-  /* voice call */
+  /* ── EMBEDDED VOICE CALL ── */
+  const [callStatus,   setCallStatus]   = useState<CallStatus>("idle");
+  const [callError,    setCallError]    = useState("");
+  const [callDuration, setCallDuration] = useState(0);
+  const [transcript,   setTranscript]   = useState<{ role: "agent" | "user"; text: string }[]>([]);
+  const [isMuted,      setIsMuted]      = useState(false);
+  const [audioLevel,   setAudioLevel]   = useState(0);
+  const agentRef      = useRef<any>(null);
+  const durationRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const transcriptRef = useRef<HTMLDivElement>(null);
 
   /* phone call */
   const [phoneNumber,  setPhoneNumber]  = useState("");
@@ -86,12 +97,16 @@ export default function AgentPage() {
   const [chatLoading, setChatLoading] = useState(false);
 
   /* refs */
-  const settingsRef     = useRef(settings); settingsRef.current = settings;
+  const settingsRef = useRef(settings); settingsRef.current = settings;
 
   useEffect(() => {
     setSettings((s) => ({ ...s, ...getAgentSettings() }));
     setVersions(getScriptVersions());
   }, []);
+
+  useEffect(() => {
+    transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
+  }, [transcript]);
 
   function persist(next: AgentSettings & { speaker: string }) { setSettings(next); saveAgentSettings(next); }
   function handleSave() { saveAgentSettings(settings); setSaved(true); setTimeout(() => setSaved(false), 2200); }
@@ -185,8 +200,116 @@ export default function AgentPage() {
     finally { setChatLoading(false); }
   }
 
+  /* ─────────── EMBEDDED VOICE CALL ─────────── */
+  const startVoiceCall = useCallback(async () => {
+    if (callStatus !== "idle" && callStatus !== "error") return;
+    setCallError("");
+    setTranscript([]);
+    setCallDuration(0);
+    setCallStatus("requesting");
 
+    try {
+      const tokenRes = await fetch("/api/voice-token", { method: "POST" });
+      if (!tokenRes.ok) {
+        const err = await tokenRes.json().catch(() => ({}));
+        throw new Error(err.error || "Could not get voice token");
+      }
+      const { apiKey, orgId, workspaceId, appId, userId } = await tokenRes.json();
 
+      setCallStatus("connecting");
+
+      const { ConversationAgent, BrowserAudioInterface, InteractionType } =
+        await import("sarvam-conv-ai-sdk/browser");
+
+      const audioInterface = new BrowserAudioInterface();
+
+      const agent = new ConversationAgent({
+        apiKey,
+        platform: "browser",
+        config: {
+          user_identifier_type: "custom",
+          user_identifier: userId,
+          org_id: orgId,
+          workspace_id: workspaceId,
+          app_id: appId,
+          interaction_type: InteractionType.CALL,
+          input_sample_rate: 16000,
+          output_sample_rate: 16000,
+        },
+        audioInterface,
+
+        transcriptCallback: async (msg: any) => {
+          if (msg?.text) {
+            const role = msg.role === "assistant" ? "agent" : "user";
+            setTranscript((t) => {
+              const last = t[t.length - 1];
+              if (last && last.role === role) {
+                return [...t.slice(0, -1), { role, text: last.text + msg.text }];
+              }
+              return [...t, { role, text: msg.text }];
+            });
+          }
+        },
+
+        startCallback: async () => {
+          setCallStatus("live");
+          durationRef.current = setInterval(() => {
+            setCallDuration((d) => d + 1);
+          }, 1000);
+        },
+
+        endCallback: async () => {
+          setCallStatus("idle");
+          if (durationRef.current) { clearInterval(durationRef.current); durationRef.current = null; }
+        },
+      });
+
+      agentRef.current = agent;
+      await agent.start();
+      const connected = await agent.waitForConnect(15);
+      if (!connected) throw new Error("Connection timed out — check your network");
+
+    } catch (err: any) {
+      setCallStatus("error");
+      setCallError(err?.message || "Failed to start call");
+      if (durationRef.current) { clearInterval(durationRef.current); durationRef.current = null; }
+      agentRef.current = null;
+    }
+  }, [callStatus]);
+
+  const stopVoiceCall = useCallback(async () => {
+    if (!agentRef.current) return;
+    setCallStatus("ending");
+    try {
+      await agentRef.current.stop();
+    } catch { /* ignore */ }
+    agentRef.current = null;
+    if (durationRef.current) { clearInterval(durationRef.current); durationRef.current = null; }
+    setCallStatus("idle");
+    setIsMuted(false);
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    if (!agentRef.current) return;
+    if (isMuted) { agentRef.current.unmute(); setIsMuted(false); }
+    else          { agentRef.current.mute();   setIsMuted(true);  }
+  }, [isMuted]);
+
+  useEffect(() => () => {
+    if (agentRef.current) { agentRef.current.stop().catch(() => {}); }
+    if (durationRef.current) clearInterval(durationRef.current);
+  }, []);
+
+  function fmtDuration(s: number) {
+    const m = Math.floor(s / 60).toString().padStart(2, "0");
+    const sec = (s % 60).toString().padStart(2, "0");
+    return `${m}:${sec}`;
+  }
+
+  const isLive      = callStatus === "live";
+  const isConnecting = callStatus === "connecting" || callStatus === "requesting";
+
+  /* ─────────── RENDER ─────────── */
   return (
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="agent" />
@@ -205,6 +328,7 @@ export default function AgentPage() {
             Test agent
           </button>
         </div>
+
         <div className="flex flex-1 overflow-hidden">
           <div className="w-[200px] border-r border-line p-4 flex flex-col gap-0.5 shrink-0">
             {TABS.map((t) => (
@@ -214,9 +338,9 @@ export default function AgentPage() {
               </button>
             ))}
           </div>
+
           <div className="flex-1 overflow-y-auto p-10 relative">
 
-            {/* INSTRUCTIONS */}
             {tab === "instructions" && (
               <div className="max-w-[680px] flex flex-col gap-8">
                 <div>
@@ -245,14 +369,11 @@ export default function AgentPage() {
                     <button onClick={addFact} className="text-[13px] font-semibold text-signal text-left mt-1 ml-4">+ Add a fact</button>
                   </div>
                 </div>
-
-                {/* SAVE ROW + VERSIONING */}
                 <div className="flex flex-col gap-4 border-t border-line pt-5">
                   <div className="flex items-center gap-3">
                     <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold">Save changes</button>
                     {saved && <span className="text-[13px] text-signal font-medium">Saved ✓</span>}
                   </div>
-
                   <div className="bg-paper border border-line rounded-xl p-4 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                       <div>
@@ -280,7 +401,6 @@ export default function AgentPage() {
                       </button>
                     </div>
                     {savedVerMsg && <div className="text-[12.5px] text-signal font-medium">{savedVerMsg} ✓</div>}
-
                     {showVerPanel && versions.length > 0 && (
                       <div className="flex flex-col gap-2 mt-1">
                         <div className="text-[11.5px] text-ink-soft uppercase tracking-wide font-semibold">Version history</div>
@@ -294,13 +414,9 @@ export default function AgentPage() {
                               </div>
                             </div>
                             <button onClick={() => handleRestoreVersion(v)}
-                              className="text-[12px] font-semibold text-signal border border-signal/30 rounded-lg px-2.5 py-1 hover:bg-signal-tint shrink-0">
-                              Restore
-                            </button>
+                              className="text-[12px] font-semibold text-signal border border-signal/30 rounded-lg px-2.5 py-1 hover:bg-signal-tint shrink-0">Restore</button>
                             <button onClick={() => handleDeleteVersion(v.version)}
-                              className="text-[12px] font-semibold text-miss border border-miss/20 rounded-lg px-2 py-1 hover:bg-miss-tint shrink-0">
-                              ✕
-                            </button>
+                              className="text-[12px] font-semibold text-miss border border-miss/20 rounded-lg px-2 py-1 hover:bg-miss-tint shrink-0">✕</button>
                           </div>
                         ))}
                       </div>
@@ -323,7 +439,6 @@ export default function AgentPage() {
               </div>
             )}
 
-            {/* SETTINGS */}
             {tab === "settings" && (
               <div className="max-w-[600px] flex flex-col gap-6">
                 <div>
@@ -380,7 +495,6 @@ export default function AgentPage() {
               </div>
             )}
 
-            {/* TESTS */}
             {tab === "tests" && (
               <div className="max-w-[560px] flex flex-col gap-5">
                 <div className="flex gap-1 border border-line rounded-xl p-1 bg-paper w-fit">
@@ -392,70 +506,151 @@ export default function AgentPage() {
                   ))}
                 </div>
 
-                {/* VOICE */}
                 {testTab === "voice" && (
-                  <div className="flex flex-col gap-5">
-                    <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-4">
-                      {/* Header */}
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-signal-tint flex items-center justify-center shrink-0">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-signal">
+                  <div className="flex flex-col gap-4">
+
+                    {(isLive || isConnecting || callStatus === "ending") && (
+                      <div className="border border-signal/30 rounded-2xl bg-white overflow-hidden">
+                        <div className="bg-signal px-5 py-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {isLive && (
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                                <span className="text-white text-[12.5px] font-semibold">LIVE</span>
+                              </span>
+                            )}
+                            {isConnecting && <span className="text-white text-[12.5px] font-semibold">Connecting…</span>}
+                            {callStatus === "ending" && <span className="text-white text-[12.5px] font-semibold">Ending…</span>}
+                          </div>
+                          {isLive && (
+                            <span className="text-white/80 text-[12px] font-mono">{fmtDuration(callDuration)}</span>
+                          )}
+                        </div>
+
+                        <div className="px-5 py-4 flex flex-col gap-3">
+                          {isConnecting && (
+                            <div className="flex items-center justify-center py-8">
+                              <div className="relative w-20 h-20">
+                                <div className="absolute inset-0 rounded-full bg-signal/10 animate-ping" />
+                                <div className="absolute inset-2 rounded-full bg-signal/20 animate-ping" style={{ animationDelay: "0.15s" }} />
+                                <div className="absolute inset-4 rounded-full bg-signal flex items-center justify-center">
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="0">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4" stroke="white" fill="none" strokeWidth="2" strokeLinecap="round"/>
+                                  </svg>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {isLive && (
+                            <div ref={transcriptRef} className="max-h-[220px] overflow-y-auto flex flex-col gap-2 pb-1">
+                              {transcript.length === 0 && (
+                                <div className="text-center text-[12.5px] text-ink-soft py-6 animate-pulse">
+                                  Speak — your agent is listening…
+                                </div>
+                              )}
+                              {transcript.map((t, i) => (
+                                <div key={i} className={`flex ${t.role === "agent" ? "justify-start" : "justify-end"}`}>
+                                  <div className={`max-w-[85%] rounded-xl px-3.5 py-2 text-[12.5px] leading-relaxed ${
+                                    t.role === "agent" ? "bg-signal-tint text-ink" : "bg-ink text-white"
+                                  }`}>
+                                    {t.role === "agent" && (
+                                      <div className="text-[10px] text-signal font-semibold uppercase tracking-wide mb-0.5">Agent</div>
+                                    )}
+                                    {t.text}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {isLive && (
+                            <div className="flex items-center gap-3 pt-2 border-t border-line">
+                              <button onClick={toggleMute}
+                                className={`flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-lg border ${isMuted ? "bg-miss-tint border-miss/30 text-miss" : "bg-paper border-line text-ink-soft hover:text-ink"}`}>
+                                {isMuted ? (
+                                  <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23M12 19v4"/></svg> Muted</>
+                                ) : (
+                                  <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg> Mute</>
+                                )}
+                              </button>
+                              <button onClick={stopVoiceCall}
+                                className="flex-1 bg-miss text-white rounded-lg py-2 text-[12.5px] font-semibold flex items-center justify-center gap-2">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                                End call
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {(callStatus === "idle" || callStatus === "error") && (
+                      <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-signal-tint flex items-center justify-center shrink-0">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-signal">
+                              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/>
+                            </svg>
+                          </div>
+                          <div>
+                            <div className="text-[14px] font-semibold">Test your agent — right here</div>
+                            <div className="text-[12.5px] text-ink-soft mt-0.5">Speak directly with your DBMCI voice agent in this browser. No Sarvam login needed. No redirects.</div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 bg-paper rounded-lg p-3.5">
+                          {[
+                            'Click "Start call" and allow microphone access when prompted',
+                            "Speak naturally — your DBMCI agent responds instantly in voice",
+                            "Live transcript appears during the call",
+                          ].map((step, i) => (
+                            <div key={i} className="flex items-start gap-2.5">
+                              <span className="w-5 h-5 rounded-full bg-signal text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                              <span className="text-[12.5px] text-ink leading-relaxed">{step}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {callStatus === "error" && callError && (
+                          <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">
+                            <div className="font-semibold mb-0.5">Could not connect</div>
+                            <div className="font-mono text-[11px] break-all">{callError}</div>
+                          </div>
+                        )}
+
+                        <button onClick={startVoiceCall}
+                          className="bg-signal text-white rounded-lg px-5 py-3 text-[13.5px] font-semibold flex items-center gap-2 w-fit">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/>
                           </svg>
+                          {callStatus === "error" ? "Try again" : "Start call"}
+                        </button>
+
+                        <div className="text-[11.5px] text-ink-soft border-t border-line pt-3">
+                          After testing, edit the script with AI or launch an outbound campaign.
                         </div>
-                        <div>
-                          <div className="text-[14px] font-semibold">Test your agent on Sarvam</div>
-                          <div className="text-[12.5px] text-ink-soft mt-0.5">Opens your DBMCI agent on Sarvam — click "Test agent" there to speak with it directly. No credits charged to RANA.</div>
-                        </div>
                       </div>
+                    )}
 
-                      {/* Steps */}
-                      <div className="flex flex-col gap-2 bg-paper rounded-lg p-3.5">
-                        {[
-                          "Click the button below — opens your DBMCI agent on Sarvam",
-                          "Click the \"Test agent\" button (top right of the Sarvam page)",
-                          "Speak — the agent responds instantly, no credits charged",
-                        ].map((step, i) => (
-                          <div key={i} className="flex items-start gap-2.5">
-                            <span className="w-5 h-5 rounded-full bg-signal text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                            <span className="text-[12.5px] text-ink leading-relaxed">{step}</span>
-                          </div>
-                        ))}
+                    {callStatus === "idle" && (
+                      <div className="flex gap-2 flex-wrap">
+                        <button onClick={() => setTab("instructions")}
+                          className="border border-line bg-white text-ink rounded-lg px-4 py-2 text-[12.5px] font-semibold hover:bg-paper">
+                          Edit script
+                        </button>
+                        <button onClick={() => { window.location.href = "/outbound/new"; }}
+                          className="bg-ink text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold">
+                          Launch campaign
+                        </button>
                       </div>
-
-                      {/* CTA */}
-                      <a
-                        href="https://indus.sarvam.ai/samvaad/build/update-agent/Conversatio-3b1430ca-82ed"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-signal text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold flex items-center gap-2 w-fit"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                        </svg>
-                        Open DBMCI Agent on Sarvam
-                      </a>
-
-                      <div className="text-[11.5px] text-ink-soft border-t border-line pt-3">
-                        💡 After testing, come back here to edit the script with AI or launch an outbound campaign.
-                      </div>
-                    </div>
-
-                    {/* Quick actions */}
-                    <div className="flex gap-2 flex-wrap">
-                      <button onClick={() => setTab("instructions")}
-                        className="border border-line bg-white text-ink rounded-lg px-4 py-2 text-[12.5px] font-semibold hover:bg-paper">
-                        ✏️ Edit script
-                      </button>
-                      <button onClick={() => { window.location.href = "/outbound/new"; }}
-                        className="bg-ink text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold">
-                        Launch campaign →
-                      </button>
-                    </div>
+                    )}
                   </div>
                 )}
 
-                {/* PHONE */}
                 {testTab === "phone" && (
                   <div className="flex flex-col gap-4">
                     <p className="text-[13px] text-ink-soft">Enter a number — Sarvam calls it using your DBMCI agent at full quality.</p>
@@ -501,7 +696,6 @@ export default function AgentPage() {
                   </div>
                 )}
 
-                {/* CHAT */}
                 {testTab === "chat" && (
                   <div className="flex flex-col gap-4">
                     <p className="text-[13px] text-ink-soft">Text-only test — same agent instructions, no audio.</p>
@@ -538,14 +732,13 @@ export default function AgentPage() {
             )}
           </div>
 
-          {/* AI COPILOT */}
           <div className="w-[340px] border-l border-line flex flex-col shrink-0">
             <div className="px-4 py-3.5 border-b border-line flex items-center gap-1.5">
               <span className="text-signal">✨</span>
               <span className="text-[14px] font-semibold">Edit with AI</span>
             </div>
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-              {editLog.length === 0 && <div className="text-[12.5px] text-ink-soft leading-relaxed">Describe a change — e.g. "mention we now offer EMI options" or "make the greeting shorter" — and I'll rewrite Greeting, Instructions, and Facts.</div>}
+              {editLog.length === 0 && <div className="text-[12.5px] text-ink-soft leading-relaxed">Describe a change and I will rewrite Greeting, Instructions, and Facts.</div>}
               {editLog.map((e, i) => (
                 <div key={i} className="flex flex-col gap-1.5">
                   <div className="bg-paper rounded-lg px-3 py-2 text-[12.5px] self-end max-w-[85%]">{e.request}</div>
