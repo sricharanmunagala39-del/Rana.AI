@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
+import VoicePickerModal, { PickerVoice } from "@/components/VoicePickerModal";
 import {
   AgentSettings,
   AgentStep,
@@ -85,11 +86,12 @@ export default function AgentPage() {
   const [editError,   setEditError]   = useState("");
 
   /* Cartesia catalog + publish */
-  const [cartesiaVoices, setCartesiaVoices] = useState<{ id: string; name: string; language: string | null; tagline?: string | null }[]>([]);
+  const [cartesiaVoices, setCartesiaVoices] = useState<PickerVoice[]>([]);
   const [cartesiaModels, setCartesiaModels] = useState<{ id: string; name: string; provider?: string | null }[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError,   setCatalogError]   = useState("");
   const [selectedModelId, setSelectedModelId] = useState("");
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
 
   const [publishStatus, setPublishStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [publishError,  setPublishError]  = useState("");
@@ -327,7 +329,7 @@ export default function AgentPage() {
     finally { setChatLoading(false); }
   }
 
-  /* ─────────── EMBEDDED VOICE CALL — real audio from your published Cartesia agent ───────────
+  /* ───────── EMBEDDED VOICE CALL — real audio from your published Cartesia agent ─────────
      Cartesia doesn't ship a browser SDK for this yet, so lib/cartesia-voice-client.ts
      hand-rolls the raw WebSocket protocol (mic capture, resampling, playback scheduling). */
   const startVoiceCall = useCallback(async () => {
@@ -406,7 +408,7 @@ export default function AgentPage() {
   const currentTier  = STRICTNESS_LABELS.find((t) => t.value === settings.strictness) ?? STRICTNESS_LABELS[2];
   const currentVoiceName = cartesiaVoices.find((v) => v.id === settings.speaker)?.name ?? (settings.speaker || "Not chosen yet");
 
-  /* ─────────── RENDER ─────────── */
+  /* ───────── RENDER ───────── */
   return (
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="agent" />
@@ -423,7 +425,7 @@ export default function AgentPage() {
           <div className="flex items-center gap-2">
             <button onClick={() => openTestModal("voice")}
               className="border border-line bg-white text-ink rounded-full px-3.5 py-2 text-[12.5px] font-semibold flex items-center gap-1.5 hover:bg-paper">
-              🎙 Talk
+              🎤 Talk
             </button>
             <button onClick={() => openTestModal("chat")}
               className="border border-line bg-white text-ink rounded-full px-3.5 py-2 text-[12.5px] font-semibold flex items-center gap-1.5 hover:bg-paper">
@@ -732,16 +734,26 @@ export default function AgentPage() {
                   {catalogError && (
                     <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2 mb-2">{catalogError}</div>
                   )}
-                  <select value={settings.speaker} onChange={(e) => setSettings((s) => ({ ...s, speaker: e.target.value }))}
-                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal">
-                    <option value="">{catalogLoading ? "Loading voices…" : "Choose a voice…"}</option>
-                    {cartesiaVoices.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}{v.language ? ` — ${v.language}` : ""}{v.tagline ? ` (${v.tagline})` : ""}
-                      </option>
-                    ))}
-                  </select>
+                  <button type="button" onClick={() => setVoiceModalOpen(true)} disabled={catalogLoading}
+                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal flex items-center justify-between disabled:opacity-60">
+                    <span className="truncate text-left">
+                      {catalogLoading
+                        ? "Loading voices…"
+                        : cartesiaVoices.find((v) => v.id === settings.speaker)
+                        ? cartesiaVoices.find((v) => v.id === settings.speaker)!.name
+                        : "Choose a voice…"}
+                    </span>
+                    <span className="text-[12px] font-semibold text-signal shrink-0 ml-3">Browse</span>
+                  </button>
                   <div className="text-[11px] text-ink-soft mt-1">Loaded live from your Cartesia account.</div>
+                  {voiceModalOpen && (
+                    <VoicePickerModal
+                      voices={cartesiaVoices}
+                      currentId={settings.speaker}
+                      onSelect={(v) => { setSettings((s) => ({ ...s, speaker: v.id })); setVoiceModalOpen(false); }}
+                      onClose={() => setVoiceModalOpen(false)}
+                    />
+                  )}
                 </div>
 
                 <div>
@@ -856,7 +868,7 @@ export default function AgentPage() {
               {(["voice", "phone", "chat"] as const).map((t) => (
                 <button key={t} onClick={() => setTestTab(t)}
                   className={`px-4 py-1.5 rounded-lg text-[13px] font-semibold ${testTab === t ? "bg-white shadow-sm text-ink" : "text-ink-soft hover:text-ink"}`}>
-                  {t === "voice" ? "🎙 Voice" : t === "phone" ? "📞 Phone" : "💬 Chat"}
+                  {t === "voice" ? "🎤 Voice" : t === "phone" ? "📞 Phone" : "💬 Chat"}
                 </button>
               ))}
             </div>
