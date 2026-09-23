@@ -11,8 +11,12 @@ export async function GET() {
       voices: (voices || []).map((v: any) => ({
         id: v.id,
         name: v.name ?? v.id,
-        language: v.language ?? null,
         tagline: v.tagline ?? null,
+        description: v.description ?? null,
+        language: v.language ?? null,
+        gender: v.gender ?? null,
+        country: v.country ?? null,
+        previewUrl: v.preview_file_url ?? null,
       })),
       models: (models || []).map((m: any) => ({
         id: m.id,
