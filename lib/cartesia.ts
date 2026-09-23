@@ -3,15 +3,22 @@
  * Thin server-side wrapper around Cartesia's Managed Agents API.
  * Docs: https://docs.cartesia.ai/agents/introduction
  *
- * Schema confirmed against the live OpenAPI spec (Cartesia-Version 2026-08-14) for
- * Create Agent, Create Webhook, and List Models/Voices. Two things are NOT independently
- * confirmed against a real response yet:
- *   1. Exactly where `webhook_id` lives on the Update Agent PATCH body — the docs only say
- *      it's "set with Update Agent" without showing that endpoint's exact schema. Sent here
- *      as a top-level field alongside `config`; if this 400s, check the Update Agent docs
- *      page directly for the real field location.
- *   2. The exact shape of `call.transcript` entries inside a delivered webhook payload —
- *      see the note in lib/calls.ts's payloadToCallFromCartesia().
+ * Schema confirmed against the live OpenAPI spec for Cartesia-Version 2026-08-14 (our
+ * pinned version) for Create Agent, Update Agent, and List Models/Voices.
+ *
+ * CONFIRMED: agent-level webhooks are NOT part of this API version. Create/Update Agent
+ * have no `webhook_id` field on 2026-08-14 — verified against the full live schema, not
+ * just by trial — and the Webhooks endpoints (POST/PATCH /agents/webhooks) only appear
+ * in the older 2026-03-01 docs, not 2026-08-14's. createCartesiaWebhook()/
+ * attachWebhookToAgent() below are kept only in case a future Cartesia-Version restores
+ * this; nothing currently calls them. Call-outcome ingestion for Cartesia calls needs to
+ * poll GET /v1/agents/calls (and GET /v1/agents/calls/{id} for a transcript) instead —
+ * not built yet.
+ *
+ * Still NOT independently confirmed against a real response: the exact shape of
+ * `call.transcript` entries once that polling path is built — see the note in
+ * lib/calls.ts's payloadToCallFromCartesia() (written for a webhook payload shape that
+ * may not apply once we switch to polling).
  *
  * Phone numbers (confirmed against docs): Cartesia-provisioned numbers are US-only —
  * both the number itself and outbound calling from it are limited to US destinations,
@@ -96,7 +103,9 @@ export async function updateCartesiaAgent(agentId: string, cfg: CartesiaAgentInp
   });
 }
 
-/** See the module-level note above — webhook_id's exact location on this PATCH is unverified. */
+/** Unused — see the module-level note above. Kept only in case a future Cartesia-Version
+ *  restores agent-level webhooks; this always 400s on 2026-08-14 ("Unrecognized key:
+ *  webhook_id"). */
 export async function attachWebhookToAgent(agentId: string, webhookId: string): Promise<void> {
   await cartesiaFetch(`/v1/agents/${agentId}`, {
     method: "PATCH",
