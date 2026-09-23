@@ -1,39 +1,24 @@
-/**
- * Base route — redirects to catch-all [...path]/route.ts
- * This handles /api/sarvam-session (no trailing path)
- */
+/** Base proxy route (no sub-path). Requires a logged-in session. Key stays server-side. */
 export const runtime = "nodejs";
+import { parseSession, unauthorized } from "@/lib/auth";
 
 async function proxy(req: Request, method: string) {
+  if (!parseSession(req)) return unauthorized();
   const apiKey = process.env.SARVAM_API_KEY;
-  if (!apiKey) {
-    return Response.json({ error: "SARVAM_API_KEY not set" }, { status: 500 });
-  }
+  if (!apiKey) return Response.json({ error: "Voice engine key not set" }, { status: 500 });
 
   const incomingUrl = new URL(req.url);
   const path = incomingUrl.pathname.replace(/^\/api\/sarvam-session/, "") || "/";
-  const sarvamUrl = `https://apps.sarvam.ai${path}${incomingUrl.search}`;
-
+  const target = `https://apps.sarvam.ai${path}${incomingUrl.search}`;
   const body = method !== "GET" ? await req.text().catch(() => undefined) : undefined;
 
-  const forwarded = await fetch(sarvamUrl, {
+  const forwarded = await fetch(target, {
     method,
-    headers: {
-      ...(req.headers.get("Content-Type")
-        ? { "Content-Type": req.headers.get("Content-Type")! }
-        : {}),
-      "X-API-Key": apiKey,
-    },
-    body,
+    headers: { "Content-Type": req.headers.get("Content-Type") || "application/json", "X-API-Key": apiKey },
+    ...(body ? { body } : {}),
   });
-
   const text = await forwarded.text();
-  return new Response(text, {
-    status: forwarded.status,
-    headers: {
-      "Content-Type": forwarded.headers.get("Content-Type") || "application/json",
-    },
-  });
+  return new Response(text, { status: forwarded.status, headers: { "Content-Type": forwarded.headers.get("Content-Type") || "application/json" } });
 }
 
 export const GET  = (req: Request) => proxy(req, "GET");
