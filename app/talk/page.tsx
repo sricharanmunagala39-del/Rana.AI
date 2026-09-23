@@ -1,17 +1,23 @@
 // @ts-nocheck
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { DEFAULT_AGENT_SETTINGS, getAgentSettings, LANGUAGES } from "@/lib/storage";
 import { CartesiaVoiceCall } from "@/lib/cartesia-voice-client";
 
 type CallStatus = "idle" | "connecting" | "live" | "ending" | "error";
 
-export default function TalkPage() {
-  const [settings, setSettings] = useState(DEFAULT_AGENT_SETTINGS);
+function TalkInner() {
+  const params = useSearchParams();
+  const scriptId = params.get("scriptId");
+
+  const [agentName, setAgentName] = useState(DEFAULT_AGENT_SETTINGS.agentName);
+  const [language, setLanguage] = useState(DEFAULT_AGENT_SETTINGS.startingLanguage);
   const [publishInfo, setPublishInfo] = useState<{ agentId?: string; hasWebhook?: boolean } | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [callError, setCallError] = useState("");
@@ -23,16 +29,36 @@ export default function TalkPage() {
   const transcriptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setSettings(getAgentSettings());
-    (async () => {
-      try {
-        const res = await fetch("/api/admin/cartesia-agent");
-        const data = await res.json();
-        if (res.ok && data.agentId) setPublishInfo({ agentId: data.agentId, hasWebhook: data.hasWebhook });
-      } catch { /* stays "Not published" */ }
-      finally { setStatusLoading(false); }
-    })();
-  }, []);
+    setStatusLoading(true);
+    if (scriptId) {
+      // A specific named agent, created via "Create Your Own Agent".
+      (async () => {
+        try {
+          const res = await fetch(`/api/scripts/${scriptId}`);
+          const data = await res.json();
+          if (!res.ok) { setNotFound(true); return; }
+          const s = data.script;
+          setAgentName(s.name || "Agent");
+          setLanguage(s.starting_language || "en-IN");
+          if (s.cartesia_agent_id) setPublishInfo({ agentId: s.cartesia_agent_id, hasWebhook: true });
+        } catch { setNotFound(true); }
+        finally { setStatusLoading(false); }
+      })();
+    } else {
+      // Legacy single default agent.
+      const settings = getAgentSettings();
+      setAgentName(settings.agentName);
+      setLanguage(settings.startingLanguage);
+      (async () => {
+        try {
+          const res = await fetch("/api/admin/cartesia-agent");
+          const data = await res.json();
+          if (res.ok && data.agentId) setPublishInfo({ agentId: data.agentId, hasWebhook: data.hasWebhook });
+        } catch { /* stays "Not published" */ }
+        finally { setStatusLoading(false); }
+      })();
+    }
+  }, [scriptId]);
 
   useEffect(() => {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
@@ -112,8 +138,18 @@ export default function TalkPage() {
   const isLive = callStatus === "live";
   const isConnecting = callStatus === "connecting";
   const isIdleOrError = callStatus === "idle" || callStatus === "error";
-  const langLabel = LANGUAGES.find((l) => l.code === settings.startingLanguage)?.label ?? settings.startingLanguage;
+  const langLabel = LANGUAGES.find((l) => l.code === language)?.label ?? language;
   const isPublished = !!publishInfo?.agentId;
+  const profileHref = scriptId ? `/agents/new?id=${scriptId}` : "/agent";
+
+  if (notFound) {
+    return (
+      <div className="flex min-h-screen bg-paper">
+        <Sidebar active="talk" />
+        <div className="flex-1 flex items-center justify-center text-[13px] text-ink-soft">Couldn't find that agent.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-paper">
@@ -123,9 +159,9 @@ export default function TalkPage() {
           <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Who</span>
           <div className="flex items-center gap-2 border border-line rounded-full pl-1 pr-3 py-1 bg-white">
             <div className="w-6 h-6 rounded-full bg-signal-tint flex items-center justify-center text-signal font-display font-bold text-[11px]">
-              {settings.agentName.charAt(0)}
+              {agentName.charAt(0)}
             </div>
-            <span className="text-[12.5px] font-semibold">{settings.agentName}</span>
+            <span className="text-[12.5px] font-semibold">{agentName}</span>
             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${isPublished ? "bg-signal-tint text-signal" : "bg-paper text-ink-soft border border-line"}`}>
               {statusLoading ? "…" : isPublished ? "LIVE" : "NOT HIRED"}
             </span>
@@ -142,13 +178,13 @@ export default function TalkPage() {
                 <div className="absolute inset-3 rounded-full border-2 border-white/15" />
                 <div className="absolute inset-0 rounded-full flex items-center justify-center">
                   <div className="w-[74px] h-[74px] rounded-full bg-gradient-to-br from-signal to-purple-500 flex items-center justify-center text-2xl font-display font-bold">
-                    {settings.agentName.charAt(0)}
+                    {agentName.charAt(0)}
                   </div>
                 </div>
               </div>
 
               <div className="text-[11px] font-semibold tracking-[0.2em] text-white/40 mb-2">RANA AI</div>
-              <div className="text-[26px] font-display font-semibold">Talk to {settings.agentName}</div>
+              <div className="text-[26px] font-display font-semibold">Talk to {agentName}</div>
               <div className="text-[13.5px] text-white/60 mt-2 max-w-[420px] leading-relaxed">
                 A real call on your Cartesia agent — same script, same voice as a real one, right in your browser.
               </div>
@@ -183,7 +219,7 @@ export default function TalkPage() {
 
                   <div ref={transcriptRef} className="w-full max-w-[440px] max-h-[180px] overflow-y-auto flex flex-col gap-2 text-left px-1">
                     {transcript.length === 0 && (
-                      <div className="text-center text-[12.5px] text-white/40 py-4 animate-pulse">Speak — {settings.agentName} is listening…</div>
+                      <div className="text-center text-[12.5px] text-white/40 py-4 animate-pulse">Speak — {agentName} is listening…</div>
                     )}
                     {transcript.map((t, i) => (
                       <div key={i} className={`flex ${t.role === "agent" ? "justify-start" : "justify-end"}`}>
@@ -214,13 +250,21 @@ export default function TalkPage() {
                 </span>
               </div>
 
-              <a href="/agent" className="mt-6 text-[12.5px] font-semibold text-white/60 hover:text-white flex items-center gap-1">
-                Open {settings.agentName}'s page →
+              <a href={profileHref} className="mt-6 text-[12.5px] font-semibold text-white/60 hover:text-white flex items-center gap-1">
+                Open {agentName}'s page →
               </a>
             </div>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TalkPage() {
+  return (
+    <Suspense fallback={null}>
+      <TalkInner />
+    </Suspense>
   );
 }
