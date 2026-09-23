@@ -35,14 +35,6 @@ const BACKGROUND_OPTIONS: { id: BackgroundSound; label: string }[] = [
   { id: "callcenter", label: "Call centre" },
   { id: "traffic", label: "City traffic" },
 ];
-const VOICES = [
-  { id: "shubh",  label: "Shubh — confident & bold (M)" },
-  { id: "anand",  label: "Anand — warm & reassuring (M)" },
-  { id: "aditya", label: "Aditya — modern & crisp (M)" },
-  { id: "ishita", label: "Ishita — polished & articulate (F)" },
-  { id: "priya",  label: "Priya — cheerful & engaging (F)" },
-  { id: "ritu",   label: "Ritu — expressive & lively (F)" },
-];
 
 /** Mirrors the live classifyLead() logic in lib/calls.ts — kept in sync by hand, not fetched. */
 const OUTCOMES: { key: string; label: string; description: string; tone: string }[] = [
@@ -73,7 +65,7 @@ type CallStatus = "idle" | "requesting" | "connecting" | "live" | "ending" | "er
 
 export default function AgentPage() {
   const [settings, setSettings] = useState<AgentSettings & { speaker: string }>({
-    ...DEFAULT_AGENT_SETTINGS, speaker: "shubh",
+    ...DEFAULT_AGENT_SETTINGS, speaker: "",
   });
   const [tab,   setTab]   = useState<Tab>("overview");
   const [saved, setSaved] = useState(false);
@@ -90,6 +82,17 @@ export default function AgentPage() {
   const [editLog,     setEditLog]     = useState<{ request: string; summary: string; time: string }[]>([]);
   const [editLoading, setEditLoading] = useState(false);
   const [editError,   setEditError]   = useState("");
+
+  /* Cartesia catalog + publish */
+  const [cartesiaVoices, setCartesiaVoices] = useState<{ id: string; name: string; language: string | null; tagline?: string | null }[]>([]);
+  const [cartesiaModels, setCartesiaModels] = useState<{ id: string; name: string; provider?: string | null }[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError,   setCatalogError]   = useState("");
+  const [selectedModelId, setSelectedModelId] = useState("");
+
+  const [publishStatus, setPublishStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [publishError,  setPublishError]  = useState("");
+  const [publishInfo,   setPublishInfo]   = useState<{ agentId?: string; webhookId?: string; voiceId?: string; modelId?: string; hasWebhook?: boolean } | null>(null);
 
   /* test modal */
   const [testModalOpen, setTestModalOpen] = useState(false);
@@ -121,6 +124,8 @@ export default function AgentPage() {
   useEffect(() => {
     setSettings((s) => ({ ...s, ...getAgentSettings() }));
     setVersions(getScriptVersions());
+    loadCartesiaCatalog();
+    loadPublishStatus();
   }, []);
 
   useEffect(() => {
@@ -129,6 +134,53 @@ export default function AgentPage() {
 
   function persist(next: AgentSettings & { speaker: string }) { setSettings(next); saveAgentSettings(next); }
   function handleSave() { saveAgentSettings(settings); setSaved(true); setTimeout(() => setSaved(false), 2200); }
+
+  async function loadCartesiaCatalog() {
+    setCatalogLoading(true); setCatalogError("");
+    try {
+      const res = await fetch("/api/admin/cartesia-catalog");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load voices/models.");
+      setCartesiaVoices(data.voices || []);
+      setCartesiaModels(data.models || []);
+    } catch (err: any) {
+      setCatalogError(err?.message || "Something went wrong.");
+    } finally { setCatalogLoading(false); }
+  }
+
+  async function loadPublishStatus() {
+    try {
+      const res = await fetch("/api/admin/cartesia-agent");
+      const data = await res.json();
+      if (res.ok && data.agentId) setPublishInfo({ agentId: data.agentId, hasWebhook: data.hasWebhook });
+    } catch { /* ignore — Overview just shows "Not published yet" */ }
+  }
+
+  async function handlePublish() {
+    setPublishStatus("loading"); setPublishError("");
+    try {
+      const res = await fetch("/api/admin/cartesia-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: settings.agentName,
+          greeting: settings.greeting,
+          instructions: settings.instructions,
+          startingLanguage: settings.startingLanguage,
+          speechRate: settings.speechRate,
+          voiceId: settings.speaker || undefined,
+          modelId: selectedModelId || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Publish failed.");
+      setPublishInfo({ agentId: data.agentId, webhookId: data.webhookId, voiceId: data.voiceId, modelId: data.modelId, hasWebhook: true });
+      setPublishStatus("done");
+    } catch (err: any) {
+      setPublishError(err?.message || "Something went wrong.");
+      setPublishStatus("error");
+    }
+  }
 
   function handleSaveVersion() {
     setSavingVer(true);
@@ -274,7 +326,7 @@ export default function AgentPage() {
     finally { setChatLoading(false); }
   }
 
-  /* ─────────── EMBEDDED VOICE CALL ─────────── */
+  /* ─────────── EMBEDDED VOICE CALL (still Sarvam — Cartesia's browser test call is next) ─────────── */
   const startVoiceCall = useCallback(async () => {
     if (callStatus !== "idle" && callStatus !== "error") return;
     setCallError("");
@@ -297,8 +349,6 @@ export default function AgentPage() {
 
       const audioInterface = new BrowserAudioInterface();
 
-      // The engine key never reaches the browser. The SDK's signed-URL request goes to our
-      // own /api/sarvam-session proxy, which injects the key server-side.
       const agent = new ConversationAgent({
         apiKey: "rana-proxy",
         baseUrl: `${window.location.origin}${baseUrl}`,
@@ -315,7 +365,6 @@ export default function AgentPage() {
         },
         audioInterface,
 
-        // ServerTranscriptMsg is { role: "user" | "bot", content: string }.
         transcriptCallback: async (msg: any) => {
           if (msg?.content) {
             const role = msg.role === "bot" ? "agent" : "user";
@@ -387,6 +436,7 @@ export default function AgentPage() {
   const isLive       = callStatus === "live";
   const isConnecting = callStatus === "connecting" || callStatus === "requesting";
   const currentTier  = STRICTNESS_LABELS.find((t) => t.value === settings.strictness) ?? STRICTNESS_LABELS[2];
+  const currentVoiceName = cartesiaVoices.find((v) => v.id === settings.speaker)?.name ?? (settings.speaker || "Not chosen yet");
 
   /* ─────────── RENDER ─────────── */
   return (
@@ -398,7 +448,9 @@ export default function AgentPage() {
             <div className="w-8 h-8 rounded-full bg-signal-tint flex items-center justify-center text-signal font-display font-bold text-sm">{settings.agentName.charAt(0)}</div>
             <span className="font-semibold text-[15px]">{settings.agentName} — DBMCI Voice Agent</span>
             <span className="text-ink-soft text-sm">/</span>
-            <span className="text-ink-soft text-sm">Draft</span>
+            <span className={`text-sm ${publishInfo?.agentId ? "text-signal font-semibold" : "text-ink-soft"}`}>
+              {publishInfo?.agentId ? "Live on Cartesia" : "Draft"}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => openTestModal("voice")}
@@ -436,15 +488,45 @@ export default function AgentPage() {
                     <div className="text-[20px] font-display font-semibold">{settings.agentName}</div>
                     <div className="text-[13.5px] text-ink-soft mt-0.5">NEET PG / INICET / FMGE admissions counsellor · DBMCI</div>
                     <div className="flex items-center gap-2 mt-3 flex-wrap">
-                      <span className="text-[11.5px] font-semibold px-2.5 py-1 rounded-full bg-paper border border-line text-ink-soft">Draft</span>
+                      <span className={`text-[11.5px] font-semibold px-2.5 py-1 rounded-full border ${publishInfo?.agentId ? "bg-signal-tint border-signal/30 text-signal" : "bg-paper border-line text-ink-soft"}`}>
+                        {publishInfo?.agentId ? "Live on Cartesia" : "Draft"}
+                      </span>
                       <span className="text-[11.5px] font-semibold px-2.5 py-1 rounded-full bg-paper border border-line text-ink-soft">
                         {LANGUAGES.find((l) => l.code === settings.startingLanguage)?.label ?? "English"} first
                       </span>
                       <span className="text-[11.5px] font-semibold px-2.5 py-1 rounded-full bg-paper border border-line text-ink-soft">
-                        {VOICES.find((v) => v.id === settings.speaker)?.label.split(" —")[0] ?? settings.speaker}
+                        {currentVoiceName}
                       </span>
                     </div>
                   </div>
+                </div>
+
+                <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="text-[14px] font-semibold">Publish to Cartesia</div>
+                      <div className="text-[12.5px] text-ink-soft mt-0.5">
+                        {publishInfo?.agentId
+                          ? `Live — agent ${publishInfo.agentId}${publishInfo.hasWebhook ? " · webhook connected" : ""}`
+                          : "Not published yet. This sends your greeting, call script, voice and language to Cartesia."}
+                      </div>
+                    </div>
+                    <button onClick={handlePublish} disabled={publishStatus === "loading"}
+                      className="bg-signal text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-50 shrink-0">
+                      {publishStatus === "loading" ? "Publishing…" : publishInfo?.agentId ? "Update" : "Publish"}
+                    </button>
+                  </div>
+                  {publishStatus === "error" && publishError && (
+                    <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">
+                      <div className="font-semibold mb-0.5">Publish failed</div>
+                      <div className="font-mono text-[11px] break-all">{publishError}</div>
+                    </div>
+                  )}
+                  {publishStatus === "done" && (
+                    <div className="text-[12.5px] text-signal bg-signal-tint border border-signal/20 rounded-lg px-3 py-2.5">
+                      Published. Voice: {publishInfo?.voiceId ?? "—"} · Model: {publishInfo?.modelId ?? "—"}
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
@@ -673,19 +755,48 @@ export default function AgentPage() {
             {tab === "voice" && (
               <div className="max-w-[600px] flex flex-col gap-6">
                 <div>
-                  <label className="text-[13px] font-semibold block mb-1.5">Voice</label>
-                  <select value={settings.speaker} onChange={(e) => setSettings((s) => ({ ...s, speaker: e.target.value }))} className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal">
-                    {VOICES.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[13px] font-semibold block">Voice</label>
+                    <button onClick={loadCartesiaCatalog} disabled={catalogLoading} className="text-[11.5px] font-semibold text-signal disabled:opacity-40">
+                      {catalogLoading ? "Loading…" : "↻ Refresh"}
+                    </button>
+                  </div>
+                  {catalogError && (
+                    <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2 mb-2">{catalogError}</div>
+                  )}
+                  <select value={settings.speaker} onChange={(e) => setSettings((s) => ({ ...s, speaker: e.target.value }))}
+                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal">
+                    <option value="">{catalogLoading ? "Loading voices…" : "Choose a voice…"}</option>
+                    {cartesiaVoices.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}{v.language ? ` — ${v.language}` : ""}{v.tagline ? ` (${v.tagline})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="text-[11px] text-ink-soft mt-1">Loaded live from your Cartesia account.</div>
+                </div>
+
+                <div>
+                  <label className="text-[13px] font-semibold block mb-1.5">Model — the agent's brain</label>
+                  <select value={selectedModelId} onChange={(e) => setSelectedModelId(e.target.value)}
+                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal">
+                    <option value="">Let Cartesia pick (defaults to a Claude model)</option>
+                    {cartesiaModels.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}{m.provider ? ` — ${m.provider}` : ""}</option>
+                    ))}
                   </select>
                 </div>
+
                 <div className="grid grid-cols-2 gap-5">
                   <div>
                     <label className="text-[13px] font-semibold block mb-1.5">Pace <span className="font-normal text-ink-soft">{settings.speechRate.toFixed(1)}x</span></label>
-                    <input type="range" min={0.5} max={2.0} step={0.1} value={settings.speechRate} onChange={(e) => setSettings((s) => ({ ...s, speechRate: parseFloat(e.target.value) }))} className="w-full accent-signal" />
+                    <input type="range" min={0.6} max={1.5} step={0.1} value={settings.speechRate} onChange={(e) => setSettings((s) => ({ ...s, speechRate: parseFloat(e.target.value) }))} className="w-full accent-signal" />
+                    <div className="text-[11px] text-ink-soft mt-1">Cartesia allows 0.6x–1.5x.</div>
                   </div>
                   <div>
                     <label className="text-[13px] font-semibold block mb-1.5">Pitch <span className="font-normal text-ink-soft">{settings.speechPitch.toFixed(1)}</span></label>
                     <input type="range" min={0.5} max={1.8} step={0.1} value={settings.speechPitch} onChange={(e) => setSettings((s) => ({ ...s, speechPitch: parseFloat(e.target.value) }))} className="w-full accent-signal" />
+                    <div className="text-[11px] text-ink-soft mt-1">Preview only — Cartesia doesn't take a pitch knob.</div>
                   </div>
                 </div>
                 <div>
@@ -694,15 +805,6 @@ export default function AgentPage() {
                     {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
                   </select>
                 </div>
-                <div className="flex items-center gap-3 pt-2 border-t border-line">
-                  <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">Save changes</button>
-                  {saved && <span className="text-[13px] text-signal font-medium mt-4">Saved ✓</span>}
-                </div>
-              </div>
-            )}
-
-            {tab === "settings" && (
-              <div className="max-w-[600px] flex flex-col gap-6">
                 <div>
                   <label className="text-[13px] font-semibold block mb-1.5">Background sound</label>
                   <div className="flex gap-2 flex-wrap">
@@ -713,7 +815,17 @@ export default function AgentPage() {
                       </button>
                     ))}
                   </div>
+                  <div className="text-[11px] text-ink-soft mt-1">Preview only — not yet sent to Cartesia.</div>
                 </div>
+                <div className="flex items-center gap-3 pt-2 border-t border-line">
+                  <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">Save changes</button>
+                  {saved && <span className="text-[13px] text-signal font-medium mt-4">Saved ✓</span>}
+                </div>
+              </div>
+            )}
+
+            {tab === "settings" && (
+              <div className="max-w-[600px] flex flex-col gap-6">
                 <div>
                   <label className="text-[13px] font-semibold block mb-1.5">Pronunciation overrides</label>
                   <div className="flex flex-col gap-2">
@@ -727,6 +839,7 @@ export default function AgentPage() {
                     ))}
                     <button onClick={addPron} className="text-[12.5px] font-semibold text-signal text-left mt-1">+ Add a word</button>
                   </div>
+                  <div className="text-[11px] text-ink-soft mt-1">Preview only — not yet sent to Cartesia (Cartesia's pronunciation dictionaries are a separate, later step).</div>
                 </div>
                 <div className="flex items-center gap-3 pt-2 border-t border-line">
                   <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">Save changes</button>
@@ -782,6 +895,9 @@ export default function AgentPage() {
 
             {testTab === "voice" && (
               <div className="flex flex-col gap-4">
+                <div className="text-[11.5px] text-ink-soft bg-paper border border-line rounded-lg px-3 py-2">
+                  This still talks to your old Sarvam agent — Cartesia's own browser test call is the next thing we wire up.
+                </div>
 
                 {(isLive || isConnecting || callStatus === "ending") && (
                   <div className="border border-signal/30 rounded-2xl bg-white overflow-hidden">
