@@ -8,6 +8,36 @@
 export const runtime = "nodejs";
 import { getClientByWebhookSecret, getClientByAppId, upsertCall, payloadToCall } from "@/lib/calls";
 
+/**
+ * Best-effort fetch of the call recording from Sarvam's analytics API.
+ * GET /api/analytics/v1/{org}/{workspace}/{app}/recordings/{interaction_id}
+ * The response shape isn't pinned down in Sarvam's docs, so we try the common key names.
+ * Never throws — a missing or not-yet-processed recording should never break webhook ingestion.
+ */
+async function fetchRecordingUrl(appId: string, interactionId: string): Promise<string | null> {
+  const orgId = process.env.SARVAM_ORG_ID;
+  const workspaceId = process.env.SARVAM_WORKSPACE_ID;
+  const apiKey = process.env.SARVAM_API_KEY;
+  if (!orgId || !workspaceId || !apiKey) return null;
+
+  try {
+    const res = await fetch(
+      `https://apps.sarvam.ai/api/analytics/v1/${orgId}/${workspaceId}/${appId}/recordings/${interactionId}`,
+      { headers: { "X-API-Key": apiKey } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null);
+    if (!data || typeof data !== "object") return null;
+    const url =
+      data.recording_url ?? data.url ?? data.audio_url ?? data.recordingUrl ??
+      data.signed_url ?? data.download_url ?? null;
+    return typeof url === "string" && url ? url : null;
+  } catch (err) {
+    console.error("[webhook] recording fetch failed", (err as any)?.message);
+    return null;
+  }
+}
+
 export async function POST(req: Request) {
   let payload: any;
   try { payload = await req.json(); } catch { return Response.json({ error: "Invalid JSON" }, { status: 400 }); }
@@ -20,6 +50,14 @@ export async function POST(req: Request) {
   try {
     const row = payloadToCall(payload, client.id);
     if (!row.interaction_id) row.interaction_id = `manual-${client.id.slice(0, 8)}-${Date.now()}`;
+
+    // Recordings only ever exist for calls that actually connected — skip the extra
+    // network round-trip otherwise.
+    const appId = payload?.app_id ?? client.sarvam_app_id;
+    if (appId && row.interaction_id && (row.duration_seconds ?? 0) > 0) {
+      row.recording_url = await fetchRecordingUrl(appId, row.interaction_id);
+    }
+
     const saved = await upsertCall(row);
     return Response.json({ ok: true, id: saved.id, lead_status: saved.lead_status });
   } catch (err: any) {
