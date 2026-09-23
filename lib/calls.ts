@@ -60,8 +60,12 @@ export async function getClientByAppId(appId: string): Promise<Client | null> {
   const r = await sb(`/clients?sarvam_app_id=eq.${encodeURIComponent(appId)}&limit=1`);
   return r?.[0] ?? null;
 }
+export async function getClientByCartesiaWebhookSecret(secret: string): Promise<Client | null> {
+  const r = await sb(`/clients?cartesia_webhook_secret=eq.${encodeURIComponent(secret)}&limit=1`);
+  return r?.[0] ?? null;
+}
 
-/** Insert or update by interaction_id (idempotent — Sarvam may retry webhooks). */
+/** Insert or update by interaction_id (idempotent — Sarvam/Cartesia may retry webhooks). */
 export async function upsertCall(row: Partial<CallRow>): Promise<CallRow> {
   const r = await sb(`/calls?on_conflict=interaction_id`, {
     method: "POST",
@@ -173,5 +177,63 @@ export function payloadToCall(p: any, clientId: string): Partial<CallRow> {
     raw_payload: p,
     started_at: p.start_datetime ?? p.executed_at ?? null,
     ended_at: p.end_datetime ?? null,
+  } as Partial<CallRow>;
+}
+
+/**
+ * Turn a Cartesia call_completed / call_failed webhook event into a CallRow.
+ *
+ * Confirmed from Cartesia's docs: top-level `type`, `call_id`, `agent_id`, `webhook_id`,
+ * `timestamp`, and a nested `call` object with `id`, `agent_id`, `agent_name`, `status`,
+ * `end_reason`, `transcript`. NOT independently confirmed: the exact shape of each
+ * `call.transcript` entry (guessed here as `{ role, text }`, mirroring the WebSocket
+ * `turn_ended` event shape), and whether duration/phone-number fields are on `call` at all —
+ * this raw payload is always kept in `raw_payload` regardless, so nothing is lost if these
+ * guesses are wrong. Tighten this against a real delivery once one arrives.
+ */
+export function normaliseCartesiaTranscript(t: unknown): TranscriptTurn[] {
+  if (!Array.isArray(t)) return [];
+  return t
+    .map((turn: any) => ({
+      role: turn?.role === "assistant" ? "agent" : "user",
+      text: String(turn?.text ?? turn?.content ?? ""),
+      indic_text: null,
+    }))
+    .filter((x) => x.text.trim().length > 0) as TranscriptTurn[];
+}
+
+export function payloadToCallFromCartesia(p: any, clientId: string): Partial<CallRow> {
+  const call = p?.call ?? p;
+  const transcript = normaliseCartesiaTranscript(call?.transcript ?? p?.transcript);
+  const duration = Number(call?.duration_seconds ?? call?.duration ?? 0) || 0;
+  const endReason: string | null = call?.end_reason ?? p?.end_reason ?? null;
+  const connectivity: string | null =
+    endReason === "no_answer" || endReason === "busy" || endReason === "failed" ? endReason : (call?.status ?? null);
+
+  const firstUser = transcript.find((t) => t.role === "user")?.text ?? null;
+
+  return {
+    client_id: clientId,
+    interaction_id: call?.id ?? p?.call_id ?? null,
+    direction: call?.direction === "outbound" ? "outbound" : "inbound",
+    source: "deployment",
+    campaign_id: null,
+    deployment_id: null,
+    engine_app_id: call?.agent_id ?? p?.agent_id ?? null,
+    caller_phone: call?.from ?? call?.caller_phone_number ?? null,
+    agent_phone: call?.to ?? call?.agent_phone_number ?? null,
+    caller_name: null,
+    duration_seconds: duration,
+    connectivity_status: connectivity,
+    completion_status: call?.status ?? null,
+    failure_reason: endReason,
+    lead_status: classifyLead({}, connectivity, duration),
+    summary: firstUser ? firstUser.slice(0, 160) : null,
+    transcript,
+    agent_variables: {},
+    recording_url: null,
+    raw_payload: p,
+    started_at: null,
+    ended_at: null,
   } as Partial<CallRow>;
 }
