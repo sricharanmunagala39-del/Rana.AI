@@ -1,0 +1,35 @@
+// @ts-nocheck
+export const runtime = "nodejs";
+import { getScriptById, getClientById, setActiveScript } from "@/lib/supabase";
+import { parseSession } from "../../auth/me/route";
+export async function POST(req: Request) {
+  const session = parseSession(req);
+  if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
+  try {
+    const { scriptId } = await req.json();
+    if (!scriptId) return Response.json({ error: "scriptId required" }, { status: 400 });
+    const script = await getScriptById(scriptId);
+    if (!script || script.client_id !== session.clientId) return Response.json({ error: "Script not found" }, { status: 404 });
+    const client = await getClientById(session.clientId);
+    if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
+    const sarvamApiKey = process.env.SARVAM_API_KEY;
+    const appId = client.sarvam_app_id;
+    if (!sarvamApiKey || !appId) {
+      await setActiveScript(session.clientId, scriptId);
+      return Response.json({ ok: true, warning: "Script marked active in RANA but Sarvam agent not configured." });
+    }
+    const factsText = script.facts.length > 0 ? "\n\nKey Facts:\n" + script.facts.map((f: string) => `- ${f}`).join("\n") : "";
+    const sarvamRes = await fetch(`https://indus.sarvam.ai/samvaad/build/update-agent/${appId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "api-subscription-key": sarvamApiKey },
+      body: JSON.stringify({ greeting: script.greeting, system_prompt: script.instructions + factsText, voice: script.speaker, language: script.starting_language }),
+    });
+    await setActiveScript(session.clientId, scriptId);
+    if (!sarvamRes.ok) {
+      return Response.json({ ok: true, warning: `Script marked active. Sarvam returned ${sarvamRes.status}.` });
+    }
+    return Response.json({ ok: true, message: "Script published and live on your voice agent." });
+  } catch (err: any) {
+    return Response.json({ error: err.message }, { status: 500 });
+  }
+}
