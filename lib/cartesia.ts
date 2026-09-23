@@ -12,6 +12,11 @@
  *      page directly for the real field location.
  *   2. The exact shape of `call.transcript` entries inside a delivered webhook payload —
  *      see the note in lib/calls.ts's payloadToCallFromCartesia().
+ *
+ * Phone numbers (confirmed against docs): Cartesia-provisioned numbers are US-only —
+ * both the number itself and outbound calling from it are limited to US destinations,
+ * regardless of the agent's deployment region. For India, the only path is importing a
+ * Twilio number (docs.cartesia.ai/line/integrations/telephony) — not built here yet.
  */
 
 const CARTESIA_BASE = "https://api.cartesia.ai";
@@ -121,4 +126,29 @@ export async function listCartesiaVoices(): Promise<any[]> {
 /** Maps RANA's startingLanguage (BCP-47, e.g. "te-IN") to Cartesia's ISO 639-1 primary language code. */
 export function toCartesiaLanguage(bcp47: string): string {
   return (bcp47 || "en-IN").split("-")[0].toLowerCase();
+}
+
+/* ── Phone numbers ──
+   GET /agents/phone-numbers — every number on this account (Cartesia-managed + imported Twilio).
+   POST /agents/phone-numbers/provision — buys a new Cartesia number. US ONLY: both the number
+   and outbound calling from it are limited to US destinations. Confirmed against docs.cartesia.ai/
+   line/integrations/telephony/cartesia-numbers. For India, Twilio import is the only route and
+   isn't built yet.
+*/
+
+export async function listCartesiaPhoneNumbers(): Promise<any[]> {
+  const data = await cartesiaFetch("/agents/phone-numbers", { method: "GET" });
+  return data?.data ?? data ?? [];
+}
+
+export async function provisionCartesiaPhoneNumber(label: string, agentId?: string): Promise<any> {
+  return cartesiaFetch("/agents/phone-numbers/provision", {
+    method: "POST",
+    body: JSON.stringify({ label, agent_id: agentId || undefined }),
+  });
+}
+
+/** Permanent — the number is released and cannot be recovered. */
+export async function deleteCartesiaPhoneNumber(phoneNumberId: string): Promise<void> {
+  await cartesiaFetch(`/agents/phone-numbers/${phoneNumberId}`, { method: "DELETE" });
 }
