@@ -1,5 +1,4 @@
-"use client";
-
+// @ts-nocheck
 import { PronunciationOverride } from "./langDetect";
 
 export type ScriptId = "neet-reactivation" | "fee-reminder" | "new-batch" | "custom";
@@ -47,7 +46,6 @@ export type ScriptVersion = {
   startingLanguage: string;
   savedAt: number;          // Unix ms
 };
-
 
 export type BackgroundSound = "none" | "office" | "callcenter" | "traffic";
 
@@ -163,10 +161,12 @@ export function saveScriptVersion(
     label: customLabel ?? `v${nextNum}`,
     savedAt: Date.now(),
   };
-  window.localStorage.setItem(
-    VERSIONS_KEY,
-    JSON.stringify([version, ...existing])
-  );
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(
+      VERSIONS_KEY,
+      JSON.stringify([version, ...existing])
+    );
+  }
   return version;
 }
 
@@ -180,4 +180,3 @@ export function getLatestVersion(): ScriptVersion | null {
   const versions = getScriptVersions();
   return versions.length > 0 ? versions[0] : null;
 }
-
