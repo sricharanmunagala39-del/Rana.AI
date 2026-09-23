@@ -25,10 +25,15 @@ export async function POST(req: Request) {
       greeting: body.greeting ?? template?.greeting ?? "",
       instructions: body.instructions ?? template?.instructions ?? "",
       facts: body.facts ?? template?.facts ?? [],
+      steps: body.steps ?? [],
+      variables: body.variables ?? [],
+      strictness: typeof body.strictness === "number" ? body.strictness : 3,
       speaker: body.speaker ?? template?.speaker ?? "anand",
+      voice_name: body.voice_name ?? null,
       speech_rate: body.speech_rate ?? 1.0,
       speech_pitch: body.speech_pitch ?? 1.0,
       starting_language: body.starting_language ?? template?.language ?? "en-IN",
+      model_id: body.model_id ?? null,
       status: "draft",
     });
     return Response.json({ script }, { status: 201 });
