@@ -1,10 +1,20 @@
 // Session + password helpers. No external deps — uses Node's crypto (scrypt).
-import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
+import { scryptSync, randomBytes, timingSafeEqual, createHmac } from "crypto";
 
 const SESSION_COOKIE = "rana_session";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type Session = { clientId: string; email: string; exp: number };
+
+/** Cookie signing secret. Set SESSION_SECRET in Vercel; falls back to the Supabase service key so nothing breaks unsigned. */
+function secret(): string {
+  const s = process.env.SESSION_SECRET || process.env.SUPABASE_SERVICE_KEY;
+  if (!s) throw new Error("SESSION_SECRET (or SUPABASE_SERVICE_KEY) must be set");
+  return s;
+}
+function sign(data: string): string {
+  return createHmac("sha256", secret()).update(data).digest("hex");
+}
 
 export function hashPassword(plain: string): string {
   const salt = randomBytes(16).toString("hex");
@@ -32,7 +42,8 @@ export function verifyPassword(plain: string, stored: string): boolean {
 
 export function createSessionCookie(clientId: string, email: string): string {
   const payload: Session = { clientId, email, exp: Date.now() + SESSION_TTL_MS };
-  const value = Buffer.from(JSON.stringify(payload)).toString("base64");
+  const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const value = `${data}.${sign(data)}`;
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   return `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL_MS / 1000}${secure}`;
 }
@@ -46,7 +57,12 @@ export function parseSession(req: Request): Session | null {
   const match = cookie.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`));
   if (!match) return null;
   try {
-    const payload = JSON.parse(Buffer.from(match[1], "base64").toString()) as Session;
+    const [data, sig] = match[1].split(".");
+    if (!data || !sig) return null;
+    const expected = Buffer.from(sign(data), "hex");
+    const given = Buffer.from(sig, "hex");
+    if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
+    const payload = JSON.parse(Buffer.from(data, "base64url").toString()) as Session;
     if (!payload?.clientId || payload.exp < Date.now()) return null;
     return payload;
   } catch { return null; }
