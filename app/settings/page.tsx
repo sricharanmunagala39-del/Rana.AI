@@ -45,7 +45,7 @@ export default function SettingsPage() {
         body: JSON.stringify({ deploymentId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
+      if (!res.ok) throw new Error(data.error ? `${data.error}${data.detail ? " — " + JSON.stringify(data.detail) : ""}` : "Failed");
       setResultMsg((m) => ({ ...m, [deploymentId]: "Connected ✓" }));
       check();
     } catch (e: any) {
@@ -101,7 +101,7 @@ export default function SettingsPage() {
                 <div className="text-[11.5px] text-ink-soft font-mono break-all">
                   current: {d.current_webhook_config?.url || "(none set)"}
                 </div>
-                {resultMsg[d.deployment_id] && <div className="text-[12.5px]">{resultMsg[d.deployment_id]}</div>}
+                {resultMsg[d.deployment_id] && <div className="text-[12.5px] whitespace-pre-wrap break-all">{resultMsg[d.deployment_id]}</div>}
               </div>
             ))}
           </div>
