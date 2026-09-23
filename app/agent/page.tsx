@@ -241,15 +241,18 @@ export default function AgentPage() {
         },
         audioInterface,
 
+        // ServerTranscriptMsg is { role: "user" | "bot", content: string } — NOT { role, text }.
+        // (Previously checked msg.text / role === "assistant", which never matched, so the
+        // transcript panel stayed empty during live calls even though audio worked fine.)
         transcriptCallback: async (msg: any) => {
-          if (msg?.text) {
-            const role = msg.role === "assistant" ? "agent" : "user";
+          if (msg?.content) {
+            const role = msg.role === "bot" ? "agent" : "user";
             setTranscript((t) => {
               const last = t[t.length - 1];
               if (last && last.role === role) {
-                return [...t.slice(0, -1), { role, text: last.text + msg.text }];
+                return [...t.slice(0, -1), { role, text: last.text + msg.content }];
               }
-              return [...t, { role, text: msg.text }];
+              return [...t, { role, text: msg.content }];
             });
           }
         },
