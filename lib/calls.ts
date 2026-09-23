@@ -27,6 +27,7 @@ export type CallRow = {
   summary: string | null;
   notes: string | null;
   transcript: TranscriptTurn[];
+  recording_url: string | null;
   agent_variables: Record<string, unknown>;
   started_at: string | null;
   ended_at: string | null;
