@@ -1,11 +1,9 @@
 export const runtime = "nodejs";
-import { getScriptById, updateScript, getClientById, updateClient } from "@/lib/supabase";
+import { getScriptById, updateScript, getClientById } from "@/lib/supabase";
 import { parseSession } from "../../../auth/me/route";
 import {
   createCartesiaAgent,
   updateCartesiaAgent,
-  createCartesiaWebhook,
-  attachWebhookToAgent,
   listCartesiaModels,
   listCartesiaVoices,
   toCartesiaLanguage,
@@ -73,20 +71,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       agentId = created.id;
     }
 
-    // One webhook per CLIENT (not per agent) — Cartesia's incoming payload carries its own
-    // agent_id, and our webhook route resolves the client purely from the ?key= secret, so
-    // every agent under this client can safely share the same webhook URL.
-    let webhookId = client.cartesia_webhook_id;
-    if (!webhookId) {
-      const crypto = await import("crypto");
-      const base = process.env.NEXT_PUBLIC_APP_URL || "https://rana-ai-roan.vercel.app";
-      const webhookSecret = crypto.randomBytes(16).toString("hex");
-      const webhookUrl = `${base}/api/webhooks/cartesia?key=${webhookSecret}`;
-      const createdWebhook = await createCartesiaWebhook(webhookUrl, webhookSecret, `RANA — ${client.name}`);
-      webhookId = createdWebhook.id;
-      await updateClient(client.id, { cartesia_webhook_id: webhookId, cartesia_webhook_secret: webhookSecret });
-    }
-    await attachWebhookToAgent(agentId, webhookId);
+    // NOTE: agent-level webhooks are NOT part of the Cartesia API version this app is
+    // pinned to (Cartesia-Version 2026-08-14) — confirmed directly against the live
+    // OpenAPI schema: neither Create Agent nor Update Agent has a `webhook_id` field on
+    // this version, and the Webhooks endpoints (POST/PATCH /agents/webhooks) only appear
+    // under the older 2026-03-01 docs, not 2026-08-14's. Attaching one here always 400s
+    // with "Unrecognized key: webhook_id". Call-outcome ingestion for Cartesia calls will
+    // need to poll GET /v1/agents/calls (and GET /v1/agents/calls/{id} for a transcript)
+    // instead of relying on a pushed webhook — not built yet. Deliberately not attempting
+    // webhook setup here so it can't block Publish.
 
     const updated = await updateScript(params.id, {
       cartesia_agent_id: agentId,
