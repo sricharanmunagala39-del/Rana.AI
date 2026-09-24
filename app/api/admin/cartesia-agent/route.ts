@@ -11,6 +11,7 @@ import {
 import { getSession } from "@/lib/session";
 import { forbidUnless } from "@/lib/auth";
 import { claimResource } from "@/lib/ownership";
+import { isForeignVoice } from "@/lib/voiceClone";
 
 
 export async function GET(req: Request) {
@@ -55,6 +56,7 @@ export async function POST(req: Request) {
 
   const client = await getClientById(session.clientId);
   if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
+  if (await isForeignVoice(session.clientId, voiceId)) return Response.json({ error: "That voice isn't available to your account." }, { status: 403 });
 
   try {
     const language = toCartesiaLanguage(startingLanguage);
