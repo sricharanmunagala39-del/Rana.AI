@@ -79,6 +79,18 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
     finally { setTranslating(false); }
   }
 
+  // Items picked from a document on the Knowledge tab go into the matching cards (no duplicates).
+  function addFromKnowledge({ facts = [], faqs = [], pitch = [] }: any) {
+    const base = playbook || EMPTY_PLAYBOOK;
+    const k = (t: string) => String(t || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    const addUniq = (list: string[], more: string[]) => [...list, ...more.filter((m) => !list.some((x) => k(x) === k(m)))];
+    set({ playbook: { ...base,
+      facts: addUniq(base.facts || [], facts),
+      pitch: addUniq(base.pitch || [], pitch),
+      faqs: [...(base.faqs || []), ...faqs.filter((f: any) => !(base.faqs || []).some((x: any) => k(x.question) === k(f.question)))],
+    } });
+  }
+
   const greetLang = detectScriptLanguage(greeting);
   const greetMismatch = greeting.trim() && greetLang && greetLang !== open;
 
@@ -225,7 +237,7 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
         </>
       )}
 
-      {tab === "knowledge" && <KnowledgePanel scriptId={scriptId} ensureSaved={ensureSaved} onCount={setKnowledgeCount} />}
+      {tab === "knowledge" && <KnowledgePanel scriptId={scriptId} ensureSaved={ensureSaved} onCount={setKnowledgeCount} openingLanguage={openingLanguage} onUse={addFromKnowledge} />}
 
       {tab === "links" && (
         <div className="flex flex-col gap-3" data-testid="links">

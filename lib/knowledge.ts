@@ -20,6 +20,20 @@ export async function addKnowledge(row: { client_id: string; script_id: string; 
   return r[0];
 }
 
+export async function getKnowledge(scriptId: string, id: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const r = await sb<any[]>(`/agent_knowledge?id=eq.${id}&script_id=eq.${scriptId}&limit=1`);
+  return r?.[0] ?? null;
+}
+
+/** Few characters from a website usually means prices/plans are loaded by JavaScript or behind a login. */
+export function thinHint(k: { kind: string; chars: number }): string | null {
+  if ((k.chars || 0) >= 1500) return null;
+  return k.kind === "url"
+    ? "Only a little text could be read from this page — plan details and prices are often loaded after the page opens or shown only after login. Better sources: the brochure or fee-sheet PDF (Upload document), or open the page, select the plan details, copy and paste them under \"Type or paste\"."
+    : "This document has very little text. If it is a scanned PDF or an image, paste the important parts as text instead.";
+}
+
 export async function deleteKnowledge(scriptId: string, id: string) {
   await sb(`/agent_knowledge?id=eq.${id}&script_id=eq.${scriptId}`, { method: "DELETE", prefer: "return=minimal" });
 }

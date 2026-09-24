@@ -1,9 +1,9 @@
 export const runtime = "nodejs";
 export const maxDuration = 90;
 import { studioGuard } from "@/lib/studioAuth";
-import { listKnowledge, addKnowledge, deleteKnowledge, fetchPageText } from "@/lib/knowledge";
+import { listKnowledge, addKnowledge, deleteKnowledge, fetchPageText, thinHint } from "@/lib/knowledge";
 
-const view = (k: any) => ({ id: k.id, kind: k.kind, title: k.title, source: k.source, chars: k.chars, summary: k.summary, preview: (k.content || "").slice(0, 280), created_at: k.created_at });
+const view = (k: any) => ({ id: k.id, kind: k.kind, title: k.title, source: k.source, chars: k.chars, summary: k.summary, preview: (k.content || "").slice(0, 6000), hint: thinHint(k), created_at: k.created_at });
 
 /** GET ?scriptId — what this employee knows. */
 export async function GET(req: Request) {

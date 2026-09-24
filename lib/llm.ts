@@ -1,14 +1,18 @@
 // One small interface over whichever language model this deployment has a key for.
-// Order: Anthropic (ANTHROPIC_API_KEY) → OpenAI (OPENAI_API_KEY) → Sarvam (SARVAM_API_KEY, already set on Vercel).
+// Order: Anthropic (ANTHROPIC_API_KEY) → OpenAI (OPENAI_API_KEY) → Sarvam (SARVAM_CHAT_API_KEY, else SARVAM_API_KEY).
+// SARVAM_CHAT_API_KEY exists because SARVAM_API_KEY may hold a key for Sarvam's agent platform (apps.sarvam.ai),
+// which the chat API (api.sarvam.ai) rejects with 403 invalid_api_key_error. Keys come from dashboard.sarvam.ai → API Keys.
 // Used for script analysis, AI edits, translation and document summaries — never on a live call.
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 export type LlmOptions = { maxTokens?: number; temperature?: number; json?: boolean; timeoutMs?: number };
 
+const sarvamKey = () => process.env.SARVAM_CHAT_API_KEY || process.env.SARVAM_API_KEY || "";
+
 export function llmProvider(): "anthropic" | "openai" | "sarvam" | null {
   if (process.env.ANTHROPIC_API_KEY) return "anthropic";
   if (process.env.OPENAI_API_KEY) return "openai";
-  if (process.env.SARVAM_API_KEY) return "sarvam";
+  if (sarvamKey()) return "sarvam";
   return null;
 }
 
@@ -45,13 +49,19 @@ async function openai(messages: ChatMessage[], o: LlmOptions): Promise<string> {
 async function sarvam(messages: ChatMessage[], o: LlmOptions): Promise<string> {
   const res = await fetch("https://api.sarvam.ai/v1/chat/completions", {
     method: "POST", signal: AbortSignal.timeout(o.timeoutMs ?? 120000),
-    headers: { "api-subscription-key": process.env.SARVAM_API_KEY!, "Content-Type": "application/json" },
+    headers: { "api-subscription-key": sarvamKey(), "Content-Type": "application/json" },
     body: JSON.stringify({
       model: process.env.SARVAM_MODEL || "sarvam-105b", messages,
       temperature: o.temperature ?? 0.3, max_tokens: o.maxTokens ?? 2000, reasoning_effort: null,
     }),
   });
-  if (!res.ok) throw new Error(`Sarvam ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) {
+    const body = (await res.text()).slice(0, 300);
+    if (res.status === 403 && /invalid_api_key|authentication/i.test(body)) {
+      throw new Error("Sarvam rejected the API key. Create a key at dashboard.sarvam.ai → API Keys and save it in Vercel as SARVAM_CHAT_API_KEY (or add ANTHROPIC_API_KEY), then redeploy");
+    }
+    throw new Error(`Sarvam ${res.status}: ${body}`);
+  }
   const d = await res.json();
   const c = d.choices?.[0];
   if (!c?.message?.content && c?.finish_reason === "length") throw new Error("Sarvam ran out of room before answering (reply too long)");
@@ -60,7 +70,7 @@ async function sarvam(messages: ChatMessage[], o: LlmOptions): Promise<string> {
 
 export async function chat(messages: ChatMessage[], o: LlmOptions = {}): Promise<string> {
   const p = llmProvider();
-  if (!p) throw new Error("No AI model is configured. Add ANTHROPIC_API_KEY, OPENAI_API_KEY or SARVAM_API_KEY in Vercel.");
+  if (!p) throw new Error("No AI model is configured. Add ANTHROPIC_API_KEY, OPENAI_API_KEY or SARVAM_CHAT_API_KEY in Vercel.");
   const text = p === "anthropic" ? await anthropic(messages, o) : p === "openai" ? await openai(messages, o) : await sarvam(messages, o);
   // Some models wrap answers in <think> blocks; never show those.
   return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
