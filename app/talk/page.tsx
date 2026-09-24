@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { DEFAULT_AGENT_SETTINGS, getAgentSettings, LANGUAGES } from "@/lib/storage";
 import { CartesiaVoiceCall } from "@/lib/cartesia-voice-client";
+import { LANG_NAMES, baseLang } from "@/lib/playbook";
 
 type CallStatus = "idle" | "connecting" | "live" | "ending" | "error";
 
@@ -27,6 +28,11 @@ function TalkInner() {
   const [publishInfo, setPublishInfo] = useState<{ agentId?: string; hasWebhook?: boolean } | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  // Opening language + switching rule, and whether the live agent is behind the latest edits.
+  const [policy, setPolicy] = useState<{ mode: string; allowed: string[] } | null>(null);
+  const [stale, setStale] = useState(false);
+  const [republishing, setRepublishing] = useState(false);
+  const [republishMsg, setRepublishMsg] = useState("");
 
   // Test sign-off (named employees only): an employee must be tested before it can be deployed.
   const [testedAt, setTestedAt] = useState<string | null>(null);
@@ -58,6 +64,8 @@ function TalkInner() {
           setAgentName(s.name || "Agent");
           setLanguage(s.starting_language || "en-IN");
           if (s.cartesia_agent_id) setPublishInfo({ agentId: s.cartesia_agent_id, hasWebhook: true });
+          setPolicy(s.language_policy || null);
+          setStale(!!(s.cartesia_agent_id && s.edited_at && s.published_at && new Date(s.edited_at) > new Date(s.published_at)));
           setTestedAt(s.tested_at || null);
           setTestNotes(s.test_notes || "");
           setChecks(s.test_checklist || {});
@@ -164,6 +172,23 @@ function TalkInner() {
   const isPublished = !!publishInfo?.agentId;
   const profileHref = scriptId ? `/agents/new?id=${scriptId}` : "/agent";
 
+  async function republish(thenCall = false) {
+    if (!scriptId) return;
+    setRepublishing(true); setRepublishMsg("");
+    try {
+      const res = await fetch(`/api/scripts/${scriptId}/publish`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Publish failed.");
+      setPublishInfo({ agentId: data.agentId, hasWebhook: true });
+      setStale(false);
+      setRepublishMsg("Updated — the call now uses your latest script.");
+    } catch (e: any) { setRepublishMsg(e.message); }
+    finally { setRepublishing(false); }
+  }
+
+  const openBase = baseLang(language);
+  const switchNames = policy?.mode === "match_caller" ? (policy.allowed || []).filter((l) => l !== openBase).map((l) => LANG_NAMES[l]).filter(Boolean) : [];
+
   const allChecked = TEST_CHECKS.every((c) => checks[c.key]);
   async function saveTest(approve: boolean) {
     if (!scriptId) return;
@@ -206,6 +231,20 @@ function TalkInner() {
             </span>
           </div>
         </div>
+
+        {scriptId && (stale || republishMsg) && (
+          <div className="px-8 pt-6 flex justify-center">
+            <div className={`w-full max-w-[640px] rounded-xl border px-4 py-3 flex items-center justify-between gap-3 text-[12.5px] ${stale ? "bg-hot-tint border-hot/30" : "bg-signal-tint border-signal/20 text-signal"}`} data-testid="stale-banner">
+              <span>{stale ? <><b>You edited {agentName} after publishing.</b> Calls still use the older version until you publish again.</> : republishMsg}</span>
+              {stale && (
+                <button onClick={() => republish()} disabled={republishing || isLive || isConnecting}
+                  className="shrink-0 bg-ink text-white rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold disabled:opacity-50">
+                  {republishing ? "Publishing…" : "Publish latest"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="w-full max-w-[640px] rounded-3xl bg-ink text-white overflow-hidden relative">
@@ -283,7 +322,12 @@ function TalkInner() {
               )}
 
               <div className="flex items-center gap-2 mt-8 flex-wrap justify-center">
-                <span className="text-[10.5px] font-semibold px-2.5 py-1 rounded-full bg-white/10 text-white/70">{langLabel}</span>
+                <span className="text-[10.5px] font-semibold px-2.5 py-1 rounded-full bg-white/10 text-white/70" data-testid="talk-lang">Opens in {langLabel}</span>
+                {policy && (
+                  <span className="text-[10.5px] font-semibold px-2.5 py-1 rounded-full bg-white/10 text-white/70" data-testid="talk-policy">
+                    {policy.mode === "fixed" || switchNames.length === 0 ? `Stays in ${langLabel}` : `Switches to ${switchNames.join(" / ")} when you do`}
+                  </span>
+                )}
                 <span className={`text-[10.5px] font-semibold px-2.5 py-1 rounded-full ${isPublished ? "bg-signal/20 text-signal" : "bg-amber-500/15 text-amber-300"}`}>
                   {statusLoading ? "Checking status…" : isPublished ? "Published on Cartesia" : "Not published — hit Publish on their page first"}
                 </span>
