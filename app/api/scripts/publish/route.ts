@@ -1,10 +1,15 @@
 // @ts-nocheck
 export const runtime = "nodejs";
 import { getScriptById, getClientById, setActiveScript } from "@/lib/supabase";
-import { parseSession } from "../../auth/me/route";
+import { parseSession } from "@/lib/auth";
+import { getSession } from "@/lib/session";
+import { forbidUnless } from "@/lib/auth";
+import { audit } from "@/lib/audit";
+import { claimResource } from "@/lib/ownership";
 export async function POST(req: Request) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
+  const denied = forbidUnless(session, "admin"); if (denied) return denied;
   try {
     const { scriptId } = await req.json();
     if (!scriptId) return Response.json({ error: "scriptId required" }, { status: 400 });
