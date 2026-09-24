@@ -3,6 +3,7 @@
 import { getClientById, getScriptsForClient, getAllClients } from "./supabase";
 import { listCartesiaCalls } from "./cartesia";
 import { callFromCartesiaApi, upsertCall, latestCartesiaCallStart, existingCallState } from "./calls";
+import { refreshActiveCampaigns, contactsByCallIds } from "./campaigns";
 
 const FIRST_SYNC_LOOKBACK_DAYS = 14;
 const OVERLAP_MS = 30 * 60 * 1000; // re-read the last 30 min so calls that were still in progress get their final state
@@ -23,6 +24,9 @@ export async function syncClientCalls(clientId: string): Promise<SyncResult> {
   if (!process.env.CARTESIA_API_KEY) { res.errors.push("CARTESIA_API_KEY is not set"); return res; }
   lastRun.set(clientId, Date.now());
 
+  // Pull campaign progress first so freshly dialled numbers already carry their Cartesia call id.
+  try { await refreshActiveCampaigns(clientId); } catch (e: any) { res.errors.push(`campaigns: ${e?.message || e}`); }
+
   const agentIds = await agentIdsForClient(clientId);
   res.agents = agentIds.length;
   if (!agentIds.length) return res;
@@ -38,10 +42,18 @@ export async function syncClientCalls(clientId: string): Promise<SyncResult> {
       res.fetched += calls.length;
       // Skip calls that haven't finished yet; the next sync (with overlap) picks them up.
       const finished = calls.filter((c) => c?.status === "completed" || c?.status === "failed");
-      const state = await existingCallState(finished.map((c) => c.id).filter(Boolean));
+      const ids = finished.map((c) => c.id).filter(Boolean);
+      const [state, campaignOf] = await Promise.all([existingCallState(ids), contactsByCallIds(ids).catch(() => ({} as Record<string, any>))]);
       for (const c of finished) {
         if (state[c.id]?.final) { res.skipped++; continue; }
-        try { await upsertCall(callFromCartesiaApi(c, clientId) as any); res.saved++; }
+        const row: any = callFromCartesiaApi(c, clientId);
+        const camp = campaignOf[c.id];
+        if (camp) {
+          // A campaign dial: tie it to its campaign and the name from the uploaded list.
+          row.direction = "outbound"; row.source = "campaign"; row.campaign_id = camp.batchId ?? row.campaign_id;
+          if (camp.name && !row.caller_name) row.caller_name = camp.name;
+        }
+        try { await upsertCall(row); res.saved++; }
         catch (e: any) { res.errors.push(`${c.id}: ${e?.message || e}`); }
       }
     } catch (e: any) {
