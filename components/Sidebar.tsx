@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-type Client = { id: string; name: string; industry: string; sarvam_app_id: string | null } | null;
+type Client = {
+  id: string; name: string; industry: string; sarvam_app_id: string | null;
+  hq?: boolean; actingAsHq?: boolean;
+  plan?: { key: string; name: string; status: string; trialDaysLeft: number | null; minutesUsed: number; minutesIncluded: number } | null;
+} | null;
 
 const ICONS = {
   grid: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
@@ -49,7 +53,7 @@ const GROUPS: { label: string; items: { key: string; label: string; href: string
       { key: "conversations", label: "All Conversations", href: "/coming-soon?feature=All+Conversations", icon: "chat" },
       { key: "phone-numbers", label: "Phone Numbers", href: "/phone-numbers", icon: "phone" },
       { key: "performance", label: "Performance", href: "/coming-soon?feature=Performance", icon: "bars" },
-      { key: "billing", label: "Billing", href: "/coming-soon?feature=Billing", icon: "card" },
+      { key: "billing", label: "Plan & usage", href: "/billing", icon: "card" },
       { key: "settings", label: "Settings", href: "/settings", icon: "gear" },
     ],
   },
@@ -62,6 +66,12 @@ export default function Sidebar({ active, client: clientProp }: { active: string
     if (clientProp) { setClient(clientProp); return; }
     fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).then((c) => c && setClient(c)).catch(() => {});
   }, [clientProp]);
+  async function backToHq() {
+    const r = await fetch("/api/hq/return", { method: "POST" });
+    if (r.ok) window.location.href = "/hq";
+  }
+  const p = client?.plan;
+  const low = p && (p.status === "suspended" || (p.trialDaysLeft !== null && p.trialDaysLeft <= 3) || p.minutesUsed >= p.minutesIncluded * 0.8);
   async function handleLogout() {
     await fetch("/api/auth/me", { method: "POST" });
     router.push("/login");
@@ -74,6 +84,19 @@ export default function Sidebar({ active, client: clientProp }: { active: string
         </div>
         <span className="font-display text-[17px] font-semibold tracking-tight">RANA AI</span>
       </div>
+
+      {client?.actingAsHq && (
+        <div className="rounded-lg bg-hot-tint border border-hot/30 px-3 py-2 text-[11.5px] leading-snug" data-testid="hq-acting">
+          <div className="font-semibold text-hot">RANA HQ inside this workspace</div>
+          <div className="text-ink-soft">Changes you make are logged in their activity.</div>
+          <button onClick={backToHq} className="mt-1 font-semibold text-signal">← Back to HQ</button>
+        </div>
+      )}
+      {client?.hq && (
+        <Link href="/hq" className={`flex items-center gap-2 px-3 py-[9px] rounded-lg text-sm font-semibold ${active === "hq" ? "bg-ink text-white" : "bg-paper text-ink hover:bg-signal-tint"}`} data-testid="hq-link">
+          <span className="w-2 h-2 rounded-full bg-signal" /> RANA HQ · all clients
+        </Link>
+      )}
 
       <nav className="flex flex-col gap-5">
         {GROUPS.map((group) => (
@@ -93,6 +116,13 @@ export default function Sidebar({ active, client: clientProp }: { active: string
         <span className="text-[11px] text-ink-soft">Logged in as</span>
         <span className="text-sm font-semibold truncate">{client?.name ?? "RANA AI"}</span>
         {client?.industry && <span className="text-[11px] text-ink-soft capitalize">{client.industry}</span>}
+        {p && (
+          <Link href="/billing" data-testid="plan-chip" className={`mt-1 rounded-md px-2 py-1 text-[11px] leading-snug border ${low ? "border-miss/30 bg-miss-tint text-miss" : "border-line bg-paper text-ink-soft"}`}>
+            <span className="font-semibold">{p.status === "suspended" ? "Paused" : p.name}</span>
+            {p.trialDaysLeft !== null && p.status !== "suspended" ? ` · ${p.trialDaysLeft} day${p.trialDaysLeft === 1 ? "" : "s"} left` : ""}
+            <br />{Math.round(p.minutesUsed)} / {p.minutesIncluded.toLocaleString("en-IN")} min used
+          </Link>
+        )}
         <button onClick={handleLogout} className="text-[11px] text-ink-soft hover:text-signal mt-1 text-left">Sign out</button>
       </div>
     </div>

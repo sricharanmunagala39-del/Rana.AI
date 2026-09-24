@@ -3,6 +3,7 @@
 // their role takes effect on their next request instead of when their 7-day cookie runs out.
 import { parseSession, type Session, type Role } from "./auth";
 import { sb } from "./db";
+import { isHqEmail } from "./hq";
 
 type Live = { active: boolean; role: Role; name: string | null; clientId: string; at: number };
 const cache = new Map<string, Live>();
@@ -26,6 +27,11 @@ export async function getSession(req: Request): Promise<Session | null> {
     } catch {
       return s; // database blip: fall back to the signed cookie rather than logging everyone out
     }
+  }
+  // RANA HQ inside a client's workspace: the person still belongs to HQ, and must still be on the HQ list.
+  if (s.hqFrom) {
+    if (!live.active || live.clientId !== s.hqFrom || !isHqEmail(s.email)) return null;
+    return { ...s, role: "owner", name: live.name ?? s.name };
   }
   if (!live.active || live.clientId !== s.clientId) return null;
   return { ...s, role: live.role, name: live.name ?? s.name };

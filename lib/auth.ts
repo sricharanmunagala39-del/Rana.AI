@@ -16,7 +16,7 @@ export const ROLE_INFO: Record<Role, { label: string; can: string }> = {
 };
 
 /** userId is absent on sessions from the old shared client login; those act as the owner. */
-export type Session = { clientId: string; email: string; exp: number; userId?: string; role?: Role; name?: string };
+export type Session = { clientId: string; email: string; exp: number; userId?: string; role?: Role; name?: string; hqFrom?: string };
 
 export function roleOf(s: Session): Role { return s.role && RANK[s.role] ? s.role : "owner"; }
 export function hasRole(s: Session, min: Role): boolean { return RANK[roleOf(s)] >= RANK[min]; }
@@ -62,8 +62,8 @@ export function verifyPassword(plain: string, stored: string): boolean {
   return derived.length === expected.length && timingSafeEqual(derived, expected);
 }
 
-export function createSessionCookie(clientId: string, email: string, user?: { userId: string; role: Role; name?: string | null }): string {
-  const payload: Session = { clientId, email, exp: Date.now() + SESSION_TTL_MS, ...(user ? { userId: user.userId, role: user.role, name: user.name ?? undefined } : {}) };
+export function createSessionCookie(clientId: string, email: string, user?: { userId: string; role: Role; name?: string | null; hqFrom?: string }): string {
+  const payload: Session = { clientId, email, exp: Date.now() + SESSION_TTL_MS, ...(user ? { userId: user.userId, role: user.role, name: user.name ?? undefined, ...(user.hqFrom ? { hqFrom: user.hqFrom } : {}) } : {}) };
   const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const value = `${data}.${sign(data)}`;
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";

@@ -29,6 +29,12 @@ export function sarvamConfig(): SarvamConfig | null {
   };
 }
 
+/** A client with its own number calls from it; everyone else uses RANA's shared Sarvam number. */
+export function withClientNumber(cfg: SarvamConfig, client: any): SarvamConfig {
+  const own = String(client?.sarvam_agent_number || "").trim();
+  return own ? { ...cfg, agentNumber: own } : cfg;
+}
+
 export function sarvamMissing(): string[] {
   return ["RANA_SARVAM_AGENTS_API_KEY", "RANA_SARVAM_ORG_ID", "RANA_SARVAM_WORKSPACE_ID", "RANA_SARVAM_APP_ID"].filter((k) => !process.env[k]);
 }
