@@ -276,7 +276,9 @@ function WizardInner() {
                       <VoicePickerModal
                         voices={voices}
                         currentId={voiceId}
-                        onSelect={(v) => { setVoiceId(v.id); setVoiceModalOpen(false); }}
+                        language={startingLanguage}
+                        speed={speechRate}
+                        onSelect={(v) => { setVoiceId(v.id); setVoices((prev) => (prev.some((x) => x.id === v.id) ? prev : [v, ...prev])); setVoiceModalOpen(false); }}
                         onClose={() => setVoiceModalOpen(false)}
                       />
                     )}

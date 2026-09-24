@@ -6,6 +6,7 @@ import { getSession } from "@/lib/session";
 import { forbidUnless } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { claimResource } from "@/lib/ownership";
+import { isForeignVoice } from "@/lib/voiceClone";
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const session = await getSession(req);
   if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
@@ -22,6 +23,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const patch = await req.json();
   // Fields only the server sets. cartesia_agent_id especially: pointing it at someone else's agent would pull their calls.
   for (const k of ["id", "client_id", "status", "cartesia_agent_id", "published_at", "created_at"]) delete patch[k];
+  if (await isForeignVoice(session.clientId, patch.speaker)) return Response.json({ error: "That voice isn't available to your account." }, { status: 403 });
   const updated = await updateScript(params.id, patch);
   return Response.json({ script: updated });
 }

@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import VoiceCloneModal from "@/components/VoiceCloneModal";
 
 export type PickerVoice = {
   id: string;
@@ -13,6 +14,9 @@ export type PickerVoice = {
   country?: string | null;
   previewUrl?: string | null;
   accents?: { accent: string; locale: string; isNative: boolean }[];
+  /** A voice this client cloned from its own recordings (private to the client). */
+  custom?: boolean;
+  customId?: string | null;
 };
 
 const GENDER_LABELS: Record<string, string> = {
@@ -83,31 +87,57 @@ export default function VoicePickerModal({
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   const [heard, setHeard] = useState<Record<string, boolean>>({});
   const [line, setLine] = useState("");
+  const [cloneOpen, setCloneOpen] = useState(false);
+  const [added, setAdded] = useState<PickerVoice[]>([]);
+  const [removed, setRemoved] = useState<Record<string, boolean>>({});
+  const [mineOnly, setMineOnly] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const clips = useRef<Map<string, string>>(new Map()); // preview key -> object URL
   const requestSeq = useRef(0);
 
+  // Voices cloned in this session go first; deleted ones disappear immediately.
+  const all = useMemo(() => {
+    const seen = new Set(added.map((v) => v.id));
+    return [...added, ...voices.filter((v) => !seen.has(v.id))]
+      .filter((v) => !removed[v.id])
+      .sort((a, b) => Number(!!b.custom) - Number(!!a.custom));
+  }, [voices, added, removed]);
+  const myCount = all.filter((v) => v.custom).length;
+
+  async function removeVoice(v: PickerVoice) {
+    if (!confirm(`Delete the cloned voice "${v.name}"? This can't be undone.`)) return;
+    setDeleting(v.id);
+    try {
+      const res = await fetch(`/api/voices/custom/${encodeURIComponent(v.customId || v.id)}`, { method: "DELETE" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "Couldn't delete");
+      setRemoved((r) => ({ ...r, [v.id]: true }));
+    } catch (e: any) { alert(e.message); } finally { setDeleting(null); }
+  }
+
   const languages = useMemo(() => {
-    const set = new Set(voices.map((v) => v.language).filter(Boolean) as string[]);
+    const set = new Set(all.map((v) => v.language).filter(Boolean) as string[]);
     return Array.from(set).sort((a, b) => languageName(a).localeCompare(languageName(b)));
-  }, [voices]);
+  }, [all]);
 
   const accents = useMemo(() => {
     const set = new Set<string>();
-    voices.forEach((v) => (v.accents || []).forEach((a) => a.accent && set.add(a.accent)));
+    all.forEach((v) => (v.accents || []).forEach((a) => a.accent && set.add(a.accent)));
     return Array.from(set).sort();
-  }, [voices]);
+  }, [all]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return voices.filter((v) => {
+    return all.filter((v) => {
+      if (mineOnly && !v.custom) return false;
       if (gender && v.gender !== gender) return false;
       if (language && v.language !== language) return false;
       if (accent && !(v.accents || []).some((a) => a.accent === accent)) return false;
       if (q && !`${v.name} ${v.tagline ?? ""} ${v.description ?? ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [voices, query, gender, language, accent]);
+  }, [all, query, gender, language, accent, mineOnly]);
 
   // Preview language: the language filter if one is picked, else the agent's language, else the voice's own.
   const previewLang = (v: PickerVoice) => baseLang(language || agentLanguage || v.language);
@@ -163,7 +193,10 @@ export default function VoicePickerModal({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-[640px] max-h-[80vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line flex items-center justify-between shrink-0">
           <div className="text-[15px] font-semibold">Select a voice</div>
-          <button onClick={onClose} className="text-ink-soft hover:text-ink text-lg leading-none">×</button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setCloneOpen(true)} className="bg-signal text-white rounded-lg px-3 py-1.5 text-[12.5px] font-semibold">+ Clone a voice</button>
+            <button onClick={onClose} className="text-ink-soft hover:text-ink text-lg leading-none" aria-label="Close">×</button>
+          </div>
         </div>
 
         <div className="px-5 py-3 border-b border-line flex flex-col gap-2.5 shrink-0">
@@ -185,7 +218,11 @@ export default function VoicePickerModal({
               <option value="">Any accent</option>
               {accents.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
-            <div className="text-[11.5px] text-ink-soft ml-auto">{filtered.length} of {voices.length} voices</div>
+            {myCount > 0 && (
+              <button onClick={() => setMineOnly((m) => !m)} aria-pressed={mineOnly}
+                className={`border rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold ${mineOnly ? "bg-ink text-white border-ink" : "border-line text-ink-soft"}`}>My voices · {myCount}</button>
+            )}
+            <div className="text-[11.5px] text-ink-soft ml-auto">{filtered.length} of {all.length} voices</div>
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-[11.5px] text-ink-soft">
@@ -224,6 +261,13 @@ export default function VoicePickerModal({
                   : v.description && <div className="text-[12px] text-ink-soft mt-0.5 truncate">{v.description}</div>}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
+                {v.custom && <span className="text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-signal-tint text-signal">Cloned</span>}
+                {v.custom && (
+                  <button onClick={(e) => { e.stopPropagation(); removeVoice(v); }} disabled={deleting === v.id}
+                    className="text-[11px] text-ink-soft hover:text-miss font-semibold px-1 disabled:opacity-40" aria-label={`Delete ${v.name}`}>
+                    {deleting === v.id ? "…" : "Delete"}
+                  </button>
+                )}
                 {v.country && <span className="text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-paper border border-line text-ink-soft">{v.country}</span>}
                 {playingId === v.id && <span className="text-[10.5px] font-semibold text-signal">Playing</span>}
                 {currentId === v.id && <span className="text-signal">✓</span>}
@@ -232,6 +276,20 @@ export default function VoicePickerModal({
           ))}
         </div>
       </div>
+      {cloneOpen && (
+        <VoiceCloneModal
+          defaultLanguage={language || agentLanguage}
+          onClose={() => setCloneOpen(false)}
+          onAdded={(v) => {
+            const pv: PickerVoice = { ...v, country: null, previewUrl: null, accents: [], custom: true };
+            setAdded((a) => (a.some((x) => x.id === pv.id) ? a : [pv, ...a]));
+          }}
+          onCreated={(v) => {
+            setCloneOpen(false);
+            onSelect({ ...v, country: null, previewUrl: null, accents: [], custom: true });
+          }}
+        />
+      )}
     </div>
   );
 }

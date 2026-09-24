@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 import { getSession } from "@/lib/session";
 import { unauthorized } from "@/lib/auth";
 import { previewLanguage, sampleLine, synthesizePreview } from "@/lib/voicePreview";
+import { isForeignVoice } from "@/lib/voiceClone";
 
 /**
  * GET /api/voices/preview?voiceId=…&lang=te&name=Shanti&gender=feminine[&text=…][&speed=1.1]
@@ -13,6 +14,7 @@ export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
   const voiceId = sp.get("voiceId") || "";
   if (!/^[\w-]{6,80}$/.test(voiceId)) return Response.json({ error: "Unknown voice" }, { status: 400 });
+  if (await isForeignVoice(session.clientId, voiceId)) return Response.json({ error: "Unknown voice" }, { status: 404 });
   const lang = previewLanguage(sp.get("lang"));
   const custom = (sp.get("text") || "").replace(/\s+/g, " ").trim().slice(0, 240);
   const text = custom || sampleLine(lang, sp.get("name") || "", sp.get("gender"));

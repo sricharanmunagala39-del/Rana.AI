@@ -1,26 +1,41 @@
 export const runtime = "nodejs";
 import { listCartesiaAccents, listCartesiaFiles, listCartesiaModels, listCartesiaVoices } from "@/lib/cartesia";
+import { getSession } from "@/lib/session";
+import { unauthorized } from "@/lib/auth";
+import { listCustomVoices, foreignVoiceIds } from "@/lib/voiceClone";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const session = await getSession(req);
+  if (!session) return unauthorized();
   if (!process.env.CARTESIA_API_KEY) {
     return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
   }
   try {
-    const [voices, models, accents, backgroundSounds] = await Promise.all([
+    const [allVoices, models, accents, backgroundSounds, mine] = await Promise.all([
       listCartesiaVoices(),
       listCartesiaModels(),
       listCartesiaAccents().catch(() => []),
       listCartesiaFiles("agent_background_sound").catch(() => []),
+      listCustomVoices(session.clientId).catch(() => []),
     ]);
+    // Cloned voices live in the shared Cartesia account: hide every other client's, flag this client's own.
+    const foreign = await foreignVoiceIds(session.clientId, (allVoices || []).map((v: any) => v.id)).catch(() => new Set<string>());
+    const own = new Map(mine.map((m) => [m.cartesia_voice_id, m]));
+    const voices = [
+      ...mine.filter((m) => !(allVoices || []).some((v: any) => v.id === m.cartesia_voice_id)).map((m) => ({ id: m.cartesia_voice_id, name: m.name, language: m.language })),
+      ...(allVoices || []).filter((v: any) => !foreign.has(v.id)),
+    ];
 
     return Response.json({
-      voices: (voices || []).map((v: any) => ({
+      voices: voices.map((v: any) => ({
         id: v.id,
-        name: v.name ?? v.id,
-        tagline: v.tagline ?? null,
-        description: v.description ?? null,
-        language: v.language ?? null,
-        gender: v.gender ?? null,
+        name: own.get(v.id)?.name ?? v.name ?? v.id,
+        tagline: own.has(v.id) ? "Your cloned voice" : v.tagline ?? null,
+        description: own.get(v.id)?.description ?? v.description ?? null,
+        language: own.get(v.id)?.language ?? v.language ?? null,
+        gender: own.get(v.id)?.gender ?? v.gender ?? null,
+        custom: own.has(v.id),
+        customId: own.get(v.id)?.id ?? null,
         country: v.country ?? null,
         previewUrl: v.preview_file_url ?? null,
         accents: (v.accents || []).map((a: any) => ({ accent: a.accent, locale: a.locale, isNative: !!a.is_native })),
