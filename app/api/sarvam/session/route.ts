@@ -1,7 +1,8 @@
 export const runtime = "nodejs";
 import { getSession } from "@/lib/session";
 import { forbidUnless } from "@/lib/auth";
-import { getScriptById } from "@/lib/supabase";
+import { getScriptById, getClientById } from "@/lib/supabase";
+import { callingBlock } from "@/lib/plans";
 import { sarvamConfig, sarvamMissing, signedSessionUrl, sessionPayload, SARVAM_AGENT_VOICE } from "@/lib/sarvamAgent";
 
 /**
@@ -18,6 +19,8 @@ export async function POST(req: Request) {
   const script: any = b.scriptId ? await getScriptById(String(b.scriptId)) : null;
   if (!script || script.client_id !== session.clientId) return Response.json({ error: "Employee not found" }, { status: 404 });
   if (!script.published_at || !String(script.instructions || "").trim()) return Response.json({ error: `${script.name} isn't published yet — press Publish first.` }, { status: 400 });
+  const planBlock = await callingBlock(await getClientById(session.clientId));
+  if (planBlock) return Response.json({ error: planBlock, code: "plan_limit" }, { status: 402 });
   try {
     const signed = await signedSessionUrl(cfg, `rana-test-${session.clientId.slice(0, 8)}-${Date.now()}`);
     const p = sessionPayload(script);

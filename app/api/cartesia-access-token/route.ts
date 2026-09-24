@@ -1,6 +1,13 @@
 export const runtime = "nodejs";
+import { getSession } from "@/lib/session";
+import { getClientById } from "@/lib/supabase";
+import { callingBlock } from "@/lib/plans";
 
-export async function POST() {
+export async function POST(req: Request) {
+  const session = await getSession(req);
+  if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
+  const planBlock = await callingBlock(await getClientById(session.clientId));
+  if (planBlock) return Response.json({ error: planBlock, code: "plan_limit" }, { status: 402 });
   if (!process.env.CARTESIA_API_KEY) {
     return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
   }

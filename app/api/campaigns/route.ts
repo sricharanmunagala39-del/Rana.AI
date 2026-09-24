@@ -6,7 +6,8 @@ import { filterOwned } from "@/lib/ownership";
 import { dncSet, rulesFromClient, insideWindow, nextWindowOpen, describeRules } from "@/lib/compliance";
 import { audit } from "@/lib/audit";
 import { listCartesiaPhoneNumbers, createCartesiaBatch } from "@/lib/cartesia";
-import { sarvamConfig, sarvamMissing, createSarvamCampaign, streamCampaignContacts, webhookUrl } from "@/lib/sarvamAgent";
+import { sarvamConfig, sarvamMissing, createSarvamCampaign, streamCampaignContacts, webhookUrl, withClientNumber } from "@/lib/sarvamAgent";
+import { callingBlock, limitsOf } from "@/lib/plans";
 import { createCampaignRow, updateCampaignRow, listCampaignRows, insertContacts, normalisePhone } from "@/lib/campaigns";
 import { listCallsLean } from "@/lib/calls";
 import { kpis } from "@/lib/metrics";
@@ -76,7 +77,11 @@ export async function POST(req: Request) {
 
   const scheduledAt = body.scheduledAt && Date.parse(body.scheduledAt) > Date.now() + 60000 ? new Date(body.scheduledAt).toISOString() : null;
   // Calling hours: refuse to start outside the client's window and say when it next opens.
-  const rules = rulesFromClient(await getClientById(session.clientId));
+  const clientRow: any = await getClientById(session.clientId);
+  // Plan limits: trial ended, minutes used up, paused workspace, or a list bigger than the plan allows.
+  const planBlock = await callingBlock(clientRow, { contacts: contacts.length });
+  if (planBlock) return Response.json({ error: planBlock, code: "plan_limit" }, { status: 402 });
+  const rules = rulesFromClient(clientRow);
   const startAt = scheduledAt ? new Date(scheduledAt) : new Date();
   if (!insideWindow(rules, startAt)) {
     const next = nextWindowOpen(rules, startAt);
@@ -85,12 +90,14 @@ export async function POST(req: Request) {
       code: "outside_calling_window", nextOpen: next ? next.toISOString() : null,
     }, { status: 409 });
   }
-  const concurrency = body.concurrency && body.concurrency > 0 ? Math.min(50, Math.round(body.concurrency)) : null;
+  const maxConcurrent = limitsOf(clientRow).concurrency;
+  const concurrency = Math.min(maxConcurrent, body.concurrency && body.concurrency > 0 ? Math.round(body.concurrency) : maxConcurrent);
 
   // ── Sarvam engine: a Sarvam campaign on RANA's Indian number; each contact carries this employee's instructions.
   if (onSarvam) {
-    const cfg = sarvamConfig();
-    if (!cfg) return Response.json({ error: `Sarvam isn't configured: set ${sarvamMissing().join(", ")} in Vercel.` }, { status: 500 });
+    const base = sarvamConfig();
+    if (!base) return Response.json({ error: `Sarvam isn't configured: set ${sarvamMissing().join(", ")} in Vercel.` }, { status: 500 });
+    const cfg = withClientNumber(base, clientRow);
     if (!cfg.connectionId) return Response.json({ error: "No Sarvam phone number is connected (RANA_SARVAM_CONNECTION_ID)." }, { status: 500 });
     const client: any = await getClientById(session.clientId);
     const campaign = await createCampaignRow({
