@@ -21,6 +21,20 @@ const GENDER_LABELS: Record<string, string> = {
   gender_neutral: "Gender neutral",
 };
 
+// Covers every language Cartesia's Managed Agents / voice catalog currently supports.
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English", de: "German", pt: "Portuguese", zh: "Chinese", ja: "Japanese",
+  fr: "French", es: "Spanish", hi: "Hindi", it: "Italian", ko: "Korean",
+  nl: "Dutch", pl: "Polish", ru: "Russian", sv: "Swedish", tr: "Turkish",
+  tl: "Tagalog", bg: "Bulgarian", ro: "Romanian", ar: "Arabic", cs: "Czech",
+  el: "Greek", fi: "Finnish", hr: "Croatian", ms: "Malay", sk: "Slovak",
+  da: "Danish", ta: "Tamil", uk: "Ukrainian", hu: "Hungarian", no: "Norwegian",
+  vi: "Vietnamese", bn: "Bengali", th: "Thai", he: "Hebrew", ka: "Georgian",
+  id: "Indonesian", te: "Telugu", gu: "Gujarati", kn: "Kannada", ml: "Malayalam",
+  mr: "Marathi", pa: "Punjabi", or: "Odia", ur: "Urdu",
+};
+function languageName(code: string) { return LANGUAGE_NAMES[code] || code; }
+
 export default function VoicePickerModal({
   voices,
   currentId,
@@ -41,7 +55,7 @@ export default function VoicePickerModal({
 
   const languages = useMemo(() => {
     const set = new Set(voices.map((v) => v.language).filter(Boolean) as string[]);
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => languageName(a).localeCompare(languageName(b)));
   }, [voices]);
 
   const accents = useMemo(() => {
@@ -97,7 +111,7 @@ export default function VoicePickerModal({
             <select value={language} onChange={(e) => setLanguage(e.target.value)}
               className="border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none">
               <option value="">Any language</option>
-              {languages.map((l) => <option key={l} value={l}>{l}</option>)}
+              {languages.map((l) => <option key={l} value={l}>{languageName(l)}</option>)}
             </select>
             <select value={accent} onChange={(e) => setAccent(e.target.value)}
               className="border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none">
