@@ -2,10 +2,11 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 import { parseSession, unauthorized } from "@/lib/auth";
 import { syncClientCalls } from "@/lib/callSync";
+import { getSession } from "@/lib/session";
 
 /** "Sync now" button: pull this client's latest Cartesia calls immediately. */
 export async function POST(req: Request) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return unauthorized();
   try {
     const r = await syncClientCalls(session.clientId);
