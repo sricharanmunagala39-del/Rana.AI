@@ -53,6 +53,15 @@ export async function POST(req: Request) {
     }, { status: 201 });
   } catch (e: any) {
     console.error("[voice clone]", e?.message);
-    return Response.json({ error: `Cartesia couldn't clone this voice: ${e?.message || e}` }, { status: 502 });
+    const msg = String(e?.message || e);
+    // Cartesia's free plan has no instant cloning: it answers 402 plan_upgrade_required.
+    if (/clone 402|plan_upgrade/i.test(msg)) {
+      return Response.json({
+        code: "plan_upgrade_required",
+        error: "Your Cartesia plan doesn't include voice cloning yet. Upgrade the Cartesia account (play.cartesia.ai → Billing) to a paid plan, then press Create voice again — your recordings are kept.",
+      }, { status: 402 });
+    }
+    if (/clone 401|clone 403/i.test(msg)) return Response.json({ error: "Cartesia rejected the API key. Check CARTESIA_API_KEY in Vercel." }, { status: 502 });
+    return Response.json({ error: `Cartesia couldn't clone this voice: ${msg.slice(0, 200)}` }, { status: 502 });
   }
 }

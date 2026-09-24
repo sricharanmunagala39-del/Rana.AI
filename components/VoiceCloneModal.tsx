@@ -279,7 +279,7 @@ export default function VoiceCloneModal({ defaultLanguage, onCreated, onAdded, o
 
         {!done && (
           <div className="px-5 py-3 border-t border-line flex items-center gap-3 shrink-0">
-            <div className="flex-1 text-[12px] text-ink-soft truncate">{err ? <span className="text-miss">{err}</span> : problems[0] || "Ready — this takes about 10 seconds."}</div>
+            <div className={`flex-1 text-[12px] text-ink-soft ${err ? "" : "truncate"}`} data-testid="clone-status">{err ? <span className="text-miss leading-snug block">{err}</span> : problems[0] || "Ready — this takes about 10 seconds."}</div>
             <button onClick={onClose} className="border border-line rounded-lg px-4 py-2 text-[13px] font-semibold">Cancel</button>
             <button onClick={create} disabled={saving || busy || problems.length > 0} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-40">{saving ? "Cloning…" : "Create voice"}</button>
           </div>

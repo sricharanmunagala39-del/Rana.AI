@@ -422,7 +422,7 @@ function WizardInner() {
                 <ScriptStudio
                   value={studio} set={setStudioPart}
                   agentName={name} openingLanguage={startingLanguage} policy={policy}
-                  voiceId={voiceId} speed={speechRate}
+                  voiceId={voiceId} voiceName={selectedVoice?.name || voiceName} speed={speechRate}
                   scriptId={savedId} ensureSaved={persist}
                   strictness={strictness} setStrictness={setStrictness} strictnessLabels={STRICTNESS_LABELS}
                 />

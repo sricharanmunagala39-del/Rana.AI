@@ -37,6 +37,25 @@ const LINES: Record<string, string | { f: string; m: string }> = {
   pt: "Olá! Aqui é {name}, da RANA. Estou ligando sobre a nova turma que você perguntou. Tem dois minutos?",
 };
 
+/** A short native sentence around one word, so a pronunciation test sounds like a caller of that language, not an English reader. */
+const CARRIER: Record<string, string> = {
+  en: "Our institute is called {w}. Have you heard of {w}?",
+  te: "మా సంస్థ పేరు {w}. మీరు {w} గురించి విన్నారా?",
+  hi: "हमारे संस्थान का नाम {w} है। क्या आपने {w} के बारे में सुना है?",
+  ta: "எங்கள் நிறுவனத்தின் பெயர் {w}. நீங்கள் {w} பற்றி கேள்விப்பட்டிருக்கிறீர்களா?",
+  kn: "ನಮ್ಮ ಸಂಸ್ಥೆಯ ಹೆಸರು {w}. ನೀವು {w} ಬಗ್ಗೆ ಕೇಳಿದ್ದೀರಾ?",
+  ml: "ഞങ്ങളുടെ സ്ഥാപനത്തിന്റെ പേര് {w} ആണ്. നിങ്ങൾ {w}-നെ കുറിച്ച് കേട്ടിട്ടുണ്ടോ?",
+  mr: "आमच्या संस्थेचं नाव {w} आहे. तुम्ही {w} बद्दल ऐकलं आहे का?",
+  bn: "আমাদের প্রতিষ্ঠানের নাম {w}। আপনি কি {w}-এর কথা শুনেছেন?",
+  gu: "અમારી સંસ્થાનું નામ {w} છે. તમે {w} વિશે સાંભળ્યું છે?",
+  pa: "ਸਾਡੀ ਸੰਸਥਾ ਦਾ ਨਾਮ {w} ਹੈ। ਕੀ ਤੁਸੀਂ {w} ਬਾਰੇ ਸੁਣਿਆ ਹੈ?",
+};
+
+export function carrierLine(lang: string, word: string): string {
+  const w = String(word || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  return (CARRIER[lang] ?? CARRIER.en).split("{w}").join(w);
+}
+
 export function previewLanguage(raw: string | null | undefined): string {
   const code = String(raw || "").toLowerCase().split(/[-_]/)[0];
   return /^[a-z]{2}$/.test(code) ? code : "en";
