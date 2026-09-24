@@ -48,6 +48,7 @@ export const BLOCKED_MESSAGE = "This website blocks automatic reading. Open the 
 
 function htmlToText(html: string): string {
   return html
+    .replace(/<!--[\s\S]*?-->/g, " ")
     .replace(/<(script|style|noscript|svg|nav|footer|header)[\s\S]*?<\/\1>/gi, " ")
     .replace(/<br\s*\/?>|<\/(p|div|li|h[1-6]|tr)>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
@@ -91,6 +92,8 @@ export async function fetchPageText(url: string): Promise<{ title: string; text:
     }
   } catch { /* try the reader */ }
   if (direct) return direct;
+  // A page that doesn't exist shouldn't become "knowledge" via the reader.
+  if (status === 404 || status === 410) throw new Error("That page doesn't exist (the site answered 404). Check the address and try again.");
 
   const viaReader = await readerFetch(clean);
   if (viaReader) return viaReader;

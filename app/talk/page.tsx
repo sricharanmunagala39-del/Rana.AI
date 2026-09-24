@@ -194,7 +194,7 @@ function TalkInner() {
   const isIdleOrError = callStatus === "idle" || callStatus === "error";
   const langLabel = LANGUAGES.find((l) => l.code === language)?.label ?? language;
   const isPublished = !!publishInfo?.agentId;
-  const profileHref = scriptId ? `/agents/new?id=${scriptId}` : "/agent";
+  const profileHref = scriptId ? `/agents/new?id=${scriptId}` : "/employees";
 
   async function republish(thenCall = false) {
     if (!scriptId) return;

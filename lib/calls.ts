@@ -165,6 +165,10 @@ export function payloadToCall(p: any, clientId: string): Partial<CallRow> {
   let direction: CallRow["direction"] = "inbound";
   if (p.campaign_id) { source = "campaign"; direction = "outbound"; }
   else if (!p.deployment_id && p.attempt_id) { source = "instant_outbound"; direction = "outbound"; }
+  // Browser sessions from the Talk page (and RANA's own diagnostics) are tests, never results.
+  const uid = String(p.user_identifier ?? p.user_id ?? "");
+  const phoneish = /\d{6,}/.test(String(p.user_phone_number ?? ""));
+  if (!p.campaign_id && (/^rana-(test|diagnose)/.test(uid) || (!phoneish && !p.attempt_id))) source = "manual";
 
   const firstUser = transcript.find((t) => t.role === "user")?.text ?? null;
   const summary = pick(vars, SUMMARY_KEYS) ?? (firstUser ? firstUser.slice(0, 160) : null);
@@ -339,7 +343,7 @@ export function callFromCartesiaApi(call: any, clientId: string): Partial<CallRo
   const customerPhone = direction === "inbound" ? (tp.from ?? null) : (tp.to ?? null);
   const agentPhone = direction === "inbound" ? (tp.to ?? null) : (tp.from ?? null);
   // No phone on either side = a browser test from the Talk page. Kept, but never counted in results.
-  const isTest = !tp.to && !tp.from && !call?.batch_id;
+  const isTest = !call?.batch_id && ((!tp.to && !tp.from) || tp.connection_type === "websocket" || tp.from === "websocket" || String(tp.call_sid ?? "").startsWith("web_"));
 
   return {
     client_id: clientId,

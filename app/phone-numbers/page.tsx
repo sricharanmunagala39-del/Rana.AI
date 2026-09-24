@@ -15,6 +15,8 @@ type PhoneNumber = {
 
 export default function PhoneNumbersPage() {
   const [numbers, setNumbers] = useState<PhoneNumber[]>([]);
+  const [sarvam, setSarvam] = useState<any>(null);
+  useEffect(() => { fetch("/api/sarvam/status").then((r) => r.json()).then((d) => setSarvam(d?.sarvam || null)).catch(() => {}); }, []);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -134,8 +136,23 @@ export default function PhoneNumbersPage() {
         <div className="max-w-[760px] flex flex-col gap-6">
           <div>
             <div className="text-[20px] font-display font-semibold">Phone Numbers</div>
-            <div className="text-[13px] text-ink-soft mt-0.5">Numbers your Cartesia agents can answer or call from.</div>
+            <div className="text-[13px] text-ink-soft mt-0.5">The numbers your employees call from and answer.</div>
           </div>
+
+          <div className="border border-signal/30 rounded-xl bg-white p-5 flex items-center gap-4" data-testid="sarvam-number">
+            <div className="w-10 h-10 rounded-full bg-signal-tint text-signal flex items-center justify-center font-bold">₹</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[14px] font-semibold">{sarvam?.number || "Sarvam Indian number"} <span className="text-[11px] font-semibold text-signal bg-signal-tint rounded-full px-2 py-0.5 ml-1">Sarvam · India</span></div>
+              <div className="text-[12px] text-ink-soft mt-0.5 leading-relaxed">
+                {sarvam?.ready && sarvam?.calling
+                  ? "Every employee on the Sarvam engine calls from this number — campaigns and \"Call me\" test calls. Nothing to set up."
+                  : sarvam ? "Sarvam calling isn't fully connected yet." : "Checking…"}
+              </div>
+            </div>
+            <span className={`text-[11.5px] font-semibold rounded-full px-2.5 py-1 ${sarvam?.ready && sarvam?.calling ? "bg-signal-tint text-signal" : "bg-paper text-ink-soft"}`}>{sarvam?.ready && sarvam?.calling ? "Ready" : "—"}</span>
+          </div>
+
+          <div className="text-[12px] font-semibold text-ink-soft uppercase tracking-wide mt-2">Cartesia numbers (for employees on the Cartesia engine)</div>
 
           <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-3">
             <div>

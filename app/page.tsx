@@ -295,8 +295,8 @@ export default function DashboardPage() {
 
         {empty && (
           <div className="border border-dashed border-line rounded-[12px] bg-raised px-5 py-4 text-[13px] text-ink-soft">
-            No calls in this period yet. Calls are pulled from Cartesia automatically every time this page loads — make sure your script is
-            published on the <Link href="/scripts" className="text-signal font-semibold">Scripts</Link> page, or try a longer range.
+            No calls in this period yet. New calls show up here automatically — make sure your employee is
+            published on the <Link href="/employees" className="text-signal font-semibold">My Employees</Link> page, or try a longer range.
           </div>
         )}
 
@@ -345,7 +345,7 @@ export default function DashboardPage() {
           <Card title={singleDay ? "Calls by hour" : "Calls by day"} info="Stacked: inbound (green) and outbound (blue). Hover a column for connected counts." right={<Legend />}>
             {data ? <StackedColumns data={chartData} labelOf={singleDay ? hourLabel : dayLabel} /> : <div className="h-[170px]" />}
           </Card>
-          <Card title="Why calls didn't connect" info="Reason Cartesia reported when a call wasn't answered. Busy and no-answer numbers are worth retrying at a different hour.">
+          <Card title="Why calls didn't connect" info="The reason the phone network reported when a call wasn't answered. Busy and no-answer numbers are worth retrying at a different hour.">
             {data && data.notConnected.length ? (
               <BarList items={data.notConnected.map((r) => ({ label: r.reason, value: r.count, note: share(r.count, data.kpis.total) }))} max={Math.max(...data.notConnected.map((r) => r.count))} color="#8a8f8a" />
             ) : data ? <div className="text-[13px] text-ink-soft py-6 text-center">Every call connected in this period.</div> : null}

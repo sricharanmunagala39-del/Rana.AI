@@ -6,7 +6,7 @@ import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import { LANGUAGES } from "@/lib/storage";
 
-type Script = { id: string; name: string; starting_language: string; voice_name: string | null; cartesia_agent_id: string | null; tested_at: string | null; published_at: string | null; steps: any[]; status: string };
+type Script = { id: string; name: string; engine?: string | null; playbook?: any; starting_language: string; voice_name: string | null; cartesia_agent_id: string | null; tested_at: string | null; published_at: string | null; steps: any[]; status: string };
 type PhoneNumber = { id: string; number: string; label: string | null; agentId: string | null; agentName: string | null; provider: string };
 type Campaign = { id: string; name: string; script_id: string | null; status: string; total_contacts: number; created_at: string; kpis: { dialled: number; connected: number; hot: number } };
 
@@ -18,7 +18,7 @@ function Stages({ s, inbound, outbound }: { s: Script; inbound: PhoneNumber[]; o
   const tested = built && !!s.tested_at;
   const deployed = tested && (inbound.length > 0 || outbound.some((c) => ["running", "scheduled", "completed", "paused"].includes(c.status)));
   const steps = [
-    { label: "Built", done: built, note: built ? `Published ${fmtDate(s.published_at)}` : "Publish to Cartesia" },
+    { label: "Built", done: built, note: built ? `Published ${fmtDate(s.published_at)}` : "Press Publish" },
     { label: "Tested", done: tested, note: tested ? `Signed off ${fmtDate(s.tested_at)}` : built ? "Talk & sign off" : "—" },
     { label: "Deployed", done: deployed, note: deployed ? [inbound.length ? `${inbound.length} inbound line${inbound.length > 1 ? "s" : ""}` : "", outbound.length ? `${outbound.length} campaign${outbound.length > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ") : tested ? "Choose inbound or outbound" : "—" },
   ];
@@ -83,7 +83,14 @@ function DeployModal({ s, numbers, campaigns, onClose, onChanged }: { s: Script;
             ))}
           </div>
 
-          {mode === "inbound" && (
+          {mode === "inbound" && s.engine !== "cartesia" && (
+            <div className="flex flex-col gap-2 text-[12.5px] leading-relaxed" data-testid="sarvam-inbound">
+              <div className="text-[13px] font-semibold">Inbound on your Sarvam number</div>
+              <div className="text-ink-soft">{s.name} runs on Sarvam. Incoming calls to your Sarvam number (+91 80642 60065) are answered by the agent linked to that number in Sarvam, which RANA can't switch through Sarvam's API yet. To have {s.name} answer inbound calls, the RANA team links the number to {s.name}'s script in Sarvam — send us a message and it's done the same day.</div>
+              <div className="text-ink-soft">Outbound works fully from here: pick <b>Make outbound calls</b> above.</div>
+            </div>
+          )}
+          {mode === "inbound" && s.engine === "cartesia" && (
             <div className="flex flex-col gap-3">
               <div className="text-[13px] font-semibold">Pick the number {s.name} should answer</div>
               {numbers.length === 0 && (
@@ -215,7 +222,7 @@ export default function EmployeesPage() {
                         {inbound.length > 0 && <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-signal-tint text-signal">Answering {inbound.map((n) => n.number).join(", ")}</span>}
                         {running > 0 && <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-hot-tint text-hot">Calling · {running} campaign{running > 1 ? "s" : ""} running</span>}
                       </div>
-                      <div className="text-[12.5px] text-ink-soft mt-0.5">{langLabel}{s.voice_name ? ` · voice ${s.voice_name}` : ""} · {(s.steps || []).length} script steps</div>
+                      <div className="text-[12.5px] text-ink-soft mt-0.5">{langLabel} · {s.engine === "cartesia" ? `Cartesia${s.voice_name ? ` · voice ${s.voice_name}` : ""}` : "Sarvam · voice Priya"}{s.playbook ? " · Studio script" : (s.steps || []).length ? ` · ${(s.steps || []).length} script steps` : " · no script yet"}</div>
                     </div>
                     <div className="flex gap-2 shrink-0">
                       {!built ? (

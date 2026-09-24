@@ -17,6 +17,9 @@ export async function POST(req: Request) {
     if (!script || script.client_id !== session.clientId) return Response.json({ error: "Script not found" }, { status: 404 });
     const client = await getClientById(session.clientId);
     if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
+    // Retired: this used to overwrite the client's own Sarvam agent. Publishing now happens per employee
+    // (/api/scripts/[id]/publish), which never touches agents the client built themselves.
+    return Response.json({ error: "Publish from My Employees → Edit → Review & publish." }, { status: 410 });
     const sarvamApiKey = process.env.SARVAM_API_KEY;
     const appId = client.sarvam_app_id;
     if (!sarvamApiKey || !appId) {
