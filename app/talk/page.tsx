@@ -9,6 +9,15 @@ import { CartesiaVoiceCall } from "@/lib/cartesia-voice-client";
 
 type CallStatus = "idle" | "connecting" | "live" | "ending" | "error";
 
+// What a counsellor should hear the employee handle before it goes near a real customer.
+const TEST_CHECKS = [
+  { key: "greeting", label: "Greets correctly and says who it is", tryThis: "Hello, who is this?" },
+  { key: "facts", label: "Answers the main questions correctly", tryThis: "What's the fee? When does the next batch start?" },
+  { key: "language", label: "Switches language when the caller does", tryThis: "Telugu lo cheppandi / Hindi mein bataiye" },
+  { key: "objection", label: "Handles 'not interested' and 'call me later' politely", tryThis: "I'm busy, call me tomorrow" },
+  { key: "unknown", label: "Doesn't make things up when it doesn't know", tryThis: "Ask something not in the script" },
+];
+
 function TalkInner() {
   const params = useSearchParams();
   const scriptId = params.get("scriptId");
@@ -18,6 +27,14 @@ function TalkInner() {
   const [publishInfo, setPublishInfo] = useState<{ agentId?: string; hasWebhook?: boolean } | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  // Test sign-off (named employees only): an employee must be tested before it can be deployed.
+  const [testedAt, setTestedAt] = useState<string | null>(null);
+  const [testNotes, setTestNotes] = useState("");
+  const [checks, setChecks] = useState<Record<string, boolean>>({});
+  const [testsRun, setTestsRun] = useState(0);
+  const [savingTest, setSavingTest] = useState(false);
+  const [testMsg, setTestMsg] = useState("");
 
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [callError, setCallError] = useState("");
@@ -41,6 +58,9 @@ function TalkInner() {
           setAgentName(s.name || "Agent");
           setLanguage(s.starting_language || "en-IN");
           if (s.cartesia_agent_id) setPublishInfo({ agentId: s.cartesia_agent_id, hasWebhook: true });
+          setTestedAt(s.tested_at || null);
+          setTestNotes(s.test_notes || "");
+          setChecks(s.test_checklist || {});
         } catch { setNotFound(true); }
         finally { setStatusLoading(false); }
       })();
@@ -90,6 +110,7 @@ function TalkInner() {
         });
       } else if (evt.type === "ended") {
         setCallStatus("idle");
+        setTestsRun((n) => n + 1);
         if (durationRef.current) { clearInterval(durationRef.current); durationRef.current = null; }
       } else if (evt.type === "error") {
         setCallStatus("error");
@@ -116,6 +137,7 @@ function TalkInner() {
     if (durationRef.current) { clearInterval(durationRef.current); durationRef.current = null; }
     setCallStatus("idle");
     setIsMuted(false);
+    setTestsRun((n) => n + 1);
   }, []);
 
   const toggleMute = useCallback(() => {
@@ -141,6 +163,23 @@ function TalkInner() {
   const langLabel = LANGUAGES.find((l) => l.code === language)?.label ?? language;
   const isPublished = !!publishInfo?.agentId;
   const profileHref = scriptId ? `/agents/new?id=${scriptId}` : "/agent";
+
+  const allChecked = TEST_CHECKS.every((c) => checks[c.key]);
+  async function saveTest(approve: boolean) {
+    if (!scriptId) return;
+    setSavingTest(true); setTestMsg("");
+    try {
+      const res = await fetch(`/api/scripts/${scriptId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ test_checklist: checks, test_notes: testNotes, tested_at: approve ? new Date().toISOString() : null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't save");
+      setTestedAt(data.script?.tested_at || null);
+      setTestMsg(approve ? "Signed off — ready to deploy." : "Sign-off removed. Deploying is blocked until it's tested again.");
+    } catch (e: any) { setTestMsg(e.message); }
+    finally { setSavingTest(false); }
+  }
 
   if (notFound) {
     return (
@@ -256,6 +295,63 @@ function TalkInner() {
             </div>
           </div>
         </div>
+
+        {!isLive && transcript.length > 0 && (
+          <div className="px-8 pb-6 flex justify-center">
+            <div className="w-full max-w-[640px] bg-white border border-line rounded-2xl p-5">
+              <div className="text-[13px] font-semibold mb-3">Last test conversation</div>
+              <div className="flex flex-col gap-2 max-h-[260px] overflow-y-auto">
+                {transcript.map((t, i) => (
+                  <div key={i} className={`max-w-[85%] rounded-xl px-3 py-2 text-[12.5px] leading-relaxed ${t.role === "agent" ? "bg-signal-tint self-start" : "bg-paper self-end"}`}>
+                    <div className="text-[10px] uppercase tracking-wide text-ink-soft">{t.role === "agent" ? agentName : "You"}</div>{t.text}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {scriptId && isPublished && (
+          <div className="px-8 pb-10 flex justify-center">
+            <div className="w-full max-w-[640px] bg-white border border-line rounded-2xl p-6 flex flex-col gap-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[15px] font-semibold">Test before you deploy</div>
+                  <div className="text-[12.5px] text-ink-soft mt-0.5 leading-relaxed">
+                    Call {agentName} a few times and play the customer. Tick each check once you've heard it handled well — then sign off.
+                  </div>
+                </div>
+                {testedAt ? (
+                  <span className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-signal-tint text-signal">Signed off {new Date(testedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+                ) : (
+                  <span className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-paper border border-line text-ink-soft">Not signed off</span>
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                {TEST_CHECKS.map((c) => (
+                  <label key={c.key} className="flex items-start gap-2.5 text-[13px] cursor-pointer">
+                    <input type="checkbox" className="accent-signal mt-0.5" checked={!!checks[c.key]} onChange={(e) => setChecks({ ...checks, [c.key]: e.target.checked })} />
+                    <span><span className="font-semibold">{c.label}</span> <span className="text-ink-soft">— try: “{c.tryThis}”</span></span>
+                  </label>
+                ))}
+              </div>
+              <textarea value={testNotes} onChange={(e) => setTestNotes(e.target.value)} rows={2} placeholder="Notes — what to fix, what worked (optional)"
+                className="w-full border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal" />
+              <div className="flex flex-wrap items-center gap-3">
+                <button onClick={() => saveTest(true)} disabled={savingTest || !allChecked || (testsRun === 0 && !testedAt)}
+                  className="bg-signal text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-40">
+                  {testedAt ? "Re-confirm sign-off" : "Sign off — ready to deploy"}
+                </button>
+                {testedAt && <a href={`/employees?deploy=${scriptId}`} className="border border-line rounded-lg px-4 py-2 text-[12.5px] font-semibold hover:bg-paper">Deploy {agentName} →</a>}
+                {testedAt && <button onClick={() => saveTest(false)} disabled={savingTest} className="text-[12px] text-ink-soft hover:text-miss">Remove sign-off</button>}
+                {!allChecked && <span className="text-[11.5px] text-ink-soft">Tick all {TEST_CHECKS.length} checks to sign off.</span>}
+                {allChecked && testsRun === 0 && !testedAt && <span className="text-[11.5px] text-ink-soft">Make at least one test call first.</span>}
+              </div>
+              {testMsg && <div className="text-[12.5px] text-signal">{testMsg}</div>}
+              <div className="text-[11.5px] text-ink-soft">Test calls are saved with your calls but never counted in the dashboard.</div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
