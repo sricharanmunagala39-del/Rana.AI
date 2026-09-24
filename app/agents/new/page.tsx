@@ -7,24 +7,26 @@ import Sidebar from "@/components/Sidebar";
 import VoicePickerModal, { PickerVoice } from "@/components/VoicePickerModal";
 import ModelPickerModal, { PickerModel } from "@/components/ModelPickerModal";
 import BackgroundSoundPicker, { PickerBackgroundSound } from "@/components/BackgroundSoundPicker";
+import ScriptStudio from "@/components/studio/ScriptStudio";
+import AskAiBar from "@/components/studio/AskAiBar";
 import { LANGUAGES, STRICTNESS_LABELS, stepsToInstructions } from "@/lib/storage";
-
-type Step = { id: string; title: string; body: string };
-type Fact = string;
+import { baseLang, LANG_NAMES, playbookFromSteps, playbookToSteps, detectScriptLanguage } from "@/lib/playbook";
 
 const STEPS = [
-  { key: "basics", label: "Name & language" },
+  { key: "basics", label: "Name & languages" },
   { key: "voice", label: "Voice, pace & brain" },
-  { key: "script", label: "Write the script" },
-  { key: "review", label: "Review & save" },
+  { key: "script", label: "Script Studio" },
+  { key: "review", label: "Review & publish" },
 ] as const;
 
-const BLANK_STEP = (): Step => ({ id: `s${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, title: "", body: "" });
+// Languages a caller can switch into mid-call (the employee follows them).
+const SWITCH_LANGS = ["en", "te", "hi", "ta", "kn", "ml", "mr", "bn", "gu", "pa"];
 
 function WizardInner() {
   const params = useSearchParams();
   const router = useRouter();
-  const editId = params.get("id");
+  // Read once: saving a new agent puts ?id= in the URL, which must not trigger a reload of the form.
+  const [editId] = useState(() => params.get("id"));
   const isEditing = !!editId;
 
   const [stepIdx, setStepIdx] = useState(0);
@@ -34,6 +36,7 @@ function WizardInner() {
   // ── form state ──
   const [name, setName] = useState("");
   const [startingLanguage, setStartingLanguage] = useState("en-IN");
+  const [policy, setPolicy] = useState<{ mode: "match_caller" | "fixed"; allowed: string[] }>({ mode: "match_caller", allowed: ["en", "te", "hi"] });
   const [voiceId, setVoiceId] = useState("");
   const [voiceName, setVoiceName] = useState("");
   const [modelId, setModelId] = useState("");
@@ -41,10 +44,10 @@ function WizardInner() {
   const [backgroundSoundId, setBackgroundSoundId] = useState<string | null>(null);
   const [backgroundVolume, setBackgroundVolume] = useState(1);
   const [noiseSuppression, setNoiseSuppression] = useState<"off" | "auto" | "max">("auto");
-  const [greeting, setGreeting] = useState("");
-  const [steps, setSteps] = useState<Step[]>([BLANK_STEP()]);
-  const [facts, setFacts] = useState<Fact[]>([]);
   const [strictness, setStrictness] = useState(3);
+  // Script Studio
+  const [studio, setStudio] = useState<any>({ sourceScript: "", playbook: null, greeting: "", links: [], pronunciations: [], keyterms: [] });
+  const setStudioPart = (patch: any) => setStudio((s: any) => ({ ...s, ...patch }));
 
   // ── Cartesia catalog ──
   const [voices, setVoices] = useState<PickerVoice[]>([]);
@@ -61,6 +64,7 @@ function WizardInner() {
   const [cartesiaAgentId, setCartesiaAgentId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState("");
   const [publishDone, setPublishDone] = useState(false);
@@ -88,6 +92,7 @@ function WizardInner() {
         const s = data.script;
         setName(s.name || "");
         setStartingLanguage(s.starting_language || "en-IN");
+        if (s.language_policy) setPolicy({ mode: s.language_policy.mode === "fixed" ? "fixed" : "match_caller", allowed: s.language_policy.allowed?.length ? s.language_policy.allowed : [baseLang(s.starting_language)] });
         setVoiceId(s.speaker || "");
         setVoiceName(s.voice_name || "");
         setModelId(s.model_id || "");
@@ -95,68 +100,83 @@ function WizardInner() {
         setBackgroundSoundId(s.background_sound_id || null);
         setBackgroundVolume(typeof s.background_volume === "number" ? s.background_volume : 1);
         setNoiseSuppression((s.noise_suppression as "off" | "auto" | "max") || "auto");
-        setGreeting(s.greeting || "");
-        setSteps(s.steps && s.steps.length > 0 ? s.steps : [BLANK_STEP()]);
-        setFacts(s.facts || []);
         setStrictness(typeof s.strictness === "number" ? s.strictness : 3);
         setCartesiaAgentId(s.cartesia_agent_id || null);
+        // Older employees only have numbered steps + facts: show them as a playbook so nothing is lost.
+        const hasSteps = (s.steps || []).some((x: any) => x.title?.trim() || x.body?.trim());
+        const playbook = s.playbook || (hasSteps || (s.facts || []).length ? playbookFromSteps(s.steps || [], s.facts || []) : null);
+        setStudio({
+          sourceScript: s.source_script || "",
+          playbook,
+          greeting: s.greeting || "",
+          links: s.links || [],
+          pronunciations: s.pronunciations || [],
+          keyterms: s.keyterms || [],
+        });
       } catch (err: any) {
         setLoadError(err?.message || "Something went wrong.");
       } finally { setLoadingExisting(false); }
     })();
   }, [editId]);
 
-  function addStep() { setSteps((s) => [...s, BLANK_STEP()]); }
-  function updateStep(id: string, field: "title" | "body", value: string) {
-    setSteps((s) => s.map((st) => (st.id === id ? { ...st, [field]: value } : st)));
+  // The opening language is always one of the languages it may speak.
+  const openBase = baseLang(startingLanguage);
+  useEffect(() => {
+    setPolicy((p) => ({ ...p, allowed: [openBase, ...p.allowed.filter((l) => l !== openBase)] }));
+  }, [openBase]);
+  function toggleAllowed(l: string) {
+    if (l === openBase) return;
+    setPolicy((p) => ({ ...p, allowed: p.allowed.includes(l) ? p.allowed.filter((x) => x !== l) : [...p.allowed, l] }));
   }
-  function removeStep(id: string) { setSteps((s) => s.filter((st) => st.id !== id)); }
-  function moveStep(id: string, dir: number) {
-    setSteps((s) => {
-      const idx = s.findIndex((st) => st.id === id);
-      const swap = idx + dir;
-      if (idx === -1 || swap < 0 || swap >= s.length) return s;
-      const next = [...s];
-      [next[idx], next[swap]] = [next[swap], next[idx]];
-      return next;
-    });
-  }
-  function addFact() { setFacts((f) => [...f, ""]); }
-  function updateFact(i: number, v: string) { setFacts((f) => { const n = [...f]; n[i] = v; return n; }); }
-  function removeFact(i: number) { setFacts((f) => f.filter((_, x) => x !== i)); }
 
   const selectedVoice = voices.find((v) => v.id === voiceId);
   const selectedModel = models.find((m) => m.id === modelId);
   const selectedSound = backgroundSounds.find((s) => s.id === backgroundSoundId) || null;
-  const currentTier = STRICTNESS_LABELS.find((t) => t.value === strictness) ?? STRICTNESS_LABELS[2];
+  const pb = studio.playbook;
+  const planReady = !!pb && !!(pb.opening?.trim() || pb.discovery?.some((x: string) => x.trim()) || pb.pitch?.some((x: string) => x.trim()) || pb.closing?.trim());
 
   function canAdvance() {
     if (stepIdx === 0) return name.trim().length > 0;
     if (stepIdx === 1) return true; // voice/model auto-resolve server-side if left blank
-    if (stepIdx === 2) return greeting.trim().length > 0 && steps.some((s) => s.title.trim() || s.body.trim());
+    if (stepIdx === 2) return studio.greeting.trim().length > 0 && planReady;
     return true;
   }
 
+  function cleanPlaybook(p: any) {
+    if (!p) return null;
+    const t = (a: any[]) => (a || []).map((x: string) => x.trim()).filter(Boolean);
+    const pairs = (a: any[], k1: string, k2: string) => (a || []).filter((x: any) => x[k1]?.trim() && x[k2]?.trim());
+    return { ...p, discovery: t(p.discovery), pitch: t(p.pitch), facts: t(p.facts), doNot: t(p.doNot), objections: pairs(p.objections, "objection", "response"), faqs: pairs(p.faqs, "question", "answer") };
+  }
+
   async function persist(): Promise<string | null> {
+    if (!name.trim()) { setSaveError("Give the employee a name first."); return null; }
     setSaving(true); setSaveError("");
     try {
-      const cleanSteps = steps.filter((s) => s.title.trim() || s.body.trim());
+      const playbook = cleanPlaybook(studio.playbook);
+      const steps = playbook ? playbookToSteps(playbook) : [];
       const payload: any = {
         name: name.trim(),
-        greeting,
-        steps: cleanSteps,
-        instructions: stepsToInstructions(cleanSteps, strictness),
-        facts: facts.filter((f) => f.trim()),
+        greeting: studio.greeting,
+        steps,
+        instructions: stepsToInstructions(steps, strictness),
+        facts: playbook?.facts || [],
         variables: [],
         strictness,
         speaker: voiceId || "",
-        voice_name: selectedVoice?.name || null,
+        voice_name: selectedVoice?.name || voiceName || null,
         speech_rate: speechRate,
         starting_language: startingLanguage,
         model_id: modelId || null,
         background_sound_id: backgroundSoundId,
         background_volume: backgroundVolume,
         noise_suppression: noiseSuppression,
+        playbook,
+        source_script: studio.sourceScript,
+        links: (studio.links || []).filter((l: any) => l.url?.trim()),
+        pronunciations: (studio.pronunciations || []).filter((p: any) => p.word?.trim() && p.sayAs?.trim()),
+        keyterms: studio.keyterms || [],
+        language_policy: policy,
       };
       const res = savedId
         ? await fetch(`/api/scripts/${savedId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
@@ -165,6 +185,8 @@ function WizardInner() {
       if (!res.ok) throw new Error(data.error || "Failed to save.");
       const id = data.script.id;
       setSavedId(id);
+      setSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      if (!editId && typeof window !== "undefined") window.history.replaceState(null, "", `/agents/new?id=${id}`);
       return id;
     } catch (err: any) {
       setSaveError(err?.message || "Something went wrong.");
@@ -202,15 +224,29 @@ function WizardInner() {
     );
   }
 
+  const openName = LANG_NAMES[openBase] || "English";
+  const allowedNames = policy.allowed.map((l) => LANG_NAMES[l]).filter(Boolean);
+  const Label = ({ children }: any) => <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">{children}</div>;
+
   return (
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="create-agent" />
       <div className="flex-1 flex flex-col">
-        <div className="border-b border-line px-8 py-4">
-          <div className="text-[18px] font-display font-semibold">{isEditing ? `Edit ${name || "agent"}` : "Create your own agent"}</div>
-          <div className="text-[12.5px] text-ink-soft mt-0.5">
-            Write the script, pick a language and voice, then save it — it becomes a named agent you can talk to, publish, and later point a campaign at.
+        <div className="border-b border-line px-8 py-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-[18px] font-display font-semibold">{isEditing ? `Edit ${name || "agent"}` : "Create your own agent"}</div>
+            <div className="text-[12.5px] text-ink-soft mt-0.5">
+              Paste your script — AI turns it into a call plan with objections, FAQs and closing. Add documents and links, fix pronunciation, then publish and talk to it.
+            </div>
           </div>
+          {stepIdx >= 2 && (
+            <div className="flex items-center gap-3 shrink-0">
+              {savedAt && <span className="text-[11.5px] text-ink-soft">Saved {savedAt}</span>}
+              <button type="button" onClick={persist} disabled={saving || !name.trim()} className="border border-line bg-white rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold disabled:opacity-50">
+                {saving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-1 overflow-hidden">
@@ -234,23 +270,56 @@ function WizardInner() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-10">
-            <div className="max-w-[640px]">
+            <div className={stepIdx >= 2 ? "max-w-[860px]" : "max-w-[640px]"}>
 
               {stepIdx === 0 && (
                 <div className="flex flex-col gap-6">
                   <div>
                     <label className="text-[13px] font-semibold block mb-1.5">What's this agent called?</label>
-                    <input value={name} onChange={(e) => setName(e.target.value)} placeholder={`e.g. "Telugu NEET PG Outbound"`}
+                    <input value={name} onChange={(e) => setName(e.target.value)} placeholder={`e.g. "Telugu NEET PG Outbound"`} data-testid="agent-name"
                       className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-white outline-none focus:border-signal" />
                     <div className="text-[11.5px] text-ink-soft mt-1">This is the name your team sees — not what the caller hears.</div>
                   </div>
                   <div>
                     <label className="text-[13px] font-semibold block mb-1.5">Which language does it open in?</label>
-                    <select value={startingLanguage} onChange={(e) => setStartingLanguage(e.target.value)}
+                    <select value={startingLanguage} onChange={(e) => setStartingLanguage(e.target.value)} data-testid="opening-language"
                       className="border border-line rounded-lg px-3 py-2.5 text-[14px] bg-white outline-none focus:border-signal">
                       {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
                     </select>
-                    <div className="text-[11.5px] text-ink-soft mt-1.5">Cartesia agents run on one primary language at a time today — this is the one your voice and brain will speak.</div>
+                    <div className="text-[11.5px] text-ink-soft mt-1.5">The greeting is spoken in this language — here and when you talk to it on the Talk page.</div>
+                  </div>
+                  <div>
+                    <label className="text-[13px] font-semibold block mb-2">If the caller switches language</label>
+                    <div className="flex flex-col gap-2" data-testid="language-policy">
+                      {[
+                        ["match_caller", "Reply in the caller's language", `Opens in ${openName}. If the caller talks in another language below, the employee switches with them — and back again.`],
+                        ["fixed", `Always speak ${openName}`, `Stays in ${openName} even if the caller uses another language.`],
+                      ].map(([k, t, d]) => (
+                        <label key={k} className={`flex items-start gap-3 border rounded-xl px-3.5 py-3 cursor-pointer ${policy.mode === k ? "border-signal bg-signal-tint/50" : "border-line bg-white"}`}>
+                          <input type="radio" name="policy" checked={policy.mode === k} onChange={() => setPolicy((p) => ({ ...p, mode: k as any }))} className="mt-1 accent-signal" />
+                          <span>
+                            <span className="text-[13.5px] font-semibold block">{t}{k === "match_caller" && <span className="ml-2 text-[10.5px] font-semibold text-signal bg-white border border-signal/30 rounded-full px-1.5 py-0.5">Recommended</span>}</span>
+                            <span className="text-[12px] text-ink-soft">{d}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {policy.mode === "match_caller" && (
+                      <div className="mt-3">
+                        <div className="text-[12px] text-ink-soft mb-1.5">Languages it can switch to</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {SWITCH_LANGS.map((l) => {
+                            const on = policy.allowed.includes(l);
+                            return (
+                              <button key={l} type="button" onClick={() => toggleAllowed(l)} disabled={l === openBase} data-testid={`allow-${l}`}
+                                className={`text-[12.5px] font-semibold px-3 py-1 rounded-full border ${on ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"} ${l === openBase ? "opacity-80 cursor-default" : ""}`}>
+                                {on ? "✓ " : ""}{LANG_NAMES[l]}{l === openBase ? " · opens" : ""}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -350,117 +419,68 @@ function WizardInner() {
               )}
 
               {stepIdx === 2 && (
-                <div className="flex flex-col gap-8">
-                  <div>
-                    <label className="text-[13px] font-semibold block mb-1.5">Opens the call with</label>
-                    <textarea value={greeting} onChange={(e) => setGreeting(e.target.value)} rows={3}
-                      placeholder="Spoken word-for-word the moment the call connects…"
-                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-white outline-none focus:border-signal resize-none" />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-[13px] font-semibold">Your script</label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-ink-soft">How closely should it stick to this?</span>
-                        <select value={strictness} onChange={(e) => setStrictness(parseInt(e.target.value, 10))}
-                          className="border border-line rounded-lg px-2 py-1 text-[11.5px] bg-white outline-none">
-                          {STRICTNESS_LABELS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="text-[11.5px] text-ink-soft mb-3">{currentTier.description}</div>
-                    <div className="flex flex-col gap-3">
-                      {steps.map((step, i) => (
-                        <div key={step.id} className="border border-line rounded-xl bg-white p-4 flex gap-3">
-                          <div className="flex flex-col items-center gap-1 pt-0.5 shrink-0">
-                            <span className="w-6 h-6 rounded-full bg-signal text-white text-[12px] font-bold flex items-center justify-center">{i + 1}</span>
-                            <button onClick={() => moveStep(step.id, -1)} disabled={i === 0} className="text-ink-soft text-[10px] disabled:opacity-20">▲</button>
-                            <button onClick={() => moveStep(step.id, 1)} disabled={i === steps.length - 1} className="text-ink-soft text-[10px] disabled:opacity-20">▼</button>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <input value={step.title} onChange={(e) => updateStep(step.id, "title", e.target.value)} placeholder={`Step title, e.g. "Qualify their need"`}
-                              className="w-full font-semibold text-[14px] outline-none bg-transparent mb-1.5" />
-                            <textarea value={step.body} onChange={(e) => updateStep(step.id, "body", e.target.value)} rows={2} placeholder="What should the agent do here?"
-                              className="w-full text-[13.5px] leading-relaxed outline-none resize-none bg-transparent" />
-                          </div>
-                          <button onClick={() => removeStep(step.id)} className="text-miss text-xs font-semibold px-1 h-fit">✕</button>
-                        </div>
-                      ))}
-                      <button onClick={addStep} className="text-[13px] font-semibold text-signal text-left">+ Add a step</button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[13px] font-semibold block mb-2">Facts it should always know</label>
-                    <div className="flex flex-col gap-2">
-                      {facts.map((f, i) => (
-                        <div key={i} className="flex items-start gap-2">
-                          <span className="text-ink-soft mt-2.5">•</span>
-                          <textarea value={f} onChange={(e) => updateFact(i, e.target.value)} rows={1}
-                            className="flex-1 text-[14px] leading-relaxed outline-none resize-none bg-transparent py-1.5 border-b border-line focus:border-signal" />
-                          <button onClick={() => removeFact(i)} className="text-miss text-xs font-semibold px-1 mt-2">✕</button>
-                        </div>
-                      ))}
-                      <button onClick={addFact} className="text-[13px] font-semibold text-signal text-left mt-1 ml-4">+ Add a fact</button>
-                    </div>
-                  </div>
-                </div>
+                <ScriptStudio
+                  value={studio} set={setStudioPart}
+                  agentName={name} openingLanguage={startingLanguage} policy={policy}
+                  voiceId={voiceId} speed={speechRate}
+                  scriptId={savedId} ensureSaved={persist}
+                  strictness={strictness} setStrictness={setStrictness} strictnessLabels={STRICTNESS_LABELS}
+                />
               )}
 
               {stepIdx === 3 && (
-                <div className="flex flex-col gap-6">
-                  <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-4">
-                    <div>
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Name</div>
-                      <div className="text-[15px] font-semibold mt-0.5">{name || "(untitled)"}</div>
+                <div className="flex flex-col gap-5">
+                  <div className="text-[12.5px] text-ink-soft">Read it through. Anything to change? Ask the AI in plain words — or go back to the Studio and edit a card.</div>
+                  {pb && <AskAiBar playbook={pb} greeting={studio.greeting} links={studio.links} openingLanguage={startingLanguage} onApply={(x: any) => setStudioPart(x)} compact />}
+
+                  <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-4" data-testid="review">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div><Label>Name</Label><div className="text-[15px] font-semibold mt-0.5">{name || "(untitled)"}</div></div>
+                      <div><Label>Opens in</Label><div className="text-[13.5px] mt-0.5">{openName}</div></div>
+                      <div>
+                        <Label>Caller switches language</Label>
+                        <div className="text-[13.5px] mt-0.5">{policy.mode === "fixed" ? `Stays in ${openName}` : `Follows the caller · ${allowedNames.join(", ")}`}</div>
+                      </div>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Language</div>
-                        <div className="text-[13.5px] mt-0.5">{LANGUAGES.find((l) => l.code === startingLanguage)?.label}</div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Voice</div>
-                        <div className="text-[13.5px] mt-0.5">{selectedVoice?.name || "Auto"}</div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Pace</div>
-                        <div className="text-[13.5px] mt-0.5">{speechRate.toFixed(1)}x</div>
-                      </div>
+                      <div><Label>Voice</Label><div className="text-[13.5px] mt-0.5">{selectedVoice?.name || voiceName || "Auto"} · {speechRate.toFixed(1)}x</div></div>
+                      <div><Label>Brain</Label><div className="text-[13.5px] mt-0.5">{selectedModel?.name || "Auto (fast Claude model)"}</div></div>
+                      <div><Label>Sticks to script</Label><div className="text-[13.5px] mt-0.5">{STRICTNESS_LABELS.find((t) => t.value === strictness)?.label}</div></div>
                     </div>
                     <div>
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Brain</div>
-                      <div className="text-[13.5px] mt-0.5">{selectedModel?.name || "Auto (fast Claude model)"}</div>
+                      <Label>Greeting</Label>
+                      <div className="text-[13.5px] mt-0.5 leading-relaxed">{studio.greeting || <span className="text-miss">No greeting yet</span>}</div>
+                      {studio.greeting && detectScriptLanguage(studio.greeting) && detectScriptLanguage(studio.greeting) !== openBase && (
+                        <div className="text-[12px] text-warm mt-1">⚠ The greeting isn't in {openName}. Fix it in the Studio (there's a Translate button).</div>
+                      )}
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Background sound</div>
-                        <div className="text-[13.5px] mt-0.5">{selectedSound ? `${selectedSound.filename} (${backgroundVolume.toFixed(1)}x)` : "None"}</div>
+                    {pb && (
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                        {pb.opening && <div className="col-span-2"><Label>Opening</Label><div className="text-[13px] mt-0.5">{pb.opening}</div></div>}
+                        {pb.discovery?.filter(Boolean).length > 0 && <div><Label>Asks</Label><ol className="text-[13px] mt-1 list-decimal ml-4 flex flex-col gap-0.5">{pb.discovery.filter(Boolean).map((q: string, i: number) => <li key={i}>{q}</li>)}</ol></div>}
+                        {pb.pitch?.filter(Boolean).length > 0 && <div><Label>Pitch</Label><ul className="text-[13px] mt-1 flex flex-col gap-0.5">{pb.pitch.filter(Boolean).map((q: string, i: number) => <li key={i}>• {q}</li>)}</ul></div>}
+                        {pb.objections?.length > 0 && (
+                          <div className="col-span-2">
+                            <Label>Objections — {pb.objections.length}</Label>
+                            <div className="flex flex-col gap-1 mt-1">{pb.objections.map((o: any, i: number) => <div key={i} className="text-[13px]"><span className="font-semibold">“{o.objection}”</span> <span className="text-ink-soft">→ {o.response}</span></div>)}</div>
+                          </div>
+                        )}
+                        {pb.closing && <div className="col-span-2"><Label>Closing</Label><div className="text-[13px] mt-0.5">{pb.closing}</div></div>}
                       </div>
-                      <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Noise suppression</div>
-                        <div className="text-[13.5px] mt-0.5 capitalize">{noiseSuppression}</div>
-                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {[
+                        [pb?.faqs?.length || 0, "FAQs"], [pb?.facts?.filter(Boolean).length || 0, "facts"], [studio.links.filter((l: any) => l.url).length, "links"],
+                        [studio.pronunciations.length, "pronunciation fixes"], [studio.keyterms.length, "listen-for words"],
+                      ].map(([n, l]) => (
+                        <span key={l as string} className={`text-[12px] border rounded-full px-2.5 py-0.5 ${n ? "border-line bg-paper" : "border-dashed border-line text-ink-soft"}`}>{n} {l}</span>
+                      ))}
+                      <button type="button" onClick={() => setStepIdx(2)} className="text-[12px] font-semibold text-signal ml-1">Edit in Studio →</button>
                     </div>
-                    <div>
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Opens with</div>
-                      <div className="text-[13.5px] mt-0.5 leading-relaxed">{greeting || "(no greeting set)"}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Script — {steps.filter((s) => s.title || s.body).length} steps</div>
-                      <div className="flex flex-col gap-1.5 mt-1.5">
-                        {steps.filter((s) => s.title || s.body).map((s, i) => (
-                          <div key={s.id} className="text-[13px]"><span className="font-semibold">{i + 1}. {s.title}</span> — <span className="text-ink-soft">{s.body}</span></div>
-                        ))}
-                      </div>
-                    </div>
-                    {facts.filter((f) => f.trim()).length > 0 && (
-                      <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Facts</div>
-                        <ul className="mt-1.5 flex flex-col gap-1">
-                          {facts.filter((f) => f.trim()).map((f, i) => <li key={i} className="text-[13px] text-ink-soft">• {f}</li>)}
-                        </ul>
+                    {pb?.missing?.length > 0 && (
+                      <div className="text-[12.5px] bg-hot-tint border border-hot/30 rounded-lg px-3 py-2">
+                        <div className="font-semibold mb-0.5">Still missing ({pb.missing.length})</div>
+                        {pb.missing.map((m: string, i: number) => <div key={i}>• {m}</div>)}
                       </div>
                     )}
                   </div>
@@ -468,8 +488,8 @@ function WizardInner() {
                   {saveError && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">{saveError}</div>}
                   {publishError && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">{publishError}</div>}
                   {publishDone && cartesiaAgentId && (
-                    <div className="text-[12.5px] text-signal bg-signal-tint border border-signal/20 rounded-lg px-3 py-2.5">
-                      Published — live on Cartesia (agent {cartesiaAgentId}).{" "}
+                    <div className="text-[12.5px] text-signal bg-signal-tint border border-signal/20 rounded-lg px-3 py-2.5" data-testid="published">
+                      Published — {name} is live with everything above.{" "}
                       {savedId && <a href={`/talk?scriptId=${savedId}`} className="font-semibold underline">Talk to it now →</a>}
                     </div>
                   )}
@@ -477,15 +497,15 @@ function WizardInner() {
                   <div className="flex items-center gap-3">
                     <button onClick={handleSaveDraft} disabled={saving || publishing}
                       className="border border-line bg-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-50">
-                      {saving ? "Saving…" : "Save as draft"}
+                      {saving && !publishing ? "Saving…" : "Save as draft"}
                     </button>
-                    <button onClick={handlePublish} disabled={saving || publishing}
+                    <button onClick={handlePublish} disabled={saving || publishing || !studio.greeting.trim() || !planReady} data-testid="publish"
                       className="bg-signal text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-50">
-                      {publishing ? "Publishing…" : "Save & publish to Cartesia"}
+                      {publishing ? "Publishing…" : cartesiaAgentId ? "Save & republish" : "Save & publish"}
                     </button>
                   </div>
                   <div className="text-[11.5px] text-ink-soft">
-                    Publishing makes it callable right now. Pointing a specific campaign at this agent is the next piece to build.
+                    Publishing makes it callable right now. Edits after publishing reach callers only when you publish again.
                   </div>
                 </div>
               )}
@@ -497,10 +517,13 @@ function WizardInner() {
                       Back
                     </button>
                   )}
-                  <button onClick={() => setStepIdx((i) => i + 1)} disabled={!canAdvance()}
+                  <button onClick={() => setStepIdx((i) => i + 1)} disabled={!canAdvance()} data-testid="continue"
                     className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-40">
                     Continue
                   </button>
+                  {stepIdx === 2 && !canAdvance() && (
+                    <span className="text-[12px] text-ink-soft">{!pb ? "Paste a script and build the call plan (or write it card by card)." : !studio.greeting.trim() ? "Add a greeting." : "Fill in at least the opening, a question, a pitch point or the closing."}</span>
+                  )}
                 </div>
               )}
             </div>
