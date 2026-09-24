@@ -7,6 +7,7 @@ import { getSession } from "@/lib/session";
 import { forbidUnless } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { claimResource } from "@/lib/ownership";
+import { isForeignVoice } from "@/lib/voiceClone";
 export async function GET(req: Request) {
   const session = await getSession(req);
   if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
@@ -23,6 +24,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, industry = "edtech", fromTemplate = true } = body;
     if (!name?.trim()) return Response.json({ error: "Script name is required" }, { status: 400 });
+  if (await isForeignVoice(session.clientId, body.speaker)) return Response.json({ error: "That voice isn't available to your account." }, { status: 403 });
+
     const template = fromTemplate ? INDUSTRY_TEMPLATES[industry] : null;
     const script = await createScript({
       client_id: session.clientId,
