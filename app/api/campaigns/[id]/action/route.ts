@@ -1,20 +1,30 @@
 export const runtime = "nodejs";
-import { parseSession, unauthorized } from "@/lib/auth";
+import { unauthorized, forbidUnless } from "@/lib/auth";
+import { audit } from "@/lib/audit";
+import { getClientById } from "@/lib/supabase";
+import { rulesFromClient, insideWindow, describeRules } from "@/lib/compliance";
 import { getCampaignRow, refreshCampaignFromCartesia, updateCampaignRow } from "@/lib/campaigns";
 import { cancelCartesiaBatch, retryCartesiaBatch } from "@/lib/cartesia";
+import { getSession } from "@/lib/session";
 
 /** POST { action: "cancel" | "retry" | "refresh" } — retry re-dials the numbers that didn't connect. */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return unauthorized();
   const c = await getCampaignRow(session.clientId, decodeURIComponent(params.id));
   if (!c) return Response.json({ error: "Campaign not found" }, { status: 404 });
   if (!c.cartesia_batch_id) return Response.json({ error: "This campaign never reached Cartesia." }, { status: 400 });
   const { action } = await req.json().catch(() => ({}));
+  if (action === "cancel" || action === "retry") { const denied = forbidUnless(session, "manager"); if (denied) return denied; }
+  if (action === "retry") {
+    const rules = rulesFromClient(await getClientById(session.clientId));
+    if (!insideWindow(rules)) return Response.json({ error: `It's outside your calling hours (${describeRules(rules)}). Re-dial when the window opens.` }, { status: 409 });
+  }
   try {
     if (action === "cancel") { await cancelCartesiaBatch(c.cartesia_batch_id); await updateCampaignRow(c.id, { status: "paused" }); }
     else if (action === "retry") { await retryCartesiaBatch(c.cartesia_batch_id); await updateCampaignRow(c.id, { status: "running", completed_at: null }); }
-    else if (action !== "refresh") return Response.json({ error: "Unknown action" }, { status: 400 });
+    if (action === "cancel" || action === "retry") await audit(session, action === "cancel" ? "campaign_cancelled" : "campaign_retried", { req, targetType: "campaign", targetId: c.id, detail: { name: c.name } });
+    if (action !== "cancel" && action !== "retry" && action !== "refresh") return Response.json({ error: "Unknown action" }, { status: 400 });
     const fresh = await refreshCampaignFromCartesia((await getCampaignRow(session.clientId, c.id))!);
     return Response.json({ ok: true, campaign: fresh });
   } catch (err: any) {
