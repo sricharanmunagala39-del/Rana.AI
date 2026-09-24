@@ -75,10 +75,20 @@ async function call<T = any>(url: string, init: RequestInit & { key: string }): 
 
 /** A single-use WebSocket URL for one browser voice session (the API key never reaches the browser). */
 export async function signedSessionUrl(cfg: SarvamConfig, userId: string): Promise<{ url: string; referenceId: string; expiresAt: number | null }> {
-  const q = new URLSearchParams({ user_identifier: userId, user_identifier_type: "custom", interaction_type: "call", version: String(cfg.appVersion) });
+  const q = new URLSearchParams({ interaction_type: "call", version: String(cfg.appVersion) });
   const d = await call<any>(`${APPS}/app-runtime/orgs/${cfg.orgId}/workspaces/${cfg.workspaceId}/apps/${cfg.appId}/url?${q}`, { method: "GET", key: cfg.apiKey });
   if (!d?.url) throw new Error("Sarvam didn't return a session URL — is the RANA Runtime agent committed?");
-  return { url: d.url, referenceId: d.reference_id, expiresAt: d.expires_at ?? null };
+  return { url: sessionWsUrl(d.url, userId), referenceId: d.reference_id, expiresAt: d.expires_at ?? null };
+}
+
+/** The WebSocket URL exactly as Sarvam's SDK builds it: signed URL + user identifier, sample rate and interaction type. */
+export function sessionWsUrl(signedUrl: string, userId: string, sampleRate = 16000): string {
+  const u = new URL(signedUrl);
+  u.searchParams.set("user_identifier", userId);
+  u.searchParams.set("user_identifier_type", "custom");
+  u.searchParams.set("sample_rate", String(sampleRate));
+  u.searchParams.set("interaction_type", "call");
+  return u.toString();
 }
 
 export function webhookUrl(clientSecret: string): string {

@@ -21,13 +21,14 @@ export async function POST(req: Request) {
   try {
     const signed = await signedSessionUrl(cfg, `rana-test-${session.clientId.slice(0, 8)}-${Date.now()}`);
     const p = sessionPayload(script);
-    const sep = signed.url.includes("?") ? "&" : "?";
+    const hotwords = (Array.isArray(script.keyterms) ? script.keyterms : []).map((k: any) => String(k)).filter(Boolean).slice(0, 50);
     return Response.json({
-      url: `${signed.url}${sep}interaction_type=call&input_sample_rate=16000&output_sample_rate=16000`,
+      url: signed.url,
       referenceId: signed.referenceId,
       start: {
         type: "client.action.interaction_start", origin: "client",
         agent_variables: p.agent_variables, initial_bot_message: p.initial_bot_message, initial_language_name: p.initial_language_name,
+        ...(hotwords.length ? { speech_hotwords: hotwords } : {}),
       },
       voice: SARVAM_AGENT_VOICE.name, language: p.initial_language_name,
     });
