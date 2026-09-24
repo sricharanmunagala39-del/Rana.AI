@@ -128,7 +128,7 @@ export default function CampaignDetailPage({ params }: { params: { id: string } 
             {c && (
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => act("refresh")} disabled={!!busy} className="text-[12.5px] font-semibold border border-line bg-raised rounded-lg px-3 py-1.5 disabled:opacity-50">{busy === "refresh" ? "Refreshing…" : "↻ Refresh"}</button>
-                {k && k.dnp > 0 && ["completed", "paused", "running"].includes(c.status) && <button onClick={() => act("retry")} disabled={!!busy} className="text-[12.5px] font-semibold border border-line bg-raised rounded-lg px-3 py-1.5 disabled:opacity-50">Retry {k.dnp} DNP</button>}
+                {k && k.dnp > 0 && (c as any).engine !== "sarvam" && ["completed", "paused", "running"].includes(c.status) && <button onClick={() => act("retry")} disabled={!!busy} className="text-[12.5px] font-semibold border border-line bg-raised rounded-lg px-3 py-1.5 disabled:opacity-50">Retry {k.dnp} DNP</button>}
                 {["running", "scheduled"].includes(c.status) && <button onClick={() => act("cancel")} disabled={!!busy} className="text-[12.5px] font-semibold text-miss border border-miss/30 bg-raised rounded-lg px-3 py-1.5 disabled:opacity-50">Stop</button>}
                 <a href={`/api/campaigns/${encodeURIComponent(params.id)}/export`} className="text-[12.5px] font-semibold bg-signal text-white rounded-lg px-3 py-1.5">Export CSV</a>
               </div>
