@@ -1,11 +1,12 @@
 export const runtime = "nodejs";
+import { parseSession, unauthorized } from "@/lib/auth";
 import { getClientById } from "@/lib/supabase";
 import { listCartesiaPhoneNumbers, provisionCartesiaPhoneNumber } from "@/lib/cartesia";
 
-// Single-tenant for now, matching the other /api/admin/cartesia-* routes.
-const DBMCI_CLIENT_ID = "724b4395-fba9-4de6-b773-eded4e3f3711";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const session = parseSession(req);
+  if (!session) return unauthorized();
   if (!process.env.CARTESIA_API_KEY) {
     return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
   }
@@ -28,6 +29,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const session = parseSession(req);
+  if (!session) return unauthorized();
   if (!process.env.CARTESIA_API_KEY) {
     return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
   }
@@ -40,7 +43,7 @@ export async function POST(req: Request) {
   try {
     let agentId: string | undefined;
     if (body.assignToAgent) {
-      const client = await getClientById(DBMCI_CLIENT_ID);
+      const client = await getClientById(session.clientId);
       agentId = client?.cartesia_agent_id ?? undefined;
     }
     const created = await provisionCartesiaPhoneNumber(label, agentId);
