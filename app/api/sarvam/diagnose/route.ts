@@ -48,7 +48,15 @@ export async function POST(req: Request) {
   let signed;
   try { signed = await signedSessionUrl(cfg, `rana-diagnose-${Date.now()}`); }
   catch (e: any) { return Response.json({ error: "session: " + e?.message }, { status: 502 }); }
-  const url = `${signed.url}${signed.url.includes("?") ? "&" : "?"}interaction_type=call&input_sample_rate=16000&output_sample_rate=16000`;
+  const url = signed.url;
+  // A second signed URL, fetched over plain HTTPS, shows why a handshake would be refused (status + body).
+  let preflight: any = null;
+  try {
+    const probe = await signedSessionUrl(cfg, `rana-diagnose-probe-${Date.now()}`);
+    const r = await fetch(probe.url.replace(/^wss:/, "https:").replace(/^ws:/, "http:"), { signal: AbortSignal.timeout(8000) });
+    preflight = { status: r.status, body: (await r.text()).slice(0, 300) };
+  } catch (e: any) { preflight = { error: String(e?.message || e) }; }
+  const params = Array.from(new URL(url).searchParams.keys());
 
   const result = await new Promise<any>((resolve) => {
     const WS: any = (globalThis as any).WebSocket;
@@ -97,13 +105,13 @@ export async function POST(req: Request) {
       log.push({ t: at(), ...rest });
       if (d.type === "server.action.interaction_end") { clearTimeout(hardStop); finish("server ended"); }
     };
-    ws.onerror = (e: any) => { log.push({ t: at(), ev: "error", msg: String(e?.message || e?.type || e) }); };
+    ws.onerror = (e: any) => { log.push({ t: at(), ev: "error", msg: String(e?.message || e?.error?.message || e?.type || e) }); };
     ws.onclose = (e: any) => { log.push({ t: at(), ev: "close", code: e?.code, reason: e?.reason }); clearTimeout(hardStop); clearInterval(timer); resolve({ ended: "closed" }); };
   });
 
   const answer = said.slice(1).join(" ");
   const out = {
-    ...result, referenceId: signed.referenceId, seconds: at(), audioChunks,
+    ...result, referenceId: signed.referenceId, seconds: at(), audioChunks, preflight, params, host: new URL(url).host, path: new URL(url).pathname,
     agentSaid: said, callerHeard: heard,
     followsInstructions: /zebra|ravi|purple|42/i.test(answer),
     log: log.slice(0, 80),
