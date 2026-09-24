@@ -65,6 +65,7 @@ export async function POST(req: Request) {
       client: { id: client.id, name: client.name, industry: client.industry },
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
       mustChangePassword: !!user.must_change_password,
+      home: (client as any).is_hq ? "/hq" : "/",
     }), { status: 200, headers });
   } catch (e: any) {
     console.error("[login]", e?.message);

@@ -1,15 +1,18 @@
 export const runtime = "nodejs";
 import { getSession } from "@/lib/session";
-import { sarvamConfig, sarvamMissing, SARVAM_AGENT_VOICE } from "@/lib/sarvamAgent";
+import { sarvamConfig, sarvamMissing, SARVAM_AGENT_VOICE, withClientNumber } from "@/lib/sarvamAgent";
+import { getClientById } from "@/lib/supabase";
 import { llmProvider } from "@/lib/llm";
 
 /** GET → which engine pieces are configured (never returns secrets). Used by the wizard and Settings. */
 export async function GET(req: Request) {
   const session = await getSession(req);
   if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
-  const cfg = sarvamConfig();
+  const base = sarvamConfig();
+  const client: any = await getClientById(session.clientId).catch(() => null);
+  const cfg = base ? withClientNumber(base, client) : null;
   return Response.json({
-    sarvam: { ready: !!cfg, missing: sarvamMissing(), voice: SARVAM_AGENT_VOICE.name, number: cfg?.agentNumber || null, calling: !!cfg?.connectionId, appId: cfg?.appId || null },
+    sarvam: { ready: !!cfg, missing: sarvamMissing(), voice: SARVAM_AGENT_VOICE.name, number: cfg?.agentNumber || null, ownNumber: !!client?.sarvam_agent_number, calling: !!cfg?.connectionId, appId: cfg?.appId || null },
     cartesia: { ready: !!process.env.CARTESIA_API_KEY },
     studioAi: llmProvider(),
   });

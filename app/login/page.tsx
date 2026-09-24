@@ -18,7 +18,7 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(data.error || "Login failed");
       // Invited with a one-time password: set their own before anything else.
       if (data.mustChangePassword) { router.push("/settings?tab=account&first=1"); return; }
-      const next = new URLSearchParams(window.location.search).get("next"); router.push(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
+      const next = new URLSearchParams(window.location.search).get("next"); router.push(next && next.startsWith("/") && !next.startsWith("//") && next !== "/" ? next : (data.home || "/"));
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
   }

@@ -2,7 +2,8 @@ export const runtime = "nodejs";
 import { getSession } from "@/lib/session";
 import { forbidUnless } from "@/lib/auth";
 import { getScriptById, getClientById } from "@/lib/supabase";
-import { sarvamConfig, sarvamMissing, placeOutboundCall, webhookUrl } from "@/lib/sarvamAgent";
+import { sarvamConfig, sarvamMissing, placeOutboundCall, webhookUrl, withClientNumber } from "@/lib/sarvamAgent";
+import { callingBlock } from "@/lib/plans";
 import { normalisePhone } from "@/lib/campaigns";
 import { dncSet } from "@/lib/compliance";
 import { audit } from "@/lib/audit";
@@ -12,8 +13,8 @@ export async function POST(req: Request) {
   const session = await getSession(req);
   if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
   const denied = forbidUnless(session, "manager"); if (denied) return denied;
-  const cfg = sarvamConfig();
-  if (!cfg) return Response.json({ error: `Sarvam isn't configured: set ${sarvamMissing().join(", ")} in Vercel.` }, { status: 500 });
+  const base = sarvamConfig();
+  if (!base) return Response.json({ error: `Sarvam isn't configured: set ${sarvamMissing().join(", ")} in Vercel.` }, { status: 500 });
   const b = await req.json().catch(() => ({}));
   const script: any = b.scriptId ? await getScriptById(String(b.scriptId)) : null;
   if (!script || script.client_id !== session.clientId) return Response.json({ error: "Employee not found" }, { status: 404 });
@@ -22,6 +23,9 @@ export async function POST(req: Request) {
   if (!phone) return Response.json({ error: "Enter a valid mobile number, e.g. 98765 43210." }, { status: 400 });
   if ((await dncSet(session.clientId, [phone])).has(phone)) return Response.json({ error: "That number is on your do-not-call list." }, { status: 400 });
   const client: any = await getClientById(session.clientId);
+  const planBlock = await callingBlock(client);
+  if (planBlock) return Response.json({ error: planBlock, code: "plan_limit" }, { status: 402 });
+  const cfg = withClientNumber(base, client);
   try {
     const r = await placeOutboundCall(cfg, {
       phone, script, caller: { name: String(b.name || "").trim() || null },

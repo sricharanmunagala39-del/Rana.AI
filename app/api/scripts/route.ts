@@ -5,6 +5,8 @@ import { parseSession } from "@/lib/auth";
 import { INDUSTRY_TEMPLATES } from "@/lib/industryTemplates";
 import { getSession } from "@/lib/session";
 import { forbidUnless } from "@/lib/auth";
+import { employeeBlock } from "@/lib/plans";
+import { getClientById as getClientRow } from "@/lib/supabase";
 import { audit } from "@/lib/audit";
 import { claimResource } from "@/lib/ownership";
 import { isForeignVoice } from "@/lib/voiceClone";
@@ -25,6 +27,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, industry = "edtech", fromTemplate = true } = body;
     if (!name?.trim()) return Response.json({ error: "Script name is required" }, { status: 400 });
+    const empBlock = await employeeBlock(await getClientRow(session.clientId));
+    if (empBlock) return Response.json({ error: empBlock, code: "plan_limit" }, { status: 402 });
   if (await isForeignVoice(session.clientId, body.speaker)) return Response.json({ error: "That voice isn't available to your account." }, { status: 403 });
 
     const template = fromTemplate ? INDUSTRY_TEMPLATES[industry] : null;

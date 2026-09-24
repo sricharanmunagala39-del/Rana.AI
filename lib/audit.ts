@@ -9,7 +9,8 @@ export type AuditAction =
   | "employee_published" | "employee_deleted"
   | "campaign_launched" | "campaign_cancelled" | "campaign_retried" | "campaign_exported"
   | "lead_updated" | "dnc_added" | "dnc_removed" | "calling_rules_changed"
-  | "voice_cloned" | "voice_deleted";
+  | "voice_cloned" | "voice_deleted"
+  | "hq_client_created" | "hq_client_updated" | "hq_workspace_opened" | "hq_owner_password_reset";
 
 export const AUDIT_LABEL: Record<AuditAction, string> = {
   login: "Signed in", login_failed: "Failed sign-in", password_changed: "Changed their password",
@@ -25,6 +26,8 @@ export const AUDIT_LABEL: Record<AuditAction, string> = {
   lead_updated: "Changed a lead", dnc_added: "Added to do-not-call", dnc_removed: "Removed from do-not-call",
   calling_rules_changed: "Changed calling rules",
   voice_cloned: "Cloned a voice", voice_deleted: "Deleted a cloned voice",
+  hq_client_created: "RANA created this workspace", hq_client_updated: "RANA changed the plan or limits",
+  hq_workspace_opened: "RANA support opened this workspace", hq_owner_password_reset: "RANA reset the owner's password",
 };
 
 function ipOf(req?: Request): string | null {
