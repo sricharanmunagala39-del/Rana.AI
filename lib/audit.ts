@@ -8,7 +8,8 @@ export type AuditAction =
   | "number_provisioned" | "number_imported" | "number_released" | "number_assigned" | "number_test_call"
   | "employee_published" | "employee_deleted"
   | "campaign_launched" | "campaign_cancelled" | "campaign_retried" | "campaign_exported"
-  | "lead_updated" | "dnc_added" | "dnc_removed" | "calling_rules_changed";
+  | "lead_updated" | "dnc_added" | "dnc_removed" | "calling_rules_changed"
+  | "voice_cloned" | "voice_deleted";
 
 export const AUDIT_LABEL: Record<AuditAction, string> = {
   login: "Signed in", login_failed: "Failed sign-in", password_changed: "Changed their password",
@@ -23,6 +24,7 @@ export const AUDIT_LABEL: Record<AuditAction, string> = {
   campaign_retried: "Re-dialled a campaign", campaign_exported: "Downloaded campaign results",
   lead_updated: "Changed a lead", dnc_added: "Added to do-not-call", dnc_removed: "Removed from do-not-call",
   calling_rules_changed: "Changed calling rules",
+  voice_cloned: "Cloned a voice", voice_deleted: "Deleted a cloned voice",
 };
 
 function ipOf(req?: Request): string | null {
