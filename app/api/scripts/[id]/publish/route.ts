@@ -15,11 +15,50 @@ import { claimResource } from "@/lib/ownership";
 import { buildAgentPrompt, normalizePlaybook, normalizePolicy, normalizeLinks, normalizePronunciations } from "@/lib/playbook";
 import { listKnowledge } from "@/lib/knowledge";
 import { STRICTNESS_LABELS } from "@/lib/storage";
+import { sarvamConfig, sarvamMissing, SARVAM_AGENT_VOICE } from "@/lib/sarvamAgent";
+
+/** Same instructions for either engine: playbook, links, documents, pronunciation and language rules in one prompt. */
+async function compile(script: any) {
+  const knowledge = await listKnowledge(script.id).catch(() => []);
+  const tier = STRICTNESS_LABELS.find((t) => t.value === script.strictness) ?? STRICTNESS_LABELS[2];
+  const instructions = buildAgentPrompt({
+    name: script.name, greeting: script.greeting || "", startingLanguage: script.starting_language || "en-IN",
+    strictnessText: tier.description,
+    playbook: script.playbook ? normalizePlaybook(script.playbook) : null,
+    steps: script.playbook ? undefined : script.steps, facts: script.facts || [],
+    policy: normalizePolicy(script.language_policy, script.starting_language || "en-IN"),
+    links: normalizeLinks(script.links), pronunciations: normalizePronunciations(script.pronunciations),
+    knowledge: knowledge.map((k: any) => ({ title: k.title, kind: k.kind, summary: k.summary, content: k.content })),
+  });
+  const keyterms = Array.from(new Set([...(script.keyterms || []), ...normalizePronunciations(script.pronunciations).map((p) => p.word)])).slice(0, 100);
+  return { instructions, keyterms };
+}
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const session = await getSession(req);
   if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
   const denied = forbidUnless(session, "admin"); if (denied) return denied;
+
+  const first = await getScriptById(params.id);
+  if (!first || first.client_id !== session.clientId) return Response.json({ error: "Not found" }, { status: 404 });
+
+  // Sarvam engine: nothing to create remotely. RANA's instructions travel with every call to the
+  // shared "RANA Runtime" agent, so publishing = compiling and saving them.
+  if ((first as any).engine !== "cartesia") {
+    const cfg = sarvamConfig();
+    if (!cfg) return Response.json({ error: `Sarvam isn't configured: set ${sarvamMissing().join(", ")} in Vercel.` }, { status: 500 });
+    try {
+      const { instructions, keyterms } = await compile(first);
+      const agentRef = `sarvam:${cfg.appId}`;
+      await audit(session, "employee_published", { req, targetType: "employee", targetId: first.id, detail: { name: first.name, engine: "sarvam", agentId: cfg.appId } });
+      const updated = await updateScript(params.id, {
+        cartesia_agent_id: agentRef, voice_name: SARVAM_AGENT_VOICE.name, published_at: new Date().toISOString(), instructions, keyterms,
+      } as any);
+      return Response.json({ ok: true, script: updated, agentId: agentRef, engine: "sarvam", voice: SARVAM_AGENT_VOICE.name, chars: instructions.length });
+    } catch (err: any) {
+      return Response.json({ error: err?.message || "Couldn't publish this employee." }, { status: 500 });
+    }
+  }
 
   if (!process.env.CARTESIA_API_KEY) {
     return Response.json(
@@ -59,20 +98,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       resolvedModelId = match.id;
     }
 
-    // Compile the playbook, links, documents, pronunciation and language rules into one prompt.
-    const s: any = script;
-    const knowledge = await listKnowledge(script.id).catch(() => []);
-    const tier = STRICTNESS_LABELS.find((t) => t.value === s.strictness) ?? STRICTNESS_LABELS[2];
-    const instructions = buildAgentPrompt({
-      name: script.name, greeting: script.greeting || "", startingLanguage: script.starting_language || "en-IN",
-      strictnessText: tier.description,
-      playbook: s.playbook ? normalizePlaybook(s.playbook) : null,
-      steps: s.playbook ? undefined : script.steps, facts: script.facts || [],
-      policy: normalizePolicy(s.language_policy, script.starting_language || "en-IN"),
-      links: normalizeLinks(s.links), pronunciations: normalizePronunciations(s.pronunciations),
-      knowledge: knowledge.map((k: any) => ({ title: k.title, kind: k.kind, summary: k.summary, content: k.content })),
-    });
-    const keyterms = Array.from(new Set([...(s.keyterms || []), ...normalizePronunciations(s.pronunciations).map((p) => p.word)])).slice(0, 100);
+    const { instructions, keyterms } = await compile(script);
 
     const cfg = {
       name: script.name,
@@ -91,7 +117,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     // Every named agent gets its own Cartesia agent_id — that's what makes each one
     // independently selectable for a campaign or phone number later.
-    let agentId = script.cartesia_agent_id;
+    let agentId = script.cartesia_agent_id && !String(script.cartesia_agent_id).startsWith("sarvam:") ? script.cartesia_agent_id : null;
     if (agentId) {
       await updateCartesiaAgent(agentId, cfg);
     } else {

@@ -21,7 +21,7 @@ Objection: Fees are too high → We have EMI from ₹10,000 per month and a 10% 
 Objection: I'll think about it → Sure, can I send the brochure on WhatsApp? Seats in the regular batch are limited.
 Close: Ask them to book a free demo class at dbmci.com/demo or pay the seat booking amount at https://rzp.io/l/dbmci-neetpg`;
 
-export default function ScriptStudio({ value, set, agentName, openingLanguage, policy, voiceId, voiceName, speed, scriptId, ensureSaved, strictness, setStrictness, strictnessLabels }: any) {
+export default function ScriptStudio({ value, set, agentName, openingLanguage, policy, voiceId, voiceName, speed, engine, scriptId, ensureSaved, strictness, setStrictness, strictnessLabels }: any) {
   const { sourceScript, playbook, greeting, links, pronunciations, keyterms } = value;
   const [tab, setTab] = useState<"script" | "knowledge" | "links" | "say">("script");
   const [analyzing, setAnalyzing] = useState(false);
@@ -271,7 +271,7 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
 
       {tab === "say" && (
         <PronunciationPanel items={pronunciations} onChange={(v: any) => set({ pronunciations: v })} keyterms={keyterms || []} onKeytermsChange={(v: any) => set({ keyterms: v })}
-          voiceId={voiceId} voiceName={voiceName} language={open} allowedLanguages={policy?.mode === "fixed" ? [open] : policy?.allowed} speed={speed} />
+          voiceId={voiceId} voiceName={voiceName} language={open} allowedLanguages={policy?.mode === "fixed" ? [open] : policy?.allowed} speed={speed} engine={engine} />
       )}
     </div>
   );

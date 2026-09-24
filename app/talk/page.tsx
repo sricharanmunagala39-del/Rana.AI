@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { DEFAULT_AGENT_SETTINGS, getAgentSettings, LANGUAGES } from "@/lib/storage";
 import { CartesiaVoiceCall } from "@/lib/cartesia-voice-client";
+import { SarvamVoiceCall } from "@/lib/sarvam-voice-client";
 import { LANG_NAMES, baseLang } from "@/lib/playbook";
 
 type CallStatus = "idle" | "connecting" | "live" | "ending" | "error";
@@ -47,7 +48,13 @@ function TalkInner() {
   const [callDuration, setCallDuration] = useState(0);
   const [transcript, setTranscript] = useState<{ role: "agent" | "user"; text: string }[]>([]);
   const [isMuted, setIsMuted] = useState(false);
-  const cartesiaCallRef = useRef<CartesiaVoiceCall | null>(null);
+  const cartesiaCallRef = useRef<CartesiaVoiceCall | SarvamVoiceCall | null>(null);
+  // Which voice engine runs this employee: Sarvam (India, Telugu/Hindi) or Cartesia.
+  const [engine, setEngine] = useState<"sarvam" | "cartesia">("cartesia");
+  const [liveLanguage, setLiveLanguage] = useState("");
+  const [phoneTo, setPhoneTo] = useState("");
+  const [phoneBusy, setPhoneBusy] = useState(false);
+  const [phoneMsg, setPhoneMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
@@ -64,6 +71,7 @@ function TalkInner() {
           setAgentName(s.name || "Agent");
           setLanguage(s.starting_language || "en-IN");
           if (s.cartesia_agent_id) setPublishInfo({ agentId: s.cartesia_agent_id, hasWebhook: true });
+          setEngine(s.engine === "cartesia" ? "cartesia" : "sarvam");
           setPolicy(s.language_policy || null);
           setStale(!!(s.cartesia_agent_id && s.edited_at && s.published_at && new Date(s.edited_at) > new Date(s.published_at)));
           setTestedAt(s.tested_at || null);
@@ -104,7 +112,9 @@ function TalkInner() {
     setCallDuration(0);
     setCallStatus("connecting");
 
-    const call = new CartesiaVoiceCall((evt) => {
+    setLiveLanguage("");
+    const onEvent = (evt: any) => {
+      if (evt.type === "language") { setLiveLanguage(evt.language); return; }
       if (evt.type === "live") {
         setCallStatus("live");
         durationRef.current = setInterval(() => setCallDuration((d) => d + 1), 1000);
@@ -125,17 +135,31 @@ function TalkInner() {
         setCallError(evt.message);
         if (durationRef.current) { clearInterval(durationRef.current); durationRef.current = null; }
       }
-    });
+    };
+    const call = engine === "sarvam" && scriptId ? new SarvamVoiceCall(onEvent) : new CartesiaVoiceCall(onEvent);
 
     cartesiaCallRef.current = call;
     try {
-      await call.start(publishInfo.agentId);
+      await call.start(engine === "sarvam" && scriptId ? scriptId : publishInfo.agentId);
     } catch (err: any) {
       setCallStatus("error");
       setCallError(err?.message || "Failed to start call");
       cartesiaCallRef.current = null;
     }
-  }, [callStatus, publishInfo]);
+  }, [callStatus, publishInfo, engine, scriptId]);
+
+  // Real phone test (Sarvam): the employee calls this number from the Sarvam Indian number.
+  async function callMyPhone() {
+    if (!scriptId) return;
+    setPhoneBusy(true); setPhoneMsg(null);
+    try {
+      const res = await fetch("/api/sarvam/call", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scriptId, phone: phoneTo }) });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Couldn't place the call.");
+      setPhoneMsg({ ok: true, text: `Calling ${phoneTo} now${d.from ? ` from ${d.from}` : ""}. Pick up to talk to ${agentName}. The call appears in Inbound/Outbound results a minute after it ends.` });
+    } catch (e: any) { setPhoneMsg({ ok: false, text: e.message }); }
+    finally { setPhoneBusy(false); }
+  }
 
   const endCall = useCallback(async () => {
     if (!cartesiaCallRef.current) return;
@@ -264,7 +288,7 @@ function TalkInner() {
               <div className="text-[11px] font-semibold tracking-[0.2em] text-white/40 mb-2">RANA AI</div>
               <div className="text-[26px] font-display font-semibold">Talk to {agentName}</div>
               <div className="text-[13.5px] text-white/60 mt-2 max-w-[420px] leading-relaxed">
-                A real call on your Cartesia agent — same script, same voice as a real one, right in your browser.
+                A real call with your employee — same script, same voice a customer hears, right in your browser.
               </div>
 
               {callStatus === "error" && callError && (
@@ -329,9 +353,25 @@ function TalkInner() {
                   </span>
                 )}
                 <span className={`text-[10.5px] font-semibold px-2.5 py-1 rounded-full ${isPublished ? "bg-signal/20 text-signal" : "bg-amber-500/15 text-amber-300"}`}>
-                  {statusLoading ? "Checking status…" : isPublished ? "Published on Cartesia" : "Not published — hit Publish on their page first"}
+                  {statusLoading ? "Checking status…" : isPublished ? (engine === "sarvam" ? "Live on Sarvam" : "Published on Cartesia") : "Not published — hit Publish on their page first"}
                 </span>
               </div>
+
+              {liveLanguage && isLive && <div className="mt-3 text-[11.5px] text-white/60" data-testid="live-language">Speaking {liveLanguage} now</div>}
+
+              {scriptId && engine === "sarvam" && isPublished && !isLive && (
+                <div className="mt-7 w-full max-w-[420px] rounded-2xl bg-white/5 border border-white/10 p-4 text-left" data-testid="call-my-phone">
+                  <div className="text-[12.5px] font-semibold">Or take a real phone call</div>
+                  <div className="text-[11.5px] text-white/50 mt-0.5">{agentName} calls your mobile from the Sarvam Indian number — the real caller experience.</div>
+                  <div className="flex gap-2 mt-3">
+                    <input value={phoneTo} onChange={(e) => setPhoneTo(e.target.value)} placeholder="98765 43210" inputMode="tel"
+                      className="flex-1 bg-white/10 border border-white/15 rounded-lg px-3 py-2 text-[13px] outline-none focus:border-white/40 placeholder:text-white/30" />
+                    <button onClick={callMyPhone} disabled={phoneBusy || phoneTo.replace(/\D/g, "").length < 10}
+                      className="bg-white text-ink rounded-lg px-4 text-[12.5px] font-semibold disabled:opacity-40">{phoneBusy ? "Calling…" : "Call me"}</button>
+                  </div>
+                  {phoneMsg && <div className={`text-[11.5px] mt-2 ${phoneMsg.ok ? "text-signal" : "text-red-300"}`}>{phoneMsg.text}</div>}
+                </div>
+              )}
 
               <a href={profileHref} className="mt-6 text-[12.5px] font-semibold text-white/60 hover:text-white flex items-center gap-1">
                 Open {agentName}'s page →

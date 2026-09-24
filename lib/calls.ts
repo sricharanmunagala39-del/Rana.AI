@@ -137,16 +137,26 @@ export function normaliseTranscript(t: unknown): TranscriptTurn[] {
   if (!Array.isArray(t)) return [];
   return t
     .map((turn: any) => ({
-      role: turn?.role === "agent" ? "agent" : "user",
-      text: String(turn?.en_text ?? turn?.text ?? ""),
+      // Sarvam labels the agent "bot"; others use "agent"/"assistant".
+      role: ["agent", "bot", "assistant"].includes(String(turn?.role || "").toLowerCase()) ? "agent" : "user",
+      // English text drives lead scoring; the original Telugu/Hindi is kept in indic_text.
+      text: String(turn?.en_text || turn?.text || turn?.content || turn?.indic_text || ""),
       indic_text: turn?.indic_text ?? null,
     }))
     .filter((x) => x.text.trim().length > 0) as TranscriptTurn[];
 }
 
+/** Webhook payloads echo every agent variable back; drop the (long) compiled instructions before storing. */
+function stripInstructions(p: any) {
+  const clean = (v: any) => (v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([k]) => k !== "rana_instructions")) : v);
+  return { ...p, initial_agent_variables: clean(p?.initial_agent_variables), final_agent_variables: clean(p?.final_agent_variables), output_agent_variables: clean(p?.output_agent_variables) };
+}
+
 /** Turn any of Sarvam's three webhook shapes (deployment / campaign / instant outbound) into a CallRow. */
 export function payloadToCall(p: any, clientId: string): Partial<CallRow> {
   const vars: Record<string, unknown> = { ...(p.initial_agent_variables ?? {}), ...(p.final_agent_variables ?? {}), ...(p.output_agent_variables ?? {}) };
+  // The compiled instructions travel as a variable on every RANA call — never store them on each call row.
+  delete vars.rana_instructions;
   const connectivity: string | null = p.connectivity_status ?? p.status ?? null;
   const duration = Number(p.duration ?? 0) || 0;
   const transcript = normaliseTranscript(p.interaction_transcript);
@@ -158,6 +168,12 @@ export function payloadToCall(p: any, clientId: string): Partial<CallRow> {
 
   const firstUser = transcript.find((t) => t.role === "user")?.text ?? null;
   const summary = pick(vars, SUMMARY_KEYS) ?? (firstUser ? firstUser.slice(0, 160) : null);
+  const callerTurns = transcript.filter((t) => t.role === "user");
+  const notConnected = connectivity && ["no_answer", "busy", "failed"].includes(connectivity);
+  const verdict = classifyCall({
+    summary, callerText: callerTurns.map((t) => t.text).join(" "), endReason: notConnected ? connectivity : (p.failure_reason ?? null),
+    status: notConnected ? "failed" : "completed", duration, vars,
+  });
 
   return {
     client_id: clientId,
@@ -174,11 +190,14 @@ export function payloadToCall(p: any, clientId: string): Partial<CallRow> {
     connectivity_status: connectivity,
     completion_status: p.completion_status ?? null,
     failure_reason: p.failure_reason ?? null,
-    lead_status: classifyLead(vars, connectivity, duration),
+    lead_status: verdict.status,
+    lead_reason: verdict.reason,
+    follow_up: verdict.followUp,
+    caller_turns: callerTurns.length,
     summary,
     transcript,
     agent_variables: vars,
-    raw_payload: p,
+    raw_payload: stripInstructions(p),
     started_at: p.start_datetime ?? p.executed_at ?? null,
     ended_at: p.end_datetime ?? null,
   } as Partial<CallRow>;

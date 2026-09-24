@@ -7,6 +7,9 @@
  */
 export const runtime = "nodejs";
 import { getClientByWebhookSecret, getClientByAppId, upsertCall, payloadToCall } from "@/lib/calls";
+import { sarvamConfig, recordingUrl } from "@/lib/sarvamAgent";
+import { optOutPhrase, addDnc } from "@/lib/compliance";
+import { normalisePhone } from "@/lib/campaigns";
 
 /**
  * Best-effort fetch of the call recording from Sarvam's analytics API.
@@ -15,6 +18,9 @@ import { getClientByWebhookSecret, getClientByAppId, upsertCall, payloadToCall }
  * Never throws — a missing or not-yet-processed recording should never break webhook ingestion.
  */
 async function fetchRecordingUrl(appId: string, interactionId: string): Promise<string | null> {
+  // RANA's own Sarvam workspace first (the RANA Runtime agent), then the older per-client setup.
+  const cfg = sarvamConfig();
+  if (cfg) { const u = await recordingUrl(cfg, appId, interactionId); if (u) return u; }
   const orgId = process.env.SARVAM_ORG_ID;
   const workspaceId = process.env.SARVAM_WORKSPACE_ID;
   const apiKey = process.env.SARVAM_API_KEY;
@@ -59,6 +65,13 @@ export async function POST(req: Request) {
     }
 
     const saved = await upsertCall(row);
+
+    // "Don't call me again" goes straight onto the do-not-call list so no future campaign dials them.
+    const phone = normalisePhone(String(row.caller_phone || ""));
+    const said = optOutPhrase((row.transcript || []).filter((t: any) => t.role === "user").map((t: any) => t.text).join(" "));
+    if (said && phone) {
+      await addDnc(client.id, [{ phone, source: "caller_request", reason: `Caller said "${said}"`, callId: String(row.interaction_id) }]).catch(() => {});
+    }
     return Response.json({ ok: true, id: saved.id, lead_status: saved.lead_status });
   } catch (err: any) {
     console.error("[webhook] failed", err?.message);

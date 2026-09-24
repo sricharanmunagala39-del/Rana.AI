@@ -2,6 +2,7 @@
 // A campaign = one Cartesia call batch. Every uploaded number is a campaign_contacts row; once
 // Cartesia dials it, cartesia_call_id links it to calls.interaction_id.
 import { getCartesiaBatch } from "./cartesia";
+import { sarvamConfig, getSarvamCampaign } from "./sarvamAgent";
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY!;
@@ -89,6 +90,7 @@ function campaignStatusFromBatch(b: any): string {
 /** Pull the batch from Cartesia and write each recipient's status + call id onto our contacts. */
 export async function refreshCampaignFromCartesia(c: Campaign): Promise<Campaign> {
   if (!c.cartesia_batch_id) return c;
+  if ((c as any).engine === "sarvam") return refreshSarvamCampaign(c);
   const b = await getCartesiaBatch(c.cartesia_batch_id);
   const recipients: any[] = b?.recipients ?? [];
   const contacts = await listContacts(c.id);
@@ -103,6 +105,21 @@ export async function refreshCampaignFromCartesia(c: Campaign): Promise<Campaign
     });
   }
   const status = campaignStatusFromBatch(b);
+  return updateCampaignRow(c.id, {
+    status, last_synced_at: new Date().toISOString(),
+    ...(status === "completed" && !c.completed_at ? { completed_at: new Date().toISOString() } : {}),
+    ...(status === "running" && !c.started_at ? { started_at: new Date().toISOString() } : {}),
+  });
+}
+
+/** Sarvam campaigns: status from Sarvam; per-number results arrive by webhook as calls. */
+async function refreshSarvamCampaign(c: Campaign): Promise<Campaign> {
+  const cfg = sarvamConfig();
+  const id = (c as any).sarvam_campaign_id || c.cartesia_batch_id;
+  if (!cfg || !id) return c;
+  const sc = await getSarvamCampaign(cfg, id);
+  const raw = String(sc?.status || "").toLowerCase();
+  const status = raw === "ended" ? "completed" : raw === "cancelled" ? "cancelled" : raw === "paused" ? "paused" : raw === "scheduled" ? "scheduled" : "running";
   return updateCampaignRow(c.id, {
     status, last_synced_at: new Date().toISOString(),
     ...(status === "completed" && !c.completed_at ? { completed_at: new Date().toISOString() } : {}),

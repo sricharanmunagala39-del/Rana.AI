@@ -46,6 +46,7 @@ export async function POST(req: Request) {
       background_sound_id: body.background_sound_id ?? null,
       background_volume: typeof body.background_volume === "number" ? body.background_volume : 1,
       noise_suppression: body.noise_suppression ?? "auto",
+      engine: body.engine === "cartesia" ? "cartesia" : "sarvam",
       playbook: body.playbook ? normalizePlaybook(body.playbook) : null,
       source_script: body.source_script ? String(body.source_script).slice(0, 60000) : null,
       links: normalizeLinks(body.links),

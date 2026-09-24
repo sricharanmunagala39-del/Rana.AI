@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/webhooks", "/api/cron", "/landing"];
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/webhooks", "/api/cron", "/landing", "/api/sarvam/diagnose"];
 
 // Edge runtime: verify the HMAC-signed session cookie with Web Crypto (same scheme as lib/auth.ts).
 async function hasValidSession(req: NextRequest): Promise<boolean> {
