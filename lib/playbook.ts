@@ -165,6 +165,22 @@ export function transliterateMessages(text: string, to: string) {
   ];
 }
 
+/** Pulls script-ready items out of one document: hard facts, likely questions with answers, and selling points. */
+export function extractMessages(title: string, content: string, openingLanguage: string) {
+  const lang = LANG_NAMES[baseLang(openingLanguage)] || "English";
+  return [
+    { role: "system" as const, content: `You help an Indian business turn a document or web page into material for an AI phone sales agent that opens calls in ${lang}.
+From the document extract ONLY what it actually says (never invent or guess numbers):
+- "facts": hard facts a caller may ask about — course/plan names, prices and fees (exact), discounts, validity/duration, batch dates and timings, what is included, eligibility, locations, contact details, refund/EMI policies. One short line each.
+- "faqs": questions callers are likely to ask, answered from the document. Short spoken answers.
+- "pitch": the 3–6 strongest selling points in the document, spoken-style.
+- "missing": important things a caller would ask that this document does NOT answer (e.g. "Fees for the Rapid Revision plan").
+- "summary": one sentence saying what this document is about.
+Keep the document's own language for names and numbers. Return ONLY JSON: {"summary":"string","facts":["string"],"faqs":[{"question":"string","answer":"string"}],"pitch":["string"],"missing":["string"]}` },
+    { role: "user" as const, content: `Document: ${title}\n\n${content.slice(0, 30000)}` },
+  ];
+}
+
 export function summarizeMessages(title: string, content: string) {
   return [
     { role: "system" as const, content: "You prepare reference notes for an AI phone sales agent. From the document, extract only facts a caller might ask about: products/courses, prices and fees, discounts, batch dates and timings, duration, eligibility, locations, contact details, policies (refund, EMI), and common questions with answers. Short bullet points, no marketing fluff, max 350 words. Keep numbers exact." },
