@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { parseSession, unauthorized } from "@/lib/auth";
 import { getClientById, updateClient } from "@/lib/supabase";
 import {
   createCartesiaAgent,
@@ -8,13 +9,11 @@ import {
   toCartesiaLanguage,
 } from "@/lib/cartesia";
 
-// Single-tenant for now, matching the existing /api/outbound-call and /api/voice-config
-// routes — DBMCI is RANA's only client today. Revisit with a session-based client_id lookup
-// once a second tenant needs this.
-const DBMCI_CLIENT_ID = "724b4395-fba9-4de6-b773-eded4e3f3711";
 
-export async function GET() {
-  const client = await getClientById(DBMCI_CLIENT_ID);
+export async function GET(req: Request) {
+  const session = parseSession(req);
+  if (!session) return unauthorized();
+  const client = await getClientById(session.clientId);
   if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
   return Response.json({
     agentId: client.cartesia_agent_id ?? null,
@@ -22,6 +21,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const session = parseSession(req);
+  if (!session) return unauthorized();
   if (!process.env.CARTESIA_API_KEY) {
     return Response.json(
       { error: "CARTESIA_API_KEY is not set. Add it in Vercel → Settings → Environment Variables." },
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "name and instructions are required." }, { status: 400 });
   }
 
-  const client = await getClientById(DBMCI_CLIENT_ID);
+  const client = await getClientById(session.clientId);
   if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
 
   try {
@@ -97,15 +98,8 @@ export async function POST(req: Request) {
       await updateClient(client.id, { cartesia_agent_id: agentId });
     }
 
-    // NOTE: agent-level webhooks are NOT part of the Cartesia API version this app is
-    // pinned to (Cartesia-Version 2026-08-14) — confirmed directly against the live
-    // OpenAPI schema: neither Create Agent nor Update Agent has a `webhook_id` field on
-    // this version, and the Webhooks endpoints (POST/PATCH /agents/webhooks) only appear
-    // under the older 2026-03-01 docs, not 2026-08-14's. Attaching one here always 400s
-    // with "Unrecognized key: webhook_id". Call-outcome ingestion for Cartesia calls will
-    // need to poll GET /v1/agents/calls (and GET /v1/agents/calls/{id} for a transcript)
-    // instead of relying on a pushed webhook — not built yet. Deliberately not attempting
-    // webhook setup here so it can't block Publish.
+    // Agent-level webhooks don't exist on Cartesia-Version 2026-08-14, so nothing is attached
+    // here. Call outcomes are pulled from GET /agents/calls by lib/callSync.ts instead.
 
     return Response.json({ ok: true, agentId, voiceId: resolvedVoiceId, modelId: resolvedModelId, language });
   } catch (err: any) {

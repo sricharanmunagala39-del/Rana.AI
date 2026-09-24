@@ -21,6 +21,20 @@ export default function InboundPage() {
   const [calls, setCalls] = useState<CallRow[] | null>(null);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<CallRow | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState("");
+
+  async function syncNow() {
+    setSyncing(true); setSyncMsg("");
+    try {
+      const res = await fetch("/api/calls/sync", { method: "POST" });
+      const j = await res.json();
+      if (!res.ok && !j.saved) throw new Error(j.errors?.[0] || j.error || "Sync failed");
+      setSyncMsg(j.agents === 0 ? "No published Cartesia agent yet — publish a script first." : `Synced — ${j.saved} new or updated call${j.saved === 1 ? "" : "s"}.`);
+      await load();
+    } catch (e: any) { setSyncMsg(e.message); }
+    finally { setSyncing(false); }
+  }
 
   async function load() {
     try {
@@ -40,9 +54,18 @@ export default function InboundPage() {
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="inbound" />
       <main className="flex-1 box-border p-11 flex flex-col gap-5">
-        <div>
-          <h1 className="font-display text-[26px] font-semibold m-0">Inbound</h1>
-          <div className="text-[13px] text-ink-soft mt-1">Every call answered by your AI agent. Click a row for the transcript and captured details.</div>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-display text-[26px] font-semibold m-0">Inbound</h1>
+            <div className="text-[13px] text-ink-soft mt-1">Every call answered by your AI agent. Click a row for the transcript and captured details.</div>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <button onClick={syncNow} disabled={syncing}
+              className="text-[12.5px] font-semibold border border-line bg-raised rounded-lg px-3.5 py-2 hover:border-ink-soft disabled:opacity-50 whitespace-nowrap">
+              {syncing ? "Syncing…" : "↻ Sync calls"}
+            </button>
+            {syncMsg && <div className="text-[11.5px] text-ink-soft">{syncMsg}</div>}
+          </div>
         </div>
 
         <div className="flex gap-1 bg-raised border border-line rounded-[9px] p-1 w-fit">
