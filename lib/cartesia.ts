@@ -12,19 +12,16 @@
  * just by trial — and the Webhooks endpoints (POST/PATCH /agents/webhooks) only appear
  * in the older 2026-03-01 docs, not 2026-08-14's. createCartesiaWebhook()/
  * attachWebhookToAgent() below are kept only in case a future Cartesia-Version restores
- * this; nothing currently calls them. Call-outcome ingestion for Cartesia calls needs to
- * poll GET /v1/agents/calls (and GET /v1/agents/calls/{id} for a transcript) instead —
- * not built yet.
+ * this; nothing currently calls them. Call outcomes are pulled instead: listCartesiaCalls()
+ * below, driven by lib/callSync.ts.
  *
- * Still NOT independently confirmed against a real response: the exact shape of
- * `call.transcript` entries once that polling path is built — see the note in
- * lib/calls.ts's payloadToCartesia() (written for a webhook payload shape that
- * may not apply once we switch to polling).
+ * Still NOT confirmed against a real response: the exact shape of `call.transcript`
+ * entries (role/text assumed) — see normaliseCartesiaTranscript() in lib/calls.ts.
  *
  * Phone numbers (confirmed against docs): Cartesia-provisioned numbers are US-only —
  * both the number itself and outbound calling from it are limited to US destinations,
  * regardless of the agent's deployment region. For India, the only path is importing a
- * Twilio number (docs.cartesia.ai/line/integrations/telephony) — not built here yet.
+ * Twilio number (docs.cartesia.ai/line/integrations/telephony) — see "Twilio import" below.
  */
 
 const CARTESIA_BASE = "https://api.cartesia.ai";
@@ -205,8 +202,8 @@ export function toCartesiaLanguage(bcp47: string): string {
    GET /agents/phone-numbers — every number on this account (Cartesia-managed + imported Twilio).
    POST /agents/phone-numbers/provision — buys a new Cartesia number. US ONLY: both the number
    and outbound calling from it are limited to US destinations. Confirmed against docs.cartesia.ai/
-   line/integrations/telephony/cartesia-numbers. For India, Twilio import is the only route and
-   isn't built yet.
+   line/integrations/telephony/cartesia-numbers. For India, Twilio import is the only route —
+   see createTwilioProvider / importTwilioPhoneNumber below.
 */
 
 export async function listCartesiaPhoneNumbers(): Promise<any[]> {
@@ -221,7 +218,95 @@ export async function provisionCartesiaPhoneNumber(label: string, agentId?: stri
   });
 }
 
-/** Permanent — the number is released and cannot be recovered. */
+/* ── Twilio import (the India route) ──
+   Confirmed against docs.cartesia.ai/line/integrations/telephony/twilio/integration and
+   /api-reference/agents/phone-numbers/import:
+   - POST /agents/phone-numbers/providers  { type:"twilio", account_sid, api_key_sid, api_key_secret, region }
+   - POST /agents/phone-numbers            { label, number (E.164), provider:{id} | {type,account_sid,region}, agent_id? }
+   Cartesia never buys the number — it must already exist in the Twilio account. region is the
+   Twilio edge the API key belongs to (us1 default, ie1, au1); a mismatch makes outbound fail with
+   an auth error. Use a Standard Twilio API key, not the auth token. We don't store the secret —
+   Cartesia holds it after this call.
+*/
+
+export type TwilioRegion = "us1" | "ie1" | "au1";
+
+export async function createTwilioProvider(input: {
+  accountSid: string; apiKeySid: string; apiKeySecret: string; region: TwilioRegion;
+}): Promise<any> {
+  return cartesiaFetch("/agents/phone-numbers/providers", {
+    method: "POST",
+    body: JSON.stringify({
+      type: "twilio",
+      account_sid: input.accountSid,
+      api_key_sid: input.apiKeySid,
+      api_key_secret: input.apiKeySecret,
+      region: input.region,
+    }),
+  });
+}
+
+export async function importTwilioPhoneNumber(input: {
+  label: string; number: string; accountSid: string; region: TwilioRegion; agentId?: string;
+}): Promise<any> {
+  return cartesiaFetch("/agents/phone-numbers", {
+    method: "POST",
+    body: JSON.stringify({
+      label: input.label,
+      number: input.number,
+      provider: { type: "twilio", account_sid: input.accountSid, region: input.region },
+      agent_id: input.agentId || undefined,
+    }),
+  });
+}
+
+/** POST /agents/calls — Cartesia outbound. from_number_id needs no agent assignment. */
+export async function placeCartesiaOutboundCalls(input: {
+  agentId: string; fromNumberId: string;
+  calls: { toNumber: string; variables?: Record<string, string> }[];
+  ringingTimeoutSeconds?: number;
+}): Promise<any> {
+  return cartesiaFetch("/agents/calls", {
+    method: "POST",
+    body: JSON.stringify({
+      agent_id: input.agentId,
+      from_number_id: input.fromNumberId,
+      outbound_calls: input.calls.map((c) => ({
+        to_number: c.toNumber,
+        ...(c.variables ? { dynamic_variables: c.variables } : {}),
+      })),
+      ...(input.ringingTimeoutSeconds ? { ringing_timeout_seconds: input.ringingTimeoutSeconds } : {}),
+    }),
+  });
+}
+
+/** "98765 43210" / "098765..." / "+91 98765..." → "+919876543210". Returns null if it isn't a plausible E.164. */
+export function toE164India(raw: string): string | null {
+  const s = (raw || "").replace(/[^\d+]/g, "");
+  let out: string;
+  if (s.startsWith("+")) out = s;
+  else if (s.startsWith("00")) out = "+" + s.slice(2);
+  else if (s.length === 11 && s.startsWith("0")) out = "+91" + s.slice(1);
+  else if (s.length === 10) out = "+91" + s;
+  else if (s.length === 12 && s.startsWith("91")) out = "+" + s;
+  else out = "+" + s;
+  return /^\+[1-9]\d{7,14}$/.test(out) ? out : null;
+}
+
+/** Permanent for Cartesia numbers (released). For imported Twilio numbers this only unlinks it from Cartesia; the number stays in Twilio. */
 export async function deleteCartesiaPhoneNumber(phoneNumberId: string): Promise<void> {
   await cartesiaFetch(`/agents/phone-numbers/${phoneNumberId}`, { method: "DELETE" });
+}
+
+/* ── Calls ──
+   GET /agents/calls?agent_id=&limit=(1-100)&starting_after=&start_time_gte=&expand=transcript
+   (docs.cartesia.ai/api-reference/agents/calls/list-calls). No agent-level webhooks exist on this
+   API version, so this is how call results reach the dashboard. */
+export async function listCartesiaCalls(opts: { agentId: string; startTimeGte?: string; maxPages?: number }): Promise<any[]> {
+  return cartesiaPaginate((startingAfter) => {
+    const q = new URLSearchParams({ agent_id: opts.agentId, limit: "100", expand: "transcript" });
+    if (opts.startTimeGte) q.set("start_time_gte", opts.startTimeGte);
+    if (startingAfter) q.set("starting_after", startingAfter);
+    return `/agents/calls?${q.toString()}`;
+  }, opts.maxPages ?? 10);
 }
