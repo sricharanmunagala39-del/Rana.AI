@@ -74,6 +74,21 @@ function WizardInner() {
   const [publishDone, setPublishDone] = useState(false);
 
   useEffect(() => {
+    fetch("/api/sarvam/status").then((r) => r.json()).then(setSarvamStatus).catch(() => {});
+  }, []);
+
+  async function previewSarvam() {
+    setPreviewing(true);
+    try {
+      const res = await fetch(`/api/voices/preview?${new URLSearchParams({ engine: "sarvam", lang: startingLanguage })}`);
+      if (!res.ok) throw new Error();
+      const url = URL.createObjectURL(await res.blob());
+      const a = new Audio(url); a.onended = () => { URL.revokeObjectURL(url); setPreviewing(false); };
+      await a.play();
+    } catch { setPreviewing(false); }
+  }
+
+  useEffect(() => {
     (async () => {
       try {
         const res = await fetch("/api/admin/cartesia-catalog");
@@ -96,6 +111,7 @@ function WizardInner() {
         const s = data.script;
         setName(s.name || "");
         setStartingLanguage(s.starting_language || "en-IN");
+        setEngine(s.engine === "cartesia" ? "cartesia" : "sarvam");
         if (s.language_policy) setPolicy({ mode: s.language_policy.mode === "fixed" ? "fixed" : "match_caller", allowed: s.language_policy.allowed?.length ? s.language_policy.allowed : [baseLang(s.starting_language)] });
         setVoiceId(s.speaker || "");
         setVoiceName(s.voice_name || "");
@@ -181,6 +197,7 @@ function WizardInner() {
         pronunciations: (studio.pronunciations || []).filter((p: any) => p.word?.trim() && p.sayAs?.trim()),
         keyterms: studio.keyterms || [],
         language_policy: policy,
+        engine,
       };
       const res = savedId
         ? await fetch(`/api/scripts/${savedId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
@@ -330,6 +347,40 @@ function WizardInner() {
 
               {stepIdx === 1 && (
                 <div className="flex flex-col gap-6">
+                  <div>
+                    <label className="text-[13px] font-semibold block mb-2">Voice engine</label>
+                    <div className="grid grid-cols-2 gap-3" data-testid="engine-picker">
+                      {[
+                        ["sarvam", "Sarvam", "Recommended for India", "Natural Telugu, Hindi & 9 more Indian languages · calls from your Indian number" + (sarvamStatus?.sarvam?.number ? ` (${sarvamStatus.sarvam.number})` : "") + " · follows the caller's language on its own"],
+                        ["cartesia", "Cartesia", "Global", "Very fast replies · English & international voices · voice cloning · US numbers or your Twilio number"],
+                      ].map(([k, t, tag, d]) => (
+                        <button key={k} type="button" onClick={() => setEngine(k as any)} data-testid={`engine-${k}`}
+                          className={`text-left border rounded-xl px-4 py-3 ${engine === k ? "border-signal bg-signal-tint/50 ring-1 ring-signal" : "border-line bg-white hover:border-signal/50"}`}>
+                          <div className="flex items-center gap-2"><span className="text-[14px] font-semibold">{t}</span>
+                            <span className={`text-[10.5px] font-semibold rounded-full px-1.5 py-0.5 border ${k === "sarvam" ? "text-signal border-signal/30 bg-white" : "text-ink-soft border-line"}`}>{tag}</span></div>
+                          <div className="text-[12px] text-ink-soft mt-1 leading-snug">{d}</div>
+                        </button>
+                      ))}
+                    </div>
+                    {engine === "sarvam" && sarvamStatus && !sarvamStatus.sarvam?.ready && (
+                      <div className="text-[12px] text-miss mt-2">Sarvam isn't connected yet (missing {sarvamStatus.sarvam?.missing?.join(", ")}).</div>
+                    )}
+                  </div>
+
+                  {engine === "sarvam" && (
+                    <div className="border border-line rounded-xl bg-white p-4 flex items-center gap-4" data-testid="sarvam-voice">
+                      <div className="w-11 h-11 rounded-full bg-signal-tint text-signal font-display font-bold flex items-center justify-center">{String(sarvamStatus?.sarvam?.voice || "Priya").charAt(0)}</div>
+                      <div className="flex-1">
+                        <div className="text-[14px] font-semibold">{sarvamStatus?.sarvam?.voice || "Priya"} <span className="text-[11.5px] font-normal text-ink-soft">· Sarvam Bulbul v3 · female</span></div>
+                        <div className="text-[12px] text-ink-soft">Speaks {LANGUAGES.find((l) => l.code === startingLanguage)?.label || "English"} and switches to the caller's language automatically. Voice and speed are set on RANA's Sarvam agent.</div>
+                      </div>
+                      <button type="button" onClick={previewSarvam} disabled={previewing} className="shrink-0 border border-line rounded-lg px-3 py-1.5 text-[12.5px] font-semibold bg-white disabled:opacity-50">
+                        {previewing ? "Playing…" : `▶ Hear in ${LANGUAGES.find((l) => l.code === startingLanguage)?.label || "English"}`}
+                      </button>
+                    </div>
+                  )}
+
+                  {engine === "cartesia" && <>
                   {catalogError && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2">{catalogError}</div>}
                   <div>
                     <label className="text-[13px] font-semibold block mb-1.5">Voice</label>
@@ -419,6 +470,7 @@ function WizardInner() {
                     </div>
                     <div className="text-[11.5px] text-ink-soft mt-1.5">How aggressively background noise on the caller's mic is filtered before it reaches the agent.</div>
                   </div>
+                  </>}
                 </div>
               )}
 
@@ -426,7 +478,7 @@ function WizardInner() {
                 <ScriptStudio
                   value={studio} set={setStudioPart}
                   agentName={name} openingLanguage={startingLanguage} policy={policy}
-                  voiceId={voiceId} voiceName={selectedVoice?.name || voiceName} speed={speechRate}
+                  voiceId={voiceId} voiceName={engine === "sarvam" ? String(sarvamStatus?.sarvam?.voice || "Priya") : (selectedVoice?.name || voiceName)} speed={speechRate} engine={engine}
                   scriptId={savedId} ensureSaved={persist}
                   strictness={strictness} setStrictness={setStrictness} strictnessLabels={STRICTNESS_LABELS}
                 />
@@ -447,8 +499,8 @@ function WizardInner() {
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
-                      <div><Label>Voice</Label><div className="text-[13.5px] mt-0.5">{selectedVoice?.name || voiceName || "Auto"} · {speechRate.toFixed(1)}x</div></div>
-                      <div><Label>Brain</Label><div className="text-[13.5px] mt-0.5">{selectedModel?.name || "Auto (fast Claude model)"}</div></div>
+                      <div><Label>Voice</Label><div className="text-[13.5px] mt-0.5">{engine === "sarvam" ? `${sarvamStatus?.sarvam?.voice || "Priya"} · Sarvam` : `${selectedVoice?.name || voiceName || "Auto"} · ${speechRate.toFixed(1)}x`}</div></div>
+                      <div><Label>Engine</Label><div className="text-[13.5px] mt-0.5">{engine === "sarvam" ? `Sarvam${sarvamStatus?.sarvam?.number ? ` · calls from ${sarvamStatus.sarvam.number}` : ""}` : `Cartesia · ${selectedModel?.name || "fast Claude model"}`}</div></div>
                       <div><Label>Sticks to script</Label><div className="text-[13.5px] mt-0.5">{STRICTNESS_LABELS.find((t) => t.value === strictness)?.label}</div></div>
                     </div>
                     <div>

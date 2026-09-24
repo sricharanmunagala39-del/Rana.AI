@@ -1,0 +1,37 @@
+export const runtime = "nodejs";
+import { getSession } from "@/lib/session";
+import { forbidUnless } from "@/lib/auth";
+import { getScriptById } from "@/lib/supabase";
+import { sarvamConfig, sarvamMissing, signedSessionUrl, sessionPayload, SARVAM_AGENT_VOICE } from "@/lib/sarvamAgent";
+
+/**
+ * POST { scriptId } → a single-use Sarvam WebSocket URL for a browser test call, plus the start message
+ * (this employee's instructions, greeting and opening language). The Sarvam key never reaches the browser.
+ */
+export async function POST(req: Request) {
+  const session = await getSession(req);
+  if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
+  const denied = forbidUnless(session, "manager"); if (denied) return denied;
+  const cfg = sarvamConfig();
+  if (!cfg) return Response.json({ error: `Sarvam isn't configured: set ${sarvamMissing().join(", ")} in Vercel.` }, { status: 500 });
+  const b = await req.json().catch(() => ({}));
+  const script: any = b.scriptId ? await getScriptById(String(b.scriptId)) : null;
+  if (!script || script.client_id !== session.clientId) return Response.json({ error: "Employee not found" }, { status: 404 });
+  if (!script.published_at || !String(script.instructions || "").trim()) return Response.json({ error: `${script.name} isn't published yet — press Publish first.` }, { status: 400 });
+  try {
+    const signed = await signedSessionUrl(cfg, `rana-test-${session.clientId.slice(0, 8)}-${Date.now()}`);
+    const p = sessionPayload(script);
+    const sep = signed.url.includes("?") ? "&" : "?";
+    return Response.json({
+      url: `${signed.url}${sep}interaction_type=call&input_sample_rate=16000&output_sample_rate=16000`,
+      referenceId: signed.referenceId,
+      start: {
+        type: "client.action.interaction_start", origin: "client",
+        agent_variables: p.agent_variables, initial_bot_message: p.initial_bot_message, initial_language_name: p.initial_language_name,
+      },
+      voice: SARVAM_AGENT_VOICE.name, language: p.initial_language_name,
+    });
+  } catch (e: any) {
+    return Response.json({ error: e?.message || "Couldn't start a Sarvam session." }, { status: 502 });
+  }
+}

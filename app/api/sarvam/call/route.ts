@@ -34,4 +34,3 @@ export async function POST(req: Request) {
     return Response.json({ error: e?.message || "Sarvam couldn't place the call." }, { status: 502 });
   }
 }
-
