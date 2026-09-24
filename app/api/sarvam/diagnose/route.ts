@@ -102,10 +102,17 @@ export async function POST(req: Request) {
   });
 
   const answer = said.slice(1).join(" ");
-  return Response.json({
+  const out = {
     ...result, referenceId: signed.referenceId, seconds: at(), audioChunks,
     agentSaid: said, callerHeard: heard,
     followsInstructions: /zebra|ravi|purple|42/i.test(answer),
     log: log.slice(0, 80),
-  });
+  };
+  // Kept so the result can be read even when the caller gave up waiting.
+  await fetch(`${process.env.SUPABASE_URL}/rest/v1/rana_diagnostics`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: process.env.SUPABASE_SERVICE_KEY || "", Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY || ""}` },
+    body: JSON.stringify({ kind: "sarvam_session", result: out }),
+  }).catch(() => {});
+  return Response.json(out);
 }
