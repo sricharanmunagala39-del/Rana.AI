@@ -3,7 +3,7 @@
 // Used for script analysis, AI edits, translation and document summaries — never on a live call.
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
-export type LlmOptions = { maxTokens?: number; temperature?: number; json?: boolean };
+export type LlmOptions = { maxTokens?: number; temperature?: number; json?: boolean; timeoutMs?: number };
 
 export function llmProvider(): "anthropic" | "openai" | "sarvam" | null {
   if (process.env.ANTHROPIC_API_KEY) return "anthropic";
@@ -16,7 +16,7 @@ async function anthropic(messages: ChatMessage[], o: LlmOptions): Promise<string
   const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
   const rest = messages.filter((m) => m.role !== "system");
   const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
+    method: "POST", signal: AbortSignal.timeout(o.timeoutMs ?? 120000),
     headers: { "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
       model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5",
@@ -30,7 +30,7 @@ async function anthropic(messages: ChatMessage[], o: LlmOptions): Promise<string
 
 async function openai(messages: ChatMessage[], o: LlmOptions): Promise<string> {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
+    method: "POST", signal: AbortSignal.timeout(o.timeoutMs ?? 120000),
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini", messages, max_tokens: o.maxTokens ?? 2000, temperature: o.temperature ?? 0.3,
@@ -44,7 +44,7 @@ async function openai(messages: ChatMessage[], o: LlmOptions): Promise<string> {
 
 async function sarvam(messages: ChatMessage[], o: LlmOptions): Promise<string> {
   const res = await fetch("https://api.sarvam.ai/v1/chat/completions", {
-    method: "POST",
+    method: "POST", signal: AbortSignal.timeout(o.timeoutMs ?? 120000),
     headers: { "api-subscription-key": process.env.SARVAM_API_KEY!, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: process.env.SARVAM_MODEL || "sarvam-105b", messages,
@@ -53,7 +53,9 @@ async function sarvam(messages: ChatMessage[], o: LlmOptions): Promise<string> {
   });
   if (!res.ok) throw new Error(`Sarvam ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const d = await res.json();
-  return d.choices?.[0]?.message?.content || "";
+  const c = d.choices?.[0];
+  if (!c?.message?.content && c?.finish_reason === "length") throw new Error("Sarvam ran out of room before answering (reply too long)");
+  return c?.message?.content || "";
 }
 
 export async function chat(messages: ChatMessage[], o: LlmOptions = {}): Promise<string> {

@@ -24,20 +24,64 @@ export async function deleteKnowledge(scriptId: string, id: string) {
   await sb(`/agent_knowledge?id=eq.${id}&script_id=eq.${scriptId}`, { method: "DELETE", prefer: "return=minimal" });
 }
 
-/** Fetches a public web page and returns its readable text. */
-export async function fetchPageText(url: string): Promise<{ title: string; text: string }> {
-  const u = new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`);
-  if (!/^https?:$/.test(u.protocol) || /^(localhost|127\.|10\.|192\.168\.|169\.254\.)/.test(u.hostname)) throw new Error("That address can't be read.");
-  const res = await fetch(u.toString(), { headers: { "User-Agent": "RANA-AI-KnowledgeBot/1.0", Accept: "text/html,text/plain" }, redirect: "follow", signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`The site answered ${res.status}.`);
-  const html = (await res.text()).slice(0, 2_000_000);
-  const title = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || u.hostname).replace(/\s+/g, " ").trim().slice(0, 120);
-  const text = html
+const BROWSER_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-IN,en;q=0.9,hi;q=0.8,te;q=0.7",
+};
+
+export const BLOCKED_MESSAGE = "This website blocks automatic reading. Open the page in your browser, press Ctrl+A then Ctrl+C, and paste it under \"Type or paste\".";
+
+function htmlToText(html: string): string {
+  return html
     .replace(/<(script|style|noscript|svg|nav|footer|header)[\s\S]*?<\/\1>/gi, " ")
     .replace(/<br\s*\/?>|<\/(p|div|li|h[1-6]|tr)>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
     .replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
-  if (text.length < 80) throw new Error("Couldn't find readable text on that page.");
-  return { title, text };
+}
+
+/** Reader fallback for sites that block bots or build the page with JavaScript: returns the rendered page as text. */
+async function readerFetch(url: string): Promise<{ title: string; text: string } | null> {
+  try {
+    const res = await fetch(`https://r.jina.ai/${url}`, { headers: { Accept: "text/plain", "X-Return-Format": "text" }, signal: AbortSignal.timeout(30000) });
+    if (!res.ok) return null;
+    const raw = (await res.text()).slice(0, 2_000_000);
+    const title = raw.match(/^Title:\s*(.+)$/m)?.[1]?.trim().slice(0, 120) || new URL(url).hostname;
+    const body = (raw.split(/^Markdown Content:\s*$/m)[1] ?? raw).replace(/\n{3,}/g, "\n\n").trim();
+    return body.length >= 80 ? { title, text: body } : null;
+  } catch { return null; }
+}
+
+/** Fetches a public web page and returns its readable text. */
+export async function fetchPageText(url: string): Promise<{ title: string; text: string }> {
+  const u = new URL(/^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`);
+  if (!/^https?:$/.test(u.protocol) || /^(localhost|127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(u.hostname) || /^172\.(1[6-9]|2\d|3[01])\./.test(u.hostname)) throw new Error("That address can't be read.");
+  // Tracking parameters (utm_*, gclid…) don't change the page; drop them.
+  for (const k of Array.from(u.searchParams.keys())) if (/^(utm_|gclid|fbclid|gad_|gbraid|wbraid)/i.test(k)) u.searchParams.delete(k);
+  const clean = u.toString();
+
+  let direct: { title: string; text: string } | null = null;
+  let short: { title: string; text: string } | null = null;
+  let status = 0;
+  try {
+    const res = await fetch(clean, { headers: BROWSER_HEADERS, redirect: "follow", signal: AbortSignal.timeout(15000) });
+    status = res.status;
+    if (res.ok) {
+      const html = (await res.text()).slice(0, 2_000_000);
+      const title = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || u.hostname).replace(/\s+/g, " ").trim().slice(0, 120);
+      const text = htmlToText(html);
+      // Pages built with JavaScript come back almost empty — treat as not readable and try the reader.
+      if (text.length >= 400) direct = { title, text };
+      else if (text.length >= 80) short = { title, text };
+    }
+  } catch { /* try the reader */ }
+  if (direct) return direct;
+
+  const viaReader = await readerFetch(clean);
+  if (viaReader) return viaReader;
+  if (short) return short;
+  if (status === 401 || status === 403 || status === 429 || status === 503) throw new Error(BLOCKED_MESSAGE);
+  if (status && status >= 400) throw new Error(`The site answered ${status}. Check the address, or copy the page text and paste it under "Type or paste".`);
+  throw new Error("Couldn't find readable text on that page. Copy the page text and paste it under \"Type or paste\".");
 }

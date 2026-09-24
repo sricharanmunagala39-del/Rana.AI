@@ -120,7 +120,15 @@ export default function KnowledgePanel({ scriptId, ensureSaved, onCount }: any) 
       )}
 
       {busy && <div className="text-[12.5px] text-signal flex items-center gap-2"><Spinner /> {busy}</div>}
-      {err && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2">{err}</div>}
+      {err && (
+        <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2 flex items-center justify-between gap-3" data-testid="knowledge-error">
+          <span>{err}</span>
+          {/Type or paste/.test(err) && mode !== "text" && (
+            <button type="button" onClick={() => { setMode("text"); setNoteTitle(noteTitle || (url ? (() => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; } })() : "")); setErr(""); }}
+              className="shrink-0 bg-white border border-line rounded-md px-2.5 py-1 font-semibold text-ink">Paste it instead</button>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         {loading && <div className="text-[12.5px] text-ink-soft">Loading…</div>}
