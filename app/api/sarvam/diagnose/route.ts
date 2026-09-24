@@ -24,7 +24,10 @@ export async function POST(req: Request) {
   const log: any[] = [];
   const said: string[] = [];
   const heard: string[] = [];
-  let audioChunks = 0;
+  let audioChunks = 0, audioBytes = 0, firstAudioAt = -1, lastAudioAt = -1;
+  let sentQuestionAt = -1;
+  const greetAudio: Buffer[] = [];
+  const replyAudio: Buffer[] = [];
   const t0 = Date.now();
   const at = () => Math.round((Date.now() - t0) / 100) / 10;
 
@@ -65,7 +68,6 @@ export async function POST(req: Request) {
     let timer: any;
     const CHUNK = 3200; // 100 ms
     const silence: Buffer = Buffer.alloc(CHUNK);
-    let sentQuestionAt = -1;
     let pos = 0;
     let lastAgentAudio = 0;
     const finish = (why: string) => {
@@ -86,18 +88,23 @@ export async function POST(req: Request) {
         tick++;
         let frame: Buffer = silence as Buffer;
         // After the greeting has finished playing (≥1.5 s with no agent audio, at least 3 s in), speak the question once.
-        const quiet = Date.now() - lastAgentAudio > 1500;
-        if (sentQuestionAt < 0 && tick > 30 && quiet) { sentQuestionAt = at(); log.push({ t: at(), ev: "question start" }); }
+        const quiet = Date.now() - lastAgentAudio > 700;
+        if (sentQuestionAt < 0 && ((audioChunks > 0 && quiet) || tick > 60)) { sentQuestionAt = at(); log.push({ t: at(), ev: "question start" }); }
         if (sentQuestionAt >= 0 && pos < questionPcm.length) { frame = questionPcm.subarray(pos, pos + CHUNK); pos += CHUNK; if (frame.length < CHUNK) frame = Buffer.concat([frame, Buffer.alloc(CHUNK - frame.length)]); }
         try { ws.send(JSON.stringify({ type: "client.media.audio_chunk", origin: "client", timestamp: Date.now() / 1000, audio_base64: frame.toString("base64"), format: "audio/wav", sample_rate: 16000 })); } catch {}
         // Stop once the agent has answered the question and gone quiet.
-        if (sentQuestionAt >= 0 && pos >= questionPcm.length && said.length >= 2 && quiet && at() - sentQuestionAt > 6) finish("answered");
+        if (sentQuestionAt >= 0 && pos >= questionPcm.length && quiet && lastAudioAt > sentQuestionAt + 1 && at() - lastAudioAt > 2) finish("answered");
         if (tick > 400) finish("ticks");
       }, 100);
     };
     ws.onmessage = (m: any) => {
       let d: any; try { d = JSON.parse(typeof m.data === "string" ? m.data : Buffer.from(m.data).toString()); } catch { return; }
-      if (d.type === "server.media.audio_chunk") { audioChunks++; lastAgentAudio = Date.now(); return; }
+      if (d.type === "server.media.audio_chunk") {
+        audioChunks++; lastAgentAudio = Date.now(); lastAudioAt = at(); if (firstAudioAt < 0) firstAudioAt = at();
+        audioBytes += Math.floor(String(d.audio_base64 || "").length * 3 / 4);
+        if (d.audio_base64) (sentQuestionAt < 0 ? greetAudio : replyAudio).push(Buffer.from(d.audio_base64, "base64"));
+        return;
+      }
       if (d.type === "server.system.ping") { try { ws.send(JSON.stringify({ type: "client.system.pong", origin: "client", timestamp: Date.now() / 1000 })); } catch {} return; }
       if (d.type === "server.media.text" && d.text) said.push(String(d.text));
       if (d.type === "server.event.transcription") (d.role === "user" ? heard : said).push(String(d.content ?? d.text ?? ""));
@@ -109,10 +116,29 @@ export async function POST(req: Request) {
     ws.onclose = (e: any) => { log.push({ t: at(), ev: "close", code: e?.code, reason: e?.reason }); clearTimeout(hardStop); clearInterval(timer); resolve({ ended: "closed" }); };
   });
 
-  const answer = said.slice(1).join(" ");
+  // What the agent actually said, via Sarvam speech-to-text on its audio.
+  const stt = async (chunks: Buffer[]) => {
+    if (!chunks.length) return null;
+    try {
+      const pcm = Buffer.concat(chunks);
+      const h = Buffer.alloc(44);
+      h.write("RIFF", 0); h.writeUInt32LE(36 + pcm.length, 4); h.write("WAVE", 8); h.write("fmt ", 12);
+      h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22); h.writeUInt32LE(16000, 24);
+      h.writeUInt32LE(32000, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34); h.write("data", 36); h.writeUInt32LE(pcm.length, 40);
+      const fd = new FormData();
+      fd.append("file", new Blob([Buffer.concat([h, pcm])], { type: "audio/wav" }), "agent.wav");
+      fd.append("model", "saarika:v2.5");
+      fd.append("language_code", "unknown");
+      const r = await fetch("https://api.sarvam.ai/speech-to-text", { method: "POST", headers: { "api-subscription-key": process.env.SARVAM_CHAT_API_KEY || "" }, body: fd, signal: AbortSignal.timeout(20000) });
+      const j: any = await r.json().catch(() => ({}));
+      return r.ok ? String(j.transcript || "") : `stt ${r.status}: ${JSON.stringify(j).slice(0, 150)}`;
+    } catch (e: any) { return "stt error: " + e?.message; }
+  };
+  const [greetingHeard, replyHeard] = await Promise.all([stt(greetAudio.slice(0, 400)), stt(replyAudio.slice(0, 400))]);
+  const answer = [said.slice(1).join(" "), replyHeard || ""].join(" ");
   const out = {
-    ...result, referenceId: signed.referenceId, seconds: at(), audioChunks, preflight, params, host: new URL(url).host, path: new URL(url).pathname,
-    agentSaid: said, callerHeard: heard,
+    ...result, referenceId: signed.referenceId, seconds: at(), audioChunks, agentAudioSeconds: Math.round(audioBytes / 3200) / 10, firstAudioAt, lastAudioAt, questionAt: sentQuestionAt, questionSeconds: Math.round(questionPcm.length / 3200) / 10, preflight, params, host: new URL(url).host, path: new URL(url).pathname,
+    agentSaid: said, callerHeard: heard, greetingHeard, replyHeard,
     followsInstructions: /zebra|ravi|purple|42/i.test(answer),
     log: log.slice(0, 80),
   };
