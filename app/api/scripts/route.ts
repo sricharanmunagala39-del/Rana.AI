@@ -8,6 +8,7 @@ import { forbidUnless } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { claimResource } from "@/lib/ownership";
 import { isForeignVoice } from "@/lib/voiceClone";
+import { normalizePlaybook, normalizeLinks, normalizePronunciations, normalizePolicy } from "@/lib/playbook";
 export async function GET(req: Request) {
   const session = await getSession(req);
   if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
@@ -45,6 +46,12 @@ export async function POST(req: Request) {
       background_sound_id: body.background_sound_id ?? null,
       background_volume: typeof body.background_volume === "number" ? body.background_volume : 1,
       noise_suppression: body.noise_suppression ?? "auto",
+      playbook: body.playbook ? normalizePlaybook(body.playbook) : null,
+      source_script: body.source_script ? String(body.source_script).slice(0, 60000) : null,
+      links: normalizeLinks(body.links),
+      pronunciations: normalizePronunciations(body.pronunciations),
+      language_policy: normalizePolicy(body.language_policy, body.starting_language ?? "en-IN"),
+      keyterms: (Array.isArray(body.keyterms) ? body.keyterms : []).map((k: any) => String(k).slice(0, 60)).filter(Boolean).slice(0, 100),
       status: "draft",
     });
     return Response.json({ script }, { status: 201 });

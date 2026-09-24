@@ -12,6 +12,9 @@ import { getSession } from "@/lib/session";
 import { forbidUnless } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { claimResource } from "@/lib/ownership";
+import { buildAgentPrompt, normalizePlaybook, normalizePolicy, normalizeLinks, normalizePronunciations } from "@/lib/playbook";
+import { listKnowledge } from "@/lib/knowledge";
+import { STRICTNESS_LABELS } from "@/lib/storage";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const session = await getSession(req);
@@ -56,9 +59,25 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       resolvedModelId = match.id;
     }
 
+    // Compile the playbook, links, documents, pronunciation and language rules into one prompt.
+    const s: any = script;
+    const knowledge = await listKnowledge(script.id).catch(() => []);
+    const tier = STRICTNESS_LABELS.find((t) => t.value === s.strictness) ?? STRICTNESS_LABELS[2];
+    const instructions = buildAgentPrompt({
+      name: script.name, greeting: script.greeting || "", startingLanguage: script.starting_language || "en-IN",
+      strictnessText: tier.description,
+      playbook: s.playbook ? normalizePlaybook(s.playbook) : null,
+      steps: s.playbook ? undefined : script.steps, facts: script.facts || [],
+      policy: normalizePolicy(s.language_policy, script.starting_language || "en-IN"),
+      links: normalizeLinks(s.links), pronunciations: normalizePronunciations(s.pronunciations),
+      knowledge: knowledge.map((k: any) => ({ title: k.title, kind: k.kind, summary: k.summary, content: k.content })),
+    });
+    const keyterms = Array.from(new Set([...(s.keyterms || []), ...normalizePronunciations(s.pronunciations).map((p) => p.word)])).slice(0, 100);
+
     const cfg = {
       name: script.name,
-      instructions: script.instructions,
+      instructions,
+      keyterms,
       initialMessage: script.greeting || null,
       language,
       voiceId: resolvedVoiceId,
@@ -98,6 +117,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       speaker: resolvedVoiceId,
       model_id: resolvedModelId,
       published_at: new Date().toISOString(),
+      instructions,
     });
 
     return Response.json({ ok: true, script: updated, agentId, voiceId: resolvedVoiceId, modelId: resolvedModelId, language });
