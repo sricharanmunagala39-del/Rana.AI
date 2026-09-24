@@ -5,6 +5,8 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import VoicePickerModal, { PickerVoice } from "@/components/VoicePickerModal";
+import ModelPickerModal, { PickerModel } from "@/components/ModelPickerModal";
+import BackgroundSoundPicker, { PickerBackgroundSound } from "@/components/BackgroundSoundPicker";
 import { LANGUAGES, STRICTNESS_LABELS, stepsToInstructions } from "@/lib/storage";
 
 type Step = { id: string; title: string; body: string };
@@ -36,6 +38,9 @@ function WizardInner() {
   const [voiceName, setVoiceName] = useState("");
   const [modelId, setModelId] = useState("");
   const [speechRate, setSpeechRate] = useState(1);
+  const [backgroundSoundId, setBackgroundSoundId] = useState<string | null>(null);
+  const [backgroundVolume, setBackgroundVolume] = useState(1);
+  const [noiseSuppression, setNoiseSuppression] = useState<"off" | "auto" | "max">("auto");
   const [greeting, setGreeting] = useState("");
   const [steps, setSteps] = useState<Step[]>([BLANK_STEP()]);
   const [facts, setFacts] = useState<Fact[]>([]);
@@ -43,10 +48,13 @@ function WizardInner() {
 
   // ── Cartesia catalog ──
   const [voices, setVoices] = useState<PickerVoice[]>([]);
-  const [models, setModels] = useState<{ id: string; name: string; provider?: string | null }[]>([]);
+  const [models, setModels] = useState<PickerModel[]>([]);
+  const [backgroundSounds, setBackgroundSounds] = useState<PickerBackgroundSound[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
+  const [modelModalOpen, setModelModalOpen] = useState(false);
+  const [soundModalOpen, setSoundModalOpen] = useState(false);
 
   // ── save/publish state ──
   const [savedId, setSavedId] = useState<string | null>(editId);
@@ -62,7 +70,7 @@ function WizardInner() {
       try {
         const res = await fetch("/api/admin/cartesia-catalog");
         const data = await res.json();
-        if (res.ok) { setVoices(data.voices || []); setModels(data.models || []); }
+        if (res.ok) { setVoices(data.voices || []); setModels(data.models || []); setBackgroundSounds(data.backgroundSounds || []); }
         else setCatalogError(data.error || "Failed to load voices/models.");
       } catch (err: any) {
         setCatalogError(err?.message || "Something went wrong.");
@@ -84,6 +92,9 @@ function WizardInner() {
         setVoiceName(s.voice_name || "");
         setModelId(s.model_id || "");
         setSpeechRate(typeof s.speech_rate === "number" ? s.speech_rate : 1);
+        setBackgroundSoundId(s.background_sound_id || null);
+        setBackgroundVolume(typeof s.background_volume === "number" ? s.background_volume : 1);
+        setNoiseSuppression((s.noise_suppression as "off" | "auto" | "max") || "auto");
         setGreeting(s.greeting || "");
         setSteps(s.steps && s.steps.length > 0 ? s.steps : [BLANK_STEP()]);
         setFacts(s.facts || []);
@@ -116,6 +127,7 @@ function WizardInner() {
 
   const selectedVoice = voices.find((v) => v.id === voiceId);
   const selectedModel = models.find((m) => m.id === modelId);
+  const selectedSound = backgroundSounds.find((s) => s.id === backgroundSoundId) || null;
   const currentTier = STRICTNESS_LABELS.find((t) => t.value === strictness) ?? STRICTNESS_LABELS[2];
 
   function canAdvance() {
@@ -142,6 +154,9 @@ function WizardInner() {
         speech_rate: speechRate,
         starting_language: startingLanguage,
         model_id: modelId || null,
+        background_sound_id: backgroundSoundId,
+        background_volume: backgroundVolume,
+        noise_suppression: noiseSuppression,
       };
       const res = savedId
         ? await fetch(`/api/scripts/${savedId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
@@ -273,12 +288,61 @@ function WizardInner() {
                   </div>
                   <div>
                     <label className="text-[13px] font-semibold block mb-1.5">Brain — the model behind it</label>
-                    <select value={modelId} onChange={(e) => setModelId(e.target.value)}
-                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-white outline-none focus:border-signal">
-                      <option value="">Let Cartesia pick (defaults to a fast Claude model)</option>
-                      {models.map((m) => <option key={m.id} value={m.id}>{m.name}{m.provider ? ` — ${m.provider}` : ""}</option>)}
-                    </select>
+                    <button type="button" onClick={() => setModelModalOpen(true)} disabled={catalogLoading}
+                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-white outline-none focus:border-signal flex items-center justify-between disabled:opacity-60">
+                      <span className="truncate text-left">
+                        {catalogLoading
+                          ? "Loading models…"
+                          : selectedModel
+                          ? <>{selectedModel.name}{selectedModel.provider ? <span className="text-ink-soft"> — {selectedModel.provider}</span> : null}</>
+                          : "Let Cartesia pick (defaults to a fast Claude model)"}
+                      </span>
+                      <span className="text-[12.5px] font-semibold text-signal shrink-0 ml-3">{selectedModel ? "Change" : "Browse"}</span>
+                    </button>
                     <div className="text-[11.5px] text-ink-soft mt-1.5">This is what actually decides, in real time, what your agent says. Leave it on the default unless you have a reason to change it.</div>
+                    {modelModalOpen && (
+                      <ModelPickerModal
+                        models={models}
+                        currentId={modelId}
+                        onSelect={(m) => { setModelId(m.id); setModelModalOpen(false); }}
+                        onClose={() => setModelModalOpen(false)}
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-[13px] font-semibold block mb-1.5">Background sound</label>
+                    <button type="button" onClick={() => setSoundModalOpen(true)}
+                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-white outline-none focus:border-signal flex items-center justify-between">
+                      <span className="truncate text-left">{selectedSound ? selectedSound.filename : "None"}</span>
+                      <span className="text-[12.5px] font-semibold text-signal shrink-0 ml-3">{selectedSound ? "Change" : "Browse"}</span>
+                    </button>
+                    {selectedSound && (
+                      <div className="mt-2">
+                        <label className="text-[12px] text-ink-soft block mb-1">Volume <span className="font-semibold text-ink">{backgroundVolume.toFixed(1)}</span></label>
+                        <input type="range" min={0} max={2} step={0.1} value={backgroundVolume} onChange={(e) => setBackgroundVolume(parseFloat(e.target.value))} className="w-full accent-signal" />
+                      </div>
+                    )}
+                    {soundModalOpen && (
+                      <BackgroundSoundPicker
+                        sounds={backgroundSounds}
+                        currentId={backgroundSoundId}
+                        onSelect={(s) => { setBackgroundSoundId(s?.id ?? null); setSoundModalOpen(false); }}
+                        onUploaded={(s) => { setBackgroundSounds((list) => [s, ...list]); setBackgroundSoundId(s.id); setSoundModalOpen(false); }}
+                        onClose={() => setSoundModalOpen(false)}
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-[13px] font-semibold block mb-1.5">Noise suppression</label>
+                    <div className="flex gap-2">
+                      {(["off", "auto", "max"] as const).map((n) => (
+                        <button key={n} type="button" onClick={() => setNoiseSuppression(n)}
+                          className={`text-[12.5px] font-semibold px-3.5 py-1.5 rounded-full border capitalize ${noiseSuppression === n ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"}`}>
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="text-[11.5px] text-ink-soft mt-1.5">How aggressively background noise on the caller's mic is filtered before it reaches the agent.</div>
                   </div>
                 </div>
               )}
@@ -366,6 +430,16 @@ function WizardInner() {
                     <div>
                       <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Brain</div>
                       <div className="text-[13.5px] mt-0.5">{selectedModel?.name || "Auto (fast Claude model)"}</div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Background sound</div>
+                        <div className="text-[13.5px] mt-0.5">{selectedSound ? `${selectedSound.filename} (${backgroundVolume.toFixed(1)}x)` : "None"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Noise suppression</div>
+                        <div className="text-[13.5px] mt-0.5 capitalize">{noiseSuppression}</div>
+                      </div>
                     </div>
                     <div>
                       <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Opens with</div>
