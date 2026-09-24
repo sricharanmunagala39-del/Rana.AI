@@ -4,7 +4,8 @@
  * Docs: https://docs.cartesia.ai/agents/introduction
  *
  * Schema confirmed against the live OpenAPI spec for Cartesia-Version 2026-08-14 (our
- * pinned version) for Create Agent, Update Agent, and List Models/Voices.
+ * pinned version) for Create Agent, Update Agent, List Models, List Voices, List Accents,
+ * and Files (upload/list).
  *
  * CONFIRMED: agent-level webhooks are NOT part of this API version. Create/Update Agent
  * have no `webhook_id` field on 2026-08-14 — verified against the full live schema, not
@@ -17,7 +18,7 @@
  *
  * Still NOT independently confirmed against a real response: the exact shape of
  * `call.transcript` entries once that polling path is built — see the note in
- * lib/calls.ts's payloadToCallFromCartesia() (written for a webhook payload shape that
+ * lib/calls.ts's payloadToCartesia() (written for a webhook payload shape that
  * may not apply once we switch to polling).
  *
  * Phone numbers (confirmed against docs): Cartesia-provisioned numbers are US-only —
@@ -51,6 +52,21 @@ async function cartesiaFetch(path: string, init: RequestInit = {}) {
   return data;
 }
 
+/** Generic pager for Cartesia's `{data, has_more, next_page}` list endpoints. */
+async function cartesiaPaginate(pathBuilder: (startingAfter?: string) => string, maxPages = 30): Promise<any[]> {
+  const all: any[] = [];
+  let startingAfter: string | undefined;
+  for (let page = 0; page < maxPages; page++) {
+    const data = await cartesiaFetch(pathBuilder(startingAfter), { method: "GET" });
+    const batch = data?.data ?? [];
+    all.push(...batch);
+    if (!data?.has_more || batch.length === 0) break;
+    startingAfter = data?.next_page || batch[batch.length - 1]?.id;
+    if (!startingAfter) break;
+  }
+  return all;
+}
+
 export type CartesiaAgentInput = {
   name: string;
   instructions: string;
@@ -59,6 +75,8 @@ export type CartesiaAgentInput = {
   voiceId: string;
   speed?: number;      // clamped to 0.6 - 1.5 (Cartesia's allowed range)
   modelId: string;     // an ID from GET /v1/agents/models
+  noiseSuppression?: "off" | "auto" | "max";
+  backgroundSound?: { fileId: string; volume: number } | null; // volume 0-2
 };
 
 function buildConfig(cfg: CartesiaAgentInput) {
@@ -68,14 +86,19 @@ function buildConfig(cfg: CartesiaAgentInput) {
     model: { id: cfg.modelId, temperature: null, max_output_tokens: null },
     language: { primary: cfg.language },
     audio: {
-      input: { keyterms: [], noise_suppression: "auto" },
+      input: {
+        keyterms: [],
+        noise_suppression: cfg.noiseSuppression ?? "auto",
+      },
       output: {
         voice_id: cfg.voiceId,
         speed: Math.min(1.5, Math.max(0.6, cfg.speed ?? 1)),
         volume: null,
         emotion: null,
         pronunciation_dictionary_id: null,
-        background_sound: null,
+        background_sound: cfg.backgroundSound
+          ? { file_id: cfg.backgroundSound.fileId, volume: Math.min(2, Math.max(0, cfg.backgroundSound.volume)) }
+          : null,
       },
     },
     system_tools: {
@@ -120,28 +143,57 @@ export async function createCartesiaWebhook(url: string, secret: string, display
   });
 }
 
-/** GET /v1/agents/models — LLMs available for Managed Agents, with latency/pricing metadata. */
+/** GET /v1/agents/models — LLMs available for Managed Agents, with provider, average
+ *  latency and per-million-token pricing. Fully paginated (default page size is only 10). */
 export async function listCartesiaModels(): Promise<any[]> {
-  const data = await cartesiaFetch("/v1/agents/models", { method: "GET" });
-  return data?.data ?? data ?? [];
+  return cartesiaPaginate((after) => `/v1/agents/models?limit=100${after ? `&starting_after=${encodeURIComponent(after)}` : ""}`, 10);
 }
 
 /** GET /voices — full voice catalog, fully paginated (Cartesia caps each page at 100), with
- *  preview_file_url requested so a real "play sample" button is possible. Filter client-side
- *  by `.language`, `.gender`, etc. */
+ *  preview_file_url requested so a real "play sample" button is possible. Each voice's
+ *  `accents` array (accent/locale/is_native) is included by default. Filter client-side
+ *  by `.language`, `.gender`, `.accents`, etc. */
 export async function listCartesiaVoices(): Promise<any[]> {
-  const all: any[] = [];
-  let startingAfter: string | undefined;
-  for (let page = 0; page < 30; page++) { // hard cap: 30 * 100 = 3000 voices, comfortably above the real catalog size
-    const qs = `limit=100&expand%5B%5D=preview_file_url${startingAfter ? `&starting_after=${encodeURIComponent(startingAfter)}` : ""}`;
-    const data = await cartesiaFetch(`/voices?${qs}`, { method: "GET" });
-    const batch = data?.data ?? [];
-    all.push(...batch);
-    if (!data?.has_more || batch.length === 0) break;
-    startingAfter = data?.next_page || batch[batch.length - 1]?.id;
-    if (!startingAfter) break;
-  }
-  return all;
+  return cartesiaPaginate((after) => `/voices?limit=100&expand%5B%5D=preview_file_url${after ? `&starting_after=${encodeURIComponent(after)}` : ""}`, 30);
+}
+
+/** GET /accents — the official accent catalog (id, name, language, locale, is_locale_default),
+ *  for building an accent filter independent of which voices currently exist. */
+export async function listCartesiaAccents(): Promise<any[]> {
+  const data = await cartesiaFetch("/accents", { method: "GET" });
+  return data?.accents ?? data?.data ?? [];
+}
+
+/** GET /files — files uploaded to this account, fully paginated. Pass `purpose` to filter,
+ *  e.g. "agent_background_sound" for the agent's background-sound picker. */
+export async function listCartesiaFiles(purpose?: string): Promise<any[]> {
+  return cartesiaPaginate((after) => {
+    const qs = new URLSearchParams({ limit: "100" });
+    if (purpose) qs.set("purpose", purpose);
+    if (after) qs.set("starting_after", after);
+    return `/files?${qs.toString()}`;
+  }, 10);
+}
+
+/** POST /files (multipart/form-data) — upload a new file with a given purpose (e.g.
+ *  "agent_background_sound"). Bypasses cartesiaFetch/cartesiaHeaders because those force a
+ *  JSON content-type, which would break the multipart boundary. */
+export async function uploadCartesiaFile(fileBuffer: Buffer, filename: string, contentType: string, purpose: string): Promise<any> {
+  const key = process.env.CARTESIA_API_KEY;
+  if (!key) throw new Error("CARTESIA_API_KEY is not set");
+  const form = new FormData();
+  form.append("file", new Blob([fileBuffer], { type: contentType || "application/octet-stream" }), filename);
+  form.append("purpose", purpose);
+  const res = await fetch(`${CARTESIA_BASE}/files`, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${key}`, "Cartesia-Version": CARTESIA_VERSION },
+    body: form as any,
+  });
+  const text = await res.text();
+  let data: any;
+  try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
+  if (!res.ok) throw new Error(`Cartesia /files: ${res.status} ${JSON.stringify(data)}`);
+  return data;
 }
 
 /** Maps RANA's startingLanguage (BCP-47, e.g. "te-IN") to Cartesia's ISO 639-1 primary language code. */
