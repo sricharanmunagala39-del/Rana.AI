@@ -28,6 +28,9 @@ export type CallRow = {
   notes: string | null;
   transcript: TranscriptTurn[];
   recording_url: string | null;
+  lead_reason?: string | null;
+  follow_up?: boolean;
+  caller_turns?: number;
   agent_variables: Record<string, unknown>;
   started_at: string | null;
   ended_at: string | null;
@@ -91,7 +94,7 @@ export async function getCall(clientId: string, id: string): Promise<CallRow | n
   return r?.[0] ?? null;
 }
 
-export async function updateCall(clientId: string, id: string, patch: Partial<Pick<CallRow, "lead_status" | "notes" | "caller_name">>): Promise<CallRow | null> {
+export async function updateCall(clientId: string, id: string, patch: Partial<Pick<CallRow, "lead_status" | "notes" | "caller_name" | "lead_reason" | "follow_up">>): Promise<CallRow | null> {
   const r = await sb(`/calls?id=eq.${id}&client_id=eq.${clientId}`, {
     method: "PATCH",
     body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }),
@@ -245,18 +248,53 @@ export function payloadToCallFromCartesia(p: any, clientId: string): Partial<Cal
      direction, connection_type}, telephony_account_type, error_message, dynamic_variables }
 */
 
-/** Reads Cartesia's auto-summary for buying signals. Duration and end_reason gate it first. */
+/* ── How RANA decides what a call was ──
+   One ordered rule list; the first rule that matches wins and its sentence is stored in
+   calls.lead_reason, so every number on the dashboard can be traced to a plain reason.
+   Text scanned = Cartesia's call summary + everything the caller said (English plus common
+   Telugu/Hindi transliterations). */
+const RX = {
+  unreachable: /dial_failed|no_answer|busy|voicemail|failed|rejected|unreachable/,
+  refusal: /not interested|no interest|don'?t (call|want)|do not call|dnd|wrong number|already (joined|enrolled|bought|taken)|stop calling|vaddu|interest ledu|avasaram ledu|nahi chahiye|mat karo|zaroorat nahi/,
+  commit: /ready to (join|enrol|enroll|pay|book|buy|visit)|wants? to (join|enrol|enroll|pay|book|buy)|send (me )?(the )?(payment|upi) link|how (do|can) i pay|payment link|site visit|book(ed)? (a )?(seat|slot|visit|demo)|confirmed|join chest|join karunga|pay chest/,
+  buying: /fee|fees|price|cost|batch|timing|schedule|syllabus|discount|emi|installment|scholarship|availability|location|address|brochure|details|when (does|will|is)|entha|kitna|eppudu|kab se/,
+  callback: /call (me )?back|callback|call later|call tomorrow|busy now|follow ?up|tarvata call|repu call|baad mein|kal call/,
+};
+
+export type Classification = { status: LeadStatus; reason: string; followUp: boolean };
+
+export function classifyCall(input: {
+  summary: string | null; callerText: string; endReason: string | null; status: string | null;
+  duration: number; vars?: Record<string, unknown>;
+}): Classification {
+  const { summary, callerText, endReason, status, duration, vars = {} } = input;
+  const text = `${summary || ""} ${callerText || ""}`.toLowerCase();
+  const followUp = RX.callback.test(text);
+
+  const agentSaid = pick(vars, LEAD_KEYS);
+  if (agentSaid) {
+    const s = classifyLead(vars, null, 999);
+    if (s !== "new") return { status: s, reason: `The agent recorded the outcome as "${agentSaid}".`, followUp };
+  }
+  if (status === "failed" || (endReason && RX.unreachable.test(endReason)) || duration <= 0) {
+    return { status: "no_answer", reason: `Not connected${endReason ? ` (${endReason.replace(/_/g, " ")})` : ""} — counted as DNP.`, followUp: false };
+  }
+  if (duration < 15) return { status: "cold", reason: `Connected but ended within ${duration}s — too short to qualify.`, followUp };
+  const refusal = text.match(RX.refusal);
+  if (refusal) return { status: "not_interested", reason: `Caller declined ("${refusal[0]}").`, followUp: false };
+  const commit = text.match(RX.commit);
+  if (commit) return { status: "ready_to_close", reason: `Commitment signal ("${commit[0]}") — hand to sales now.`, followUp: true };
+  const buying = text.match(RX.buying);
+  if (buying && duration >= 60) return { status: "hot", reason: `Asked about "${buying[0]}" and talked ${Math.round(duration)}s (≥60s).`, followUp };
+  if (buying) return { status: "warm", reason: `Asked about "${buying[0]}" but the call was short (${Math.round(duration)}s).`, followUp };
+  if (followUp) return { status: "warm", reason: "Asked to be called back later.", followUp: true };
+  if (duration >= 90) return { status: "warm", reason: `Long conversation (${Math.round(duration)}s) without a clear buying question.`, followUp };
+  return { status: "cold", reason: `Connected ${Math.round(duration)}s with no interest signal.`, followUp };
+}
+
+/** Kept for older call sites: status only. */
 export function classifyFromSummary(summary: string | null, endReason: string | null, duration: number, vars: Record<string, unknown> = {}): LeadStatus {
-  const fromVars = classifyLead(vars, null, 999);
-  if (fromVars !== "new") return fromVars;
-  if (endReason && /dial_failed|no_answer|busy|failed|voicemail/.test(endReason)) return "no_answer";
-  if (duration > 0 && duration < 15) return "cold";
-  const s = (summary || "").toLowerCase();
-  if (!s) return "new";
-  if (/not interested|no interest|declined|do not call|dnd|wrong number|already (joined|enrolled|bought)/.test(s)) return "not_interested";
-  if (/ready to (join|enrol|enroll|pay|book|buy)|wants to (join|enrol|enroll|pay|book|buy)|payment|site visit|schedule[d]? (a )?(visit|demo)|confirmed/.test(s)) return "ready_to_close";
-  if (/fee|price|cost|batch|when (does|will)|interested|callback|call back|details|brochure|discount|emi|availability/.test(s)) return duration >= 60 ? "hot" : "warm";
-  return duration >= 90 ? "warm" : "cold";
+  return classifyCall({ summary, callerText: "", endReason, status: null, duration, vars }).status;
 }
 
 export function callFromCartesiaApi(call: any, clientId: string): Partial<CallRow> & { created_at?: string } {
@@ -273,6 +311,11 @@ export function callFromCartesiaApi(call: any, clientId: string): Partial<CallRo
     : duration > 0 ? "connected" : (call?.status ?? null);
   const firstUser = transcript.find((t) => t.role === "user")?.text ?? null;
   const summary: string | null = call?.summary || (firstUser ? firstUser.slice(0, 160) : null);
+  const callerTurns = transcript.filter((t) => t.role === "user");
+  const verdict = classifyCall({
+    summary, callerText: callerTurns.map((t) => t.text).join(" "), endReason,
+    status: call?.status ?? null, duration, vars,
+  });
   const customerPhone = direction === "inbound" ? (tp.from ?? null) : (tp.to ?? null);
   const agentPhone = direction === "inbound" ? (tp.to ?? null) : (tp.from ?? null);
 
@@ -291,11 +334,14 @@ export function callFromCartesiaApi(call: any, clientId: string): Partial<CallRo
     connectivity_status: connectivity,
     completion_status: call?.status ?? null,
     failure_reason: call?.error_message ?? endReason,
-    lead_status: classifyFromSummary(summary, endReason, duration, vars),
+    lead_status: verdict.status,
+    lead_reason: verdict.reason,
+    follow_up: verdict.followUp,
+    caller_turns: callerTurns.length,
     summary,
     transcript,
     agent_variables: vars,
-    recording_url: null,
+    recording_url: call?.recording_url ?? call?.recording?.url ?? null,
     raw_payload: call,
     started_at: start,
     ended_at: end,
@@ -319,4 +365,24 @@ export async function existingCallState(ids: string[]): Promise<Record<string, {
   const out: Record<string, { final: boolean }> = {};
   for (const row of r || []) out[row.interaction_id] = { final: row.completion_status === "completed" || row.completion_status === "failed" };
   return out;
+}
+
+/** Lean rows for dashboard maths — no transcript / raw payload. */
+export type LeanCall = Pick<CallRow, "id" | "direction" | "source" | "campaign_id" | "caller_name" | "caller_phone" | "duration_seconds" | "connectivity_status" | "completion_status" | "failure_reason" | "lead_status" | "summary" | "created_at"> & { lead_reason: string | null; follow_up: boolean; caller_turns: number };
+
+export async function listCallsLean(clientId: string, fromIso: string, toIso: string, max = 20000): Promise<LeanCall[]> {
+  const cols = "id,direction,source,campaign_id,caller_name,caller_phone,duration_seconds,connectivity_status,completion_status,failure_reason,lead_status,lead_reason,follow_up,caller_turns,summary,created_at";
+  const out: LeanCall[] = [];
+  for (let offset = 0; offset < max; offset += 1000) {
+    const q = `/calls?client_id=eq.${clientId}&created_at=gte.${encodeURIComponent(fromIso)}&created_at=lt.${encodeURIComponent(toIso)}&select=${cols}&order=created_at.desc&limit=1000&offset=${offset}`;
+    const page: LeanCall[] = await sb(q);
+    out.push(...(page || []));
+    if (!page || page.length < 1000) break;
+  }
+  return out;
+}
+
+export type CampaignRow = { id: string; name: string; cartesia_batch_id: string | null; status: string; total_contacts: number; created_at: string };
+export async function listCampaigns(clientId: string): Promise<CampaignRow[]> {
+  return (await sb(`/campaigns?client_id=eq.${clientId}&select=id,name,cartesia_batch_id,status,total_contacts,created_at&order=created_at.desc&limit=500`)) || [];
 }

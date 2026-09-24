@@ -45,6 +45,10 @@ export default function InboundPage() {
     } catch (e: any) { setError(e.message); }
   }
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    const f = new URLSearchParams(window.location.search).get("filter");
+    if (f && filters.some((x) => x.key === f)) setFilter(f as Filter);
+  }, []);
 
   const all = calls ?? [];
   const shown = all.filter((c) => matches(c, filter));

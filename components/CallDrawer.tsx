@@ -68,6 +68,18 @@ export default function CallDrawer({ call, onClose, onUpdated }: { call: CallRow
             </div>
           </div>
 
+          {call.lead_reason && (
+            <div className="border border-line rounded-lg px-3 py-2.5 bg-paper">
+              <div className="text-[11.5px] font-semibold text-ink-soft uppercase tracking-wide">Why RANA labelled it {LEAD_LABEL[call.lead_status]}</div>
+              <div className="text-[13px] mt-1 leading-relaxed">{call.lead_reason}</div>
+            </div>
+          )}
+
+          <label className="flex items-center gap-2 text-[13px]">
+            <input type="checkbox" checked={Boolean(call.follow_up)} disabled={saving} onChange={(e) => patch({ follow_up: e.target.checked })} className="accent-signal" />
+            Needs a follow-up call from sales
+          </label>
+
           {call.summary && (
             <div>
               <div className="text-[12.5px] font-semibold text-ink-soft mb-1.5">Summary</div>
