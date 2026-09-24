@@ -109,14 +109,17 @@ const PLAYBOOK_SHAPE = `{
   "missing": ["important gaps in the script the business should fill, e.g. 'No answer for: is there EMI?'"]
 }`;
 
-export function analyzeMessages(input: { script: string; agentName: string; openingLanguage: string; businessNotes?: string }) {
+export function analyzeMessages(input: { script: string; agentName: string; openingLanguage: string; businessNotes?: string; part?: number; parts?: number }) {
   const lang = LANG_NAMES[baseLang(input.openingLanguage)] || "English";
+  const partNote = input.parts && input.parts > 1
+    ? `\nThis is PART ${input.part} of ${input.parts} of a long script. Extract only what is in this part; leave fields empty ("" or []) when this part has nothing for them.${(input.part || 1) > 1 ? " Leave \"greeting\", \"goal\", \"persona\" and \"opening\" empty unless this part clearly contains them." : ""}`
+    : "";
   return [
     { role: "system" as const, content: `You are an expert sales-call designer for Indian businesses. You turn any raw call script (English, Telugu, Hindi or mixed; bullet points, paragraphs or a transcript) into a structured playbook for an AI phone agent.
 Rules:
 - Use ONLY information in the script and notes. Never invent prices, dates, offers or policies. If something important is missing, list it in "missing".
 - Put every objection and its answer you can find (or clearly implied) into "objections". Common Indian sales objections (price, time, "I'll think about it", "send details on WhatsApp", "already joined elsewhere") should be included when the script answers them.
-- Keep each item short and spoken-style. Keep the language of each item as in the script.
+- Keep each item short and spoken-style (one or two sentences). Keep the language of each item as in the script. Merge near-duplicates.
 - Find every URL or website mentioned and return it in "links" with a purpose (payment, website, booking, brochure, other).
 - Suggest a greeting in ${lang}: the first sentence the agent says when the call connects (say who is calling and from where, in ${lang}${baseLang(input.openingLanguage) !== "en" ? `, written in ${SCRIPT_NOTE[baseLang(input.openingLanguage)] || "its native script"}` : ""}).
 - List brand names, course names, place names and acronyms the speech system might mishear in "keyterms", and ones a voice might mispronounce in "pronunciations" with a simple sounds-like spelling (e.g. {"word":"DBMCI","sayAs":"D B M C I"}).
@@ -127,7 +130,7 @@ Return ONLY JSON of this shape:
  "keyterms": ["string"],
  "pronunciations": [{"word": "string", "sayAs": "string"}]}` },
     { role: "user" as const, content: `Agent name: ${input.agentName || "(not set)"}
-Opens calls in: ${lang}
+Opens calls in: ${lang}${partNote}
 ${input.businessNotes ? `Extra notes / documents:\n${input.businessNotes.slice(0, 6000)}\n` : ""}
 SCRIPT:
 ${input.script.slice(0, 24000)}` },
@@ -155,6 +158,46 @@ export function summarizeMessages(title: string, content: string) {
     { role: "system" as const, content: "You prepare reference notes for an AI phone sales agent. From the document, extract only facts a caller might ask about: products/courses, prices and fees, discounts, batch dates and timings, duration, eligibility, locations, contact details, policies (refund, EMI), and common questions with answers. Short bullet points, no marketing fluff, max 350 words. Keep numbers exact." },
     { role: "user" as const, content: `Document: ${title}\n\n${content.slice(0, 30000)}` },
   ];
+}
+
+/** Splits a long script into at most `maxParts` parts of roughly `size` characters, on paragraph (then line) boundaries. */
+export function splitScript(script: string, size = 9000, maxParts = 6): string[] {
+  const text = script.trim();
+  if (text.length <= size) return [text];
+  size = Math.max(size, Math.ceil(text.length / maxParts));
+  const blocks = text.split(/\n\s*\n/).flatMap((b) => (b.length > size ? b.split(/\n/) : [b]))
+    .flatMap((b) => { const out: string[] = []; for (let i = 0; i < b.length; i += size) out.push(b.slice(i, i + size)); return out; });
+  const parts: string[] = [];
+  let cur = "";
+  for (const b of blocks) {
+    if (cur && cur.length + b.length + 2 > size && parts.length < maxParts - 1) { parts.push(cur); cur = ""; }
+    cur = cur ? `${cur}\n\n${b}` : b;
+  }
+  if (cur) parts.push(cur);
+  return parts;
+}
+
+/** Combines the AI's reading of each part into one playbook: first opening, last closing, all lists de-duplicated. */
+export function mergeAnalyses(outs: any[]): { playbook: Playbook; greeting: string; links: any[]; keyterms: string[]; pronunciations: Pronunciation[] } {
+  const pbs = outs.map((o) => normalizePlaybook(o?.playbook));
+  const key = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const uniq = (arr: string[]) => { const seen = new Set<string>(); return arr.filter((x) => { const k = key(x); if (!k || seen.has(k)) return false; seen.add(k); return true; }); };
+  const uniqBy = <T,>(arr: T[], f: (x: T) => string) => { const seen = new Set<string>(); return arr.filter((x) => { const k = key(f(x)); if (!k || seen.has(k)) return false; seen.add(k); return true; }); };
+  const first = (f: (p: Playbook) => string) => pbs.map(f).find(Boolean) || "";
+  const last = (f: (p: Playbook) => string) => [...pbs].reverse().map(f).find(Boolean) || "";
+  const playbook = normalizePlaybook({
+    goal: first((p) => p.goal), persona: first((p) => p.persona), opening: first((p) => p.opening),
+    discovery: uniq(pbs.flatMap((p) => p.discovery)), pitch: uniq(pbs.flatMap((p) => p.pitch)),
+    objections: uniqBy(pbs.flatMap((p) => p.objections), (o) => o.objection),
+    faqs: uniqBy(pbs.flatMap((p) => p.faqs), (f) => f.question),
+    closing: last((p) => p.closing), followUp: last((p) => p.followUp),
+    doNot: uniq(pbs.flatMap((p) => p.doNot)), facts: uniq(pbs.flatMap((p) => p.facts)), missing: uniq(pbs.flatMap((p) => p.missing || [])).slice(0, 10),
+  });
+  const greeting = String(outs.map((o) => o?.greeting).find((g) => typeof g === "string" && g.trim()) || "");
+  const links = outs.flatMap((o) => (Array.isArray(o?.links) ? o.links : []));
+  const keyterms = uniq(outs.flatMap((o) => (Array.isArray(o?.keyterms) ? o.keyterms.map(String) : [])));
+  const pronunciations = uniqBy(normalizePronunciations(outs.flatMap((o) => (Array.isArray(o?.pronunciations) ? o.pronunciations : []))), (p) => p.word);
+  return { playbook, greeting, links, keyterms, pronunciations };
 }
 
 /** When no AI is reachable: a simple structural split so the Studio still works. */

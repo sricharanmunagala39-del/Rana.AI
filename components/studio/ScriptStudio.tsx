@@ -62,7 +62,8 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
       const n = (pbx.discovery?.length || 0) + (pbx.pitch?.length || 0) + (pbx.objections?.length || 0) + (pbx.faqs?.length || 0);
       setAnalyzeMsg(d.fallback
         ? { tone: "warn", text: d.warning || "AI isn't set up yet, so the script was split by its headings. Check each card." }
-        : { tone: "ok", text: `Read your script: ${pbx.objections.length} objection${pbx.objections.length === 1 ? "" : "s"}, ${pbx.faqs.length} FAQ${pbx.faqs.length === 1 ? "" : "s"}, ${n} items in total${d.links?.length ? `, ${d.links.length} link${d.links.length === 1 ? "" : "s"}` : ""}. Check the cards below.` });
+        : d.warning ? { tone: "warn", text: d.warning }
+        : { tone: "ok", text: `Read your script${d.parts > 1 ? ` (in ${d.parts} parts)` : ""}: ${pbx.objections.length} objection${pbx.objections.length === 1 ? "" : "s"}, ${pbx.faqs.length} FAQ${pbx.faqs.length === 1 ? "" : "s"}, ${n} items in total${d.links?.length ? `, ${d.links.length} link${d.links.length === 1 ? "" : "s"}` : ""}. Check the cards below.` });
     } catch (e: any) { setAnalyzeMsg({ tone: "err", text: e.message }); }
     finally { setAnalyzing(false); }
   }
@@ -124,7 +125,7 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
                 )}
                 {playbook && <button type="button" onClick={() => setShowSource(false)} className="text-[12.5px] font-semibold text-ink-soft ml-auto">Hide</button>}
               </div>
-              {analyzing && <div className="text-[12px] text-ink-soft mt-2">Finding the opening, questions, objections, FAQs and closing… this takes 10–40 seconds.</div>}
+              {analyzing && <div className="text-[12px] text-ink-soft mt-2">Finding the opening, questions, objections, FAQs and closing… {sourceScript.length > 9000 ? `this is a long script, so it's read in ${Math.min(6, Math.ceil(sourceScript.length / 9000))} parts at once — about 1–2 minutes.` : "this takes 10–40 seconds."}</div>}
             </Card>
           ) : (
             <button type="button" onClick={() => setShowSource(true)} className="text-left border border-dashed border-line rounded-xl px-4 py-2.5 text-[12.5px] text-ink-soft hover:border-signal">
