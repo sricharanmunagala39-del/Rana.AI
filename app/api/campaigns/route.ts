@@ -1,15 +1,19 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
-import { parseSession, unauthorized } from "@/lib/auth";
-import { getScriptById } from "@/lib/supabase";
+import { unauthorized, forbidUnless } from "@/lib/auth";
+import { getScriptById, getClientById } from "@/lib/supabase";
+import { filterOwned } from "@/lib/ownership";
+import { dncSet, rulesFromClient, insideWindow, nextWindowOpen, describeRules } from "@/lib/compliance";
+import { audit } from "@/lib/audit";
 import { listCartesiaPhoneNumbers, createCartesiaBatch } from "@/lib/cartesia";
 import { createCampaignRow, updateCampaignRow, listCampaignRows, insertContacts, normalisePhone } from "@/lib/campaigns";
 import { listCallsLean } from "@/lib/calls";
 import { kpis } from "@/lib/metrics";
+import { getSession } from "@/lib/session";
 
 /** GET — every campaign for this client with live numbers computed from its calls. */
 export async function GET(req: Request) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return unauthorized();
   try {
     const rows = await listCampaignRows(session.clientId);
@@ -33,8 +37,9 @@ type Body = {
 
 /** POST — create the campaign, store every contact, and hand the batch to Cartesia. */
 export async function POST(req: Request) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return unauthorized();
+  const denied = forbidUnless(session, "manager"); if (denied) return denied;
   if (!process.env.CARTESIA_API_KEY) return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
 
   let body: Body;
@@ -59,23 +64,37 @@ export async function POST(req: Request) {
       seen.set(phone, { name: (c.name || "").trim() || null, phone, variables: vars });
     }
   }
+  // Never dial anyone on this client's do-not-call list.
+  const blocked = await dncSet(session.clientId, Array.from(seen.keys()));
+  const skippedDnc = Array.from(seen.keys()).filter((p) => blocked.has(p));
+  for (const p of skippedDnc) seen.delete(p);
   const contacts = Array.from(seen.values());
-  if (!contacts.length) return Response.json({ error: "No valid phone numbers in the list." }, { status: 400 });
+  if (!contacts.length) return Response.json({ error: skippedDnc.length ? `Every number on this list is on your do-not-call list (${skippedDnc.length}).` : "No valid phone numbers in the list." }, { status: 400 });
   if (contacts.length > 5000) return Response.json({ error: "Cartesia allows up to 5,000 numbers per campaign — split the list." }, { status: 400 });
 
   // Resolve the caller-ID number.
-  const numbers = await listCartesiaPhoneNumbers().catch(() => []);
+  const numbers = await filterOwned(session.clientId, "phone_number", (await listCartesiaPhoneNumbers().catch(() => [])) || []);
   const from = numbers.find((n: any) => n.id === body.fromNumberId);
   if (!from) return Response.json({ error: "Pick the number to call from. Add one on the Phone Numbers page if the list is empty." }, { status: 400 });
 
   const scheduledAt = body.scheduledAt && Date.parse(body.scheduledAt) > Date.now() + 60000 ? new Date(body.scheduledAt).toISOString() : null;
+  // Calling hours: refuse to start outside the client's window and say when it next opens.
+  const rules = rulesFromClient(await getClientById(session.clientId));
+  const startAt = scheduledAt ? new Date(scheduledAt) : new Date();
+  if (!insideWindow(rules, startAt)) {
+    const next = nextWindowOpen(rules, startAt);
+    return Response.json({
+      error: `${scheduledAt ? "That start time is" : "It's"} outside your calling hours (${describeRules(rules)}).${next ? " Schedule it for when the window opens." : ""}`,
+      code: "outside_calling_window", nextOpen: next ? next.toISOString() : null,
+    }, { status: 409 });
+  }
   const concurrency = body.concurrency && body.concurrency > 0 ? Math.min(50, Math.round(body.concurrency)) : null;
 
   const campaign = await createCampaignRow({
     client_id: session.clientId, name, script_id: script.id, cartesia_agent_id: script.cartesia_agent_id,
     status: "draft", total_contacts: contacts.length, from_number_id: from.id, from_number: from.number,
-    scheduled_at: scheduledAt, concurrency,
-  });
+    scheduled_at: scheduledAt, concurrency, skipped_dnc: skippedDnc.length, created_by: session.email,
+  } as any);
   await insertContacts(campaign.id, session.clientId, contacts);
 
   try {
@@ -88,7 +107,8 @@ export async function POST(req: Request) {
       cartesia_batch_id: batch.id, status: scheduledAt ? "scheduled" : "running",
       started_at: scheduledAt ? null : new Date().toISOString(), last_error: null,
     });
-    return Response.json({ ok: true, campaign: updated, accepted: contacts.length, invalid });
+    await audit(session, "campaign_launched", { req, targetType: "campaign", targetId: campaign.id, detail: { name, contacts: contacts.length, skippedDnc: skippedDnc.length, scheduledAt } });
+    return Response.json({ ok: true, campaign: updated, accepted: contacts.length, invalid, skippedDnc: skippedDnc.length });
   } catch (err: any) {
     await updateCampaignRow(campaign.id, { status: "failed", last_error: String(err?.message || err).slice(0, 500) });
     return Response.json({ error: `Cartesia didn't accept the campaign: ${err?.message || err}`, campaignId: campaign.id }, { status: 502 });

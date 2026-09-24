@@ -2,18 +2,23 @@ export const runtime = "nodejs";
 import { parseSession, unauthorized } from "@/lib/auth";
 import { getClientById } from "@/lib/supabase";
 import { listCartesiaPhoneNumbers, provisionCartesiaPhoneNumber } from "@/lib/cartesia";
+import { getSession } from "@/lib/session";
+import { forbidUnless } from "@/lib/auth";
+import { filterOwned, claimResource } from "@/lib/ownership";
+import { audit } from "@/lib/audit";
 
 
 export async function GET(req: Request) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return unauthorized();
   if (!process.env.CARTESIA_API_KEY) {
     return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
   }
   try {
-    const numbers = await listCartesiaPhoneNumbers();
+    // Only this client's numbers — the Cartesia account is shared by every client.
+    const numbers = await filterOwned(session.clientId, "phone_number", (await listCartesiaPhoneNumbers()) || [], (n: any) => n.number ?? null);
     return Response.json({
-      numbers: (numbers || []).map((n: any) => ({
+      numbers: numbers.map((n: any) => ({
         id: n.id,
         number: n.number,
         label: n.label ?? null,
@@ -29,8 +34,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return unauthorized();
+  const denied = forbidUnless(session, "admin"); if (denied) return denied;
   if (!process.env.CARTESIA_API_KEY) {
     return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
   }
@@ -47,6 +53,8 @@ export async function POST(req: Request) {
       agentId = client?.cartesia_agent_id ?? undefined;
     }
     const created = await provisionCartesiaPhoneNumber(label, agentId);
+    await claimResource(session.clientId, "phone_number", created.id, created.number ?? label);
+    await audit(session, "number_provisioned", { req, targetType: "phone_number", targetId: created.id, detail: { number: created.number, label } });
     return Response.json({
       ok: true,
       number: {

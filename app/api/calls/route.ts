@@ -2,9 +2,10 @@ export const runtime = "nodejs";
 import { parseSession, unauthorized } from "@/lib/auth";
 import { listCalls } from "@/lib/calls";
 import { maybeSyncClientCalls } from "@/lib/callSync";
+import { getSession } from "@/lib/session";
 
 export async function GET(req: Request) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return unauthorized();
   await maybeSyncClientCalls(session.clientId); // throttled to once a minute per client
   const sp = new URL(req.url).searchParams;

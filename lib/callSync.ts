@@ -3,7 +3,8 @@
 import { getClientById, getScriptsForClient, getAllClients } from "./supabase";
 import { listCartesiaCalls } from "./cartesia";
 import { callFromCartesiaApi, upsertCall, latestCartesiaCallStart, existingCallState } from "./calls";
-import { refreshActiveCampaigns, contactsByCallIds } from "./campaigns";
+import { refreshActiveCampaigns, contactsByCallIds, normalisePhone } from "./campaigns";
+import { optOutPhrase, addDnc } from "./compliance";
 
 const FIRST_SYNC_LOOKBACK_DAYS = 14;
 const OVERLAP_MS = 30 * 60 * 1000; // re-read the last 30 min so calls that were still in progress get their final state
@@ -54,7 +55,16 @@ export async function syncClientCalls(clientId: string): Promise<SyncResult> {
           if (camp.name && !row.caller_name) row.caller_name = camp.name;
         }
         try { await upsertCall(row); res.saved++; }
-        catch (e: any) { res.errors.push(`${c.id}: ${e?.message || e}`); }
+        catch (e: any) { res.errors.push(`${c.id}: ${e?.message || e}`); continue; }
+        // "Don't call me again" goes straight onto the do-not-call list so no future campaign dials them.
+        if (row.source !== "manual" && row.caller_phone) {
+          const said = optOutPhrase((row.transcript || []).filter((t: any) => t.role === "user").map((t: any) => t.text).join(" "));
+          const phone = normalisePhone(row.caller_phone);
+          if (said && phone) {
+            await addDnc(clientId, [{ phone, source: "caller_request", reason: `Caller said "${said}"`, callId: c.id }])
+              .catch((e: any) => res.errors.push(`dnc ${c.id}: ${e?.message || e}`));
+          }
+        }
       }
     } catch (e: any) {
       res.errors.push(`${agentId}: ${e?.message || e}`);

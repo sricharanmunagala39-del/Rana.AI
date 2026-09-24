@@ -1,10 +1,14 @@
 // @ts-nocheck
 export const runtime = "nodejs";
 import { getScriptsForClient, createScript } from "@/lib/supabase";
-import { parseSession } from "../auth/me/route";
+import { parseSession } from "@/lib/auth";
 import { INDUSTRY_TEMPLATES } from "@/lib/industryTemplates";
+import { getSession } from "@/lib/session";
+import { forbidUnless } from "@/lib/auth";
+import { audit } from "@/lib/audit";
+import { claimResource } from "@/lib/ownership";
 export async function GET(req: Request) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
   try {
     const scripts = await getScriptsForClient(session.clientId);
@@ -12,8 +16,9 @@ export async function GET(req: Request) {
   } catch (err: any) { return Response.json({ error: err.message }, { status: 500 }); }
 }
 export async function POST(req: Request) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
+  const denied = forbidUnless(session, "admin"); if (denied) return denied;
   try {
     const body = await req.json();
     const { name, industry = "edtech", fromTemplate = true } = body;

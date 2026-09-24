@@ -6,10 +6,11 @@ import { getCampaignRow, listContacts, refreshCampaignFromCartesia } from "@/lib
 import { maybeSyncClientCalls } from "@/lib/callSync";
 import { listCallsLean } from "@/lib/calls";
 import { kpis, isConnected, notConnectedReasons } from "@/lib/metrics";
+import { getSession } from "@/lib/session";
 
 /** Everything the campaign page shows: the campaign, every number on the list, and the call each became. */
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return unauthorized();
   let c = await getCampaignRow(session.clientId, decodeURIComponent(params.id));
   if (!c) return Response.json({ error: "Campaign not found" }, { status: 404 });

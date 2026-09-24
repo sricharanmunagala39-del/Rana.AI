@@ -8,10 +8,13 @@ import {
   listCartesiaVoices,
   toCartesiaLanguage,
 } from "@/lib/cartesia";
+import { getSession } from "@/lib/session";
+import { forbidUnless } from "@/lib/auth";
+import { claimResource } from "@/lib/ownership";
 
 
 export async function GET(req: Request) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return unauthorized();
   const client = await getClientById(session.clientId);
   if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
@@ -21,8 +24,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return unauthorized();
+  const denied = forbidUnless(session, "admin"); if (denied) return denied;
   if (!process.env.CARTESIA_API_KEY) {
     return Response.json(
       { error: "CARTESIA_API_KEY is not set. Add it in Vercel → Settings → Environment Variables." },
@@ -97,6 +101,7 @@ export async function POST(req: Request) {
       agentId = created.id;
       await updateClient(client.id, { cartesia_agent_id: agentId });
     }
+    await claimResource(client.id, "agent", agentId!, name).catch(() => {});
 
     // Agent-level webhooks don't exist on Cartesia-Version 2026-08-14, so nothing is attached
     // here. Call outcomes are pulled from GET /agents/calls by lib/callSync.ts instead.

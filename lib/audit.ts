@@ -1,0 +1,62 @@
+// Append-only record of sensitive actions: who did what, to which thing, when, from where.
+import type { Session } from "./auth";
+import { sb } from "./db";
+
+export type AuditAction =
+  | "login" | "login_failed" | "password_changed"
+  | "user_invited" | "user_role_changed" | "user_deactivated" | "user_reactivated" | "user_password_reset"
+  | "number_provisioned" | "number_imported" | "number_released" | "number_assigned" | "number_test_call"
+  | "employee_published" | "employee_deleted"
+  | "campaign_launched" | "campaign_cancelled" | "campaign_retried" | "campaign_exported"
+  | "lead_updated" | "dnc_added" | "dnc_removed" | "calling_rules_changed";
+
+export const AUDIT_LABEL: Record<AuditAction, string> = {
+  login: "Signed in", login_failed: "Failed sign-in", password_changed: "Changed their password",
+  user_invited: "Invited a teammate", user_role_changed: "Changed a teammate's role",
+  user_deactivated: "Removed a teammate's access", user_reactivated: "Restored a teammate's access",
+  user_password_reset: "Reset a teammate's password",
+  number_provisioned: "Added a phone number", number_imported: "Imported a Twilio number",
+  number_released: "Released a phone number", number_assigned: "Changed who answers a number",
+  number_test_call: "Placed a test call",
+  employee_published: "Published an employee", employee_deleted: "Deleted an employee",
+  campaign_launched: "Launched a campaign", campaign_cancelled: "Stopped a campaign",
+  campaign_retried: "Re-dialled a campaign", campaign_exported: "Downloaded campaign results",
+  lead_updated: "Changed a lead", dnc_added: "Added to do-not-call", dnc_removed: "Removed from do-not-call",
+  calling_rules_changed: "Changed calling rules",
+};
+
+function ipOf(req?: Request): string | null {
+  if (!req) return null;
+  return (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || req.headers.get("x-real-ip") || null;
+}
+
+/** Never throws: a failed audit write must not break the action it describes. */
+export async function audit(
+  who: Session | { clientId: string; email?: string | null; userId?: string | null },
+  action: AuditAction,
+  opts: { req?: Request; targetType?: string; targetId?: string | null; detail?: Record<string, unknown> } = {},
+): Promise<void> {
+  try {
+    await sb(`/audit_log`, {
+      method: "POST", prefer: "return=minimal",
+      body: JSON.stringify({
+        client_id: who.clientId,
+        user_id: (who as any).userId ?? null,
+        user_email: (who as any).email ?? null,
+        action,
+        target_type: opts.targetType ?? null,
+        target_id: opts.targetId ?? null,
+        detail: opts.detail ?? {},
+        ip: ipOf(opts.req),
+      }),
+    });
+  } catch (e: any) {
+    console.error("[audit] write failed", action, e?.message);
+  }
+}
+
+export async function listAudit(clientId: string, opts: { limit?: number; before?: number } = {}) {
+  const limit = Math.min(200, Math.max(1, opts.limit ?? 100));
+  const before = opts.before ? `&id=lt.${opts.before}` : "";
+  return sb<any[]>(`/audit_log?client_id=eq.${clientId}${before}&order=id.desc&limit=${limit}`);
+}

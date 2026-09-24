@@ -2,6 +2,10 @@ export const runtime = "nodejs";
 import { parseSession, unauthorized } from "@/lib/auth";
 import { getClientById } from "@/lib/supabase";
 import { createTwilioProvider, importTwilioPhoneNumber, toE164India, type TwilioRegion } from "@/lib/cartesia";
+import { getSession } from "@/lib/session";
+import { forbidUnless } from "@/lib/auth";
+import { claimResource } from "@/lib/ownership";
+import { audit } from "@/lib/audit";
 
 const REGIONS: TwilioRegion[] = ["us1", "ie1", "au1"];
 
@@ -13,8 +17,9 @@ const REGIONS: TwilioRegion[] = ["us1", "ie1", "au1"];
  * The Twilio secret is forwarded to Cartesia and never stored by us.
  */
 export async function POST(req: Request) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return unauthorized();
+  const denied = forbidUnless(session, "admin"); if (denied) return denied;
   if (!process.env.CARTESIA_API_KEY) {
     return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
   }
@@ -63,6 +68,8 @@ export async function POST(req: Request) {
       agentId = client?.cartesia_agent_id ?? undefined;
     }
     const created = await importTwilioPhoneNumber({ label, number, accountSid, region, agentId });
+    await claimResource(session.clientId, "phone_number", created.id, created.number ?? number);
+    await audit(session, "number_imported", { req, targetType: "phone_number", targetId: created.id, detail: { number: created.number ?? number, label, region } });
     return Response.json({
       ok: true,
       providerNote,
