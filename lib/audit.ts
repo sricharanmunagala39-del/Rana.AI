@@ -10,7 +10,8 @@ export type AuditAction =
   | "campaign_launched" | "campaign_cancelled" | "campaign_retried" | "campaign_exported"
   | "lead_updated" | "dnc_added" | "dnc_removed" | "calling_rules_changed"
   | "voice_cloned" | "voice_deleted"
-  | "hq_client_created" | "hq_client_updated" | "hq_workspace_opened" | "hq_owner_password_reset";
+  | "hq_client_created" | "hq_client_updated" | "hq_workspace_opened" | "hq_owner_password_reset"
+  | "billing_details_changed" | "invoice_created" | "invoice_paid" | "invoice_voided";
 
 export const AUDIT_LABEL: Record<AuditAction, string> = {
   login: "Signed in", login_failed: "Failed sign-in", password_changed: "Changed their password",
@@ -28,6 +29,8 @@ export const AUDIT_LABEL: Record<AuditAction, string> = {
   voice_cloned: "Cloned a voice", voice_deleted: "Deleted a cloned voice",
   hq_client_created: "RANA created this workspace", hq_client_updated: "RANA changed the plan or limits",
   hq_workspace_opened: "RANA support opened this workspace", hq_owner_password_reset: "RANA reset the owner's password",
+  billing_details_changed: "Changed billing details", invoice_created: "An invoice was issued",
+  invoice_paid: "An invoice was paid", invoice_voided: "An invoice was cancelled",
 };
 
 function ipOf(req?: Request): string | null {
