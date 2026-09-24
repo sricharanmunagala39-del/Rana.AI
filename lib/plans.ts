@@ -47,6 +47,12 @@ export function billedMinutes(durations: number[]): number {
   return durations.reduce((m, d) => (d > 0 ? m + Math.ceil(d / 30) / 2 : m), 0);
 }
 
+/** Billed minutes in [from, to) — used for overage invoices. */
+export async function minutesBetween(clientId: string, from: Date, to: Date): Promise<number> {
+  const rows = await sb<any[]>(`/calls?client_id=eq.${clientId}&created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=duration_seconds&limit=100000`);
+  return billedMinutes((rows || []).map((r) => Number(r.duration_seconds) || 0));
+}
+
 export async function usageOf(client: any, now = new Date()) {
   const from = cycleStart(client, now);
   const rows = await sb<any[]>(`/calls?client_id=eq.${client.id}&created_at=gte.${encodeURIComponent(from.toISOString())}&duration_seconds=gt.0&select=duration_seconds,source&limit=50000`).catch(() => []);
@@ -64,14 +70,17 @@ export async function usageOf(client: any, now = new Date()) {
     trialEndsAt: trialEndsAt?.toISOString() ?? null, trialDaysLeft: daysLeft,
     limits: { employees: lim.employees, concurrency: lim.concurrency, campaignSize: lim.campaignSize, allowOverage: lim.allowOverage },
     plan: { key: lim.plan.key, name: lim.plan.name, pricePerMonth: lim.plan.pricePerMonth, overagePerMin: lim.plan.overagePerMin },
-    status: client?.status || "active",
+    status: client?.status || "active", suspendedReason: client?.suspended_reason || null,
   };
 }
 
 /** Why this workspace can't place calls right now, or null. `extraMinutes` = minutes a new campaign may use. */
 export async function callingBlock(client: any, opts: { contacts?: number } = {}): Promise<string | null> {
   if (!client) return "Workspace not found.";
-  if (client.status === "suspended") return "Calling is paused on this workspace. Contact RANA to turn it back on.";
+  if (client.status === "suspended")
+    return client.suspended_reason === "billing"
+      ? "Calling is paused because an invoice is overdue. Pay it on the Billing page and calling turns back on straight away."
+      : "Calling is paused on this workspace. Contact RANA to turn it back on.";
   const u = await usageOf(client);
   if (u.plan.key === "trial" && u.trialEndsAt && Date.parse(u.trialEndsAt) < Date.now())
     return `Your free trial ended on ${new Date(u.trialEndsAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}. Pick a plan on the Billing page to keep calling.`;
