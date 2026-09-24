@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import HqBilling from "@/components/HqBilling";
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const ago = (iso: string | null) => {
@@ -225,6 +226,7 @@ export default function HqPage() {
             <label className="text-[12px] font-semibold">Notes
               <textarea id="hq-edit-notes" defaultValue={editing.notes || ""} onBlur={(e) => { if (e.target.value !== (editing.notes || "")) patch(editing.id, { notes: e.target.value }); }} className="mt-1 w-full border border-line rounded-lg px-3 py-2 text-[13px] font-normal" rows={3} />
             </label>
+            <HqBilling clientId={editing.id} onChanged={load} />
             <div className="flex flex-wrap gap-2 border-t border-line pt-4">
               <button onClick={() => act(editing, "open")} className="bg-ink text-white rounded-lg px-3 py-2 text-[12.5px] font-semibold">Open workspace</button>
               <button onClick={() => act(editing, "reset_owner")} className="border border-line rounded-lg px-3 py-2 text-[12.5px] font-semibold">New owner password</button>
