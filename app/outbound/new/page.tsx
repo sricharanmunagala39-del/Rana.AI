@@ -90,6 +90,8 @@ export default function NewCampaignPage() {
   const [concurrency, setConcurrency] = useState(5);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
+  const [nextOpen, setNextOpen] = useState<string | null>(null);
+  const [hours, setHours] = useState<{ summary: string; openNow: boolean; enforce: boolean } | null>(null);
 
   useEffect(() => {
     fetch("/api/scripts").then((r) => r.json()).then((d) => {
@@ -99,6 +101,7 @@ export default function NewCampaignPage() {
       const pick = list.find((s: Script) => s.id === pre) || list.find((s: Script) => s.tested_at);
       if (pick) setScriptId(pick.id);
     }).catch(() => {});
+    fetch("/api/settings/calling").then((r) => r.json()).then((d) => d?.summary && setHours({ summary: d.summary, openNow: d.openNow, enforce: d.rules?.enforce !== false })).catch(() => {});
     fetch("/api/admin/cartesia-phone-numbers").then((r) => r.json()).then((d) => {
       setNumbers(d.numbers || []);
       if (d.numbers?.length === 1) setFromId(d.numbers[0].id);
@@ -129,7 +132,7 @@ export default function NewCampaignPage() {
 
   async function launch() {
     if (problems.length) return;
-    setLaunching(true); setError("");
+    setLaunching(true); setError(""); setNextOpen(null);
     try {
       const res = await fetch("/api/campaigns", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -137,7 +140,10 @@ export default function NewCampaignPage() {
           contacts: ok.map((c) => ({ name: c.name, phone: c.phone, variables: c.variables })) }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Launch failed");
+      if (!res.ok) {
+        if (data.code === "outside_calling_window" && data.nextOpen) setNextOpen(data.nextOpen);
+        throw new Error(data.error || "Launch failed");
+      }
       router.push(`/outbound/${data.campaign.id}`);
     } catch (e: any) { setError(e.message); setLaunching(false); }
   }
@@ -216,7 +222,12 @@ export default function NewCampaignPage() {
               <input type="number" min={1} max={50} value={concurrency} onChange={(e) => setConcurrency(Number(e.target.value) || 1)} className={`${input} w-20`} />
               <span>— keep this at or below how many leads your sales team can follow up quickly.</span>
             </label>
-            <div className="text-[11.5px] text-ink-soft">Times are India time. Call only people who've agreed to hear from you, and within 9am–9pm.</div>
+            <div className="text-[11.5px] text-ink-soft">
+              Times are India time. Call only people who&apos;ve agreed to hear from you.{" "}
+              {hours && (hours.enforce
+                ? <>Your calling hours: <span className="font-semibold">{hours.summary}</span>{when === "now" && !hours.openNow ? <span className="text-miss font-semibold"> — closed right now, so schedule this for later.</span> : ""}. Numbers on your do-not-call list are skipped automatically. <a href="/settings?tab=calling" className="text-signal font-semibold">Change</a></>
+                : <>Calling hours aren&apos;t enforced. <a href="/settings?tab=calling" className="text-signal font-semibold">Set them</a></>)}
+            </div>
           </Section>
 
           <section className="bg-white border border-line rounded-2xl p-5 flex flex-col gap-3">
@@ -227,7 +238,21 @@ export default function NewCampaignPage() {
               up to {concurrency} at a time.
             </div>
             {problems.length > 0 && <ul className="text-[12.5px] text-ink-soft list-disc pl-5">{problems.map((p) => <li key={p}>{p}</li>)}</ul>}
-            {error && <div className="text-[12.5px] text-miss bg-miss-tint rounded-lg px-3 py-2">{error}</div>}
+            {error && (
+              <div className="text-[12.5px] text-miss bg-miss-tint rounded-lg px-3 py-2 flex items-center gap-3 flex-wrap">
+                <span className="flex-1">{error}</span>
+                {nextOpen && (
+                  <button type="button" className="bg-ink text-white rounded-md px-3 py-1.5 text-[12px] font-semibold"
+                    onClick={() => {
+                      // The picker works in IST, like the rest of the wizard.
+                      const ist = new Date(Date.parse(nextOpen) + 330 * 60000).toISOString().slice(0, 16);
+                      setWhen("later"); setAt(ist); setError(""); setNextOpen(null);
+                    }}>
+                    Schedule for {new Date(nextOpen).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" })}
+                  </button>
+                )}
+              </div>
+            )}
             <div>
               <button onClick={launch} disabled={launching || problems.length > 0} className="bg-signal text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-40">
                 {launching ? "Launching…" : when === "now" ? `Launch — call ${ok.length} people` : "Schedule campaign"}
