@@ -17,7 +17,8 @@ export async function agentIdsForClient(clientId: string): Promise<string[]> {
   const ids = new Set<string>();
   if (client?.cartesia_agent_id) ids.add(client.cartesia_agent_id);
   for (const s of scripts || []) if (s.cartesia_agent_id) ids.add(s.cartesia_agent_id);
-  return Array.from(ids);
+  // "sarvam:…" = an employee on the Sarvam engine; its calls arrive by webhook, not Cartesia polling.
+  return Array.from(ids).filter((id) => !id.startsWith("sarvam:"));
 }
 
 export async function syncClientCalls(clientId: string): Promise<SyncResult> {

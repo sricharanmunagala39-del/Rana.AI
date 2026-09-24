@@ -10,7 +10,7 @@ import { LANG_NAMES } from "@/lib/playbook";
 
 const NATIVE_LABEL: Record<string, string> = { te: "తెలుగు", hi: "हिन्दी", ta: "தமிழ்", kn: "ಕನ್ನಡ", ml: "മലയാളം", mr: "मराठी", bn: "বাংলা", gu: "ગુજરાતી", pa: "ਪੰਜਾਬੀ", en: "English" };
 
-export default function PronunciationPanel({ items, onChange, keyterms, onKeytermsChange, voiceId, voiceName, language, allowedLanguages, speed }: any) {
+export default function PronunciationPanel({ items, onChange, keyterms, onKeytermsChange, voiceId, voiceName, language, allowedLanguages, speed, engine }: any) {
   // Test as a caller of this language: the word is spoken inside a short native sentence, in the chosen voice.
   const testLangs: string[] = Array.from(new Set([language, ...(allowedLanguages || [])])).filter((l: string) => LANG_NAMES[l]);
   const [testLang, setTestLang] = useState<string>(language);
@@ -29,11 +29,11 @@ export default function PronunciationPanel({ items, onChange, keyterms, onKeyter
     setErr("");
     audioRef.current?.pause();
     if (playing === key) { setPlaying(""); return; }
-    if (!voiceId) { setErr("Pick a voice in step 2 to hear how it sounds."); return; }
+    if (!voiceId && engine !== "sarvam") { setErr("Pick a voice in step 2 to hear how it sounds."); return; }
     if (!text.trim()) return;
     setLoadingKey(key);
     try {
-      const q = new URLSearchParams({ voiceId, lang, say: text, speed: String(speed || 1) });
+      const q = new URLSearchParams(engine === "sarvam" ? { engine: "sarvam", lang, say: text, speed: String(speed || 1) } : { voiceId, lang, say: text, speed: String(speed || 1) });
       const res = await fetch(`/api/voices/preview?${q}`);
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Couldn't play that.");
       const url = URL.createObjectURL(await res.blob());
@@ -87,7 +87,7 @@ export default function PronunciationPanel({ items, onChange, keyterms, onKeyter
             <button key={l} type="button" onClick={() => setTestLang(l)} data-testid={`pron-lang-${l}`}
               className={`font-semibold px-2.5 py-0.5 rounded-full border ${lang === l ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"}`}>{LANG_NAMES[l]}</button>
           ))}
-          <span className="text-ink-soft">caller{voiceId ? <> · in <b className="text-ink">{voiceName || "your chosen"}</b>'s voice</> : " · pick a voice in step 2"}</span>
+          <span className="text-ink-soft">caller{engine === "sarvam" || voiceId ? <> · in <b className="text-ink">{voiceName || "your chosen"}</b>'s voice</> : " · pick a voice in step 2"}</span>
         </div>
         <div className="flex flex-col gap-2">
           {items.length > 0 && (

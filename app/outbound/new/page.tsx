@@ -80,7 +80,8 @@ const input = "border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outl
 export default function NewCampaignPage() {
   const router = useRouter();
   const [scripts, setScripts] = useState<Script[]>([]);
-  const [numbers, setNumbers] = useState<PhoneNumber[]>([]);
+  const [cartesiaNumbers, setNumbers] = useState<PhoneNumber[]>([]);
+  const [sarvamNumber, setSarvamNumber] = useState<PhoneNumber | null>(null);
   const [name, setName] = useState("");
   const [scriptId, setScriptId] = useState("");
   const [fromId, setFromId] = useState("");
@@ -106,6 +107,9 @@ export default function NewCampaignPage() {
       setNumbers(d.numbers || []);
       if (d.numbers?.length === 1) setFromId(d.numbers[0].id);
     }).catch(() => {});
+    fetch("/api/sarvam/status").then((r) => r.json()).then((d) => {
+      if (d?.sarvam?.ready && d.sarvam.number) setSarvamNumber({ id: "sarvam", number: d.sarvam.number, label: "Sarvam · Indian number" } as any);
+    }).catch(() => {});
   }, []);
 
   const parsed = useMemo(() => parseList(raw), [raw]);
@@ -113,6 +117,13 @@ export default function NewCampaignPage() {
   const bad = parsed.contacts.filter((c) => !c.valid);
   const dups = parsed.contacts.filter((c) => c.dup);
   const script = scripts.find((s) => s.id === scriptId);
+  // Employees on the Sarvam engine call from the Sarvam Indian number; Cartesia employees from Cartesia/Twilio numbers.
+  const onSarvam = !!script && String(script.cartesia_agent_id || "").startsWith("sarvam:");
+  const numbers: PhoneNumber[] = onSarvam ? (sarvamNumber ? [sarvamNumber] : []) : cartesiaNumbers;
+  useEffect(() => {
+    if (onSarvam && sarvamNumber) setFromId("sarvam");
+    else if (!onSarvam && fromId === "sarvam") setFromId(cartesiaNumbers.length === 1 ? cartesiaNumbers[0].id : "");
+  }, [onSarvam, sarvamNumber]);
   const from = numbers.find((n) => n.id === fromId);
   const scheduledIso = when === "later" && at ? new Date(`${at}:00+05:30`).toISOString() : null;
   const problems = [
