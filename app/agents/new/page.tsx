@@ -37,6 +37,10 @@ function WizardInner() {
   const [name, setName] = useState("");
   const [startingLanguage, setStartingLanguage] = useState("en-IN");
   const [policy, setPolicy] = useState<{ mode: "match_caller" | "fixed"; allowed: string[] }>({ mode: "match_caller", allowed: ["en", "te", "hi"] });
+  // Voice engine: Sarvam (Indian numbers, Bulbul Telugu/Hindi voices) or Cartesia.
+  const [engine, setEngine] = useState<"sarvam" | "cartesia">("sarvam");
+  const [sarvamStatus, setSarvamStatus] = useState<any>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [voiceId, setVoiceId] = useState("");
   const [voiceName, setVoiceName] = useState("");
   const [modelId, setModelId] = useState("");

@@ -5,6 +5,7 @@ import { getClientById } from "@/lib/supabase";
 import { rulesFromClient, insideWindow, describeRules } from "@/lib/compliance";
 import { getCampaignRow, refreshCampaignFromCartesia, updateCampaignRow } from "@/lib/campaigns";
 import { cancelCartesiaBatch, retryCartesiaBatch } from "@/lib/cartesia";
+import { sarvamConfig, setSarvamCampaignStatus } from "@/lib/sarvamAgent";
 import { getSession } from "@/lib/session";
 
 /** POST { action: "cancel" | "retry" | "refresh" } — retry re-dials the numbers that didn't connect. */
