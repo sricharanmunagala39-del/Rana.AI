@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/webhooks"];
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/webhooks", "/api/cron", "/landing"];
 
 // Edge runtime: verify the HMAC-signed session cookie with Web Crypto (same scheme as lib/auth.ts).
 async function hasValidSession(req: NextRequest): Promise<boolean> {
@@ -27,6 +27,12 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) return NextResponse.next();
   if (await hasValidSession(req)) return NextResponse.next();
+  // Logged-out visitors to the root see the public ranaai.in page instead of being bounced to /login.
+  if (pathname === "/") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/landing";
+    return NextResponse.rewrite(url);
+  }
   if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const url = req.nextUrl.clone();
   url.pathname = "/login";
