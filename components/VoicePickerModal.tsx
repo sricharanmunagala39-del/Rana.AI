@@ -12,6 +12,7 @@ export type PickerVoice = {
   gender?: string | null;
   country?: string | null;
   previewUrl?: string | null;
+  accents?: { accent: string; locale: string; isNative: boolean }[];
 };
 
 const GENDER_LABELS: Record<string, string> = {
@@ -34,6 +35,7 @@ export default function VoicePickerModal({
   const [query, setQuery] = useState("");
   const [gender, setGender] = useState("");
   const [language, setLanguage] = useState("");
+  const [accent, setAccent] = useState("");
   const [playingId, setPlayingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -42,15 +44,22 @@ export default function VoicePickerModal({
     return Array.from(set).sort();
   }, [voices]);
 
+  const accents = useMemo(() => {
+    const set = new Set<string>();
+    voices.forEach((v) => (v.accents || []).forEach((a) => a.accent && set.add(a.accent)));
+    return Array.from(set).sort();
+  }, [voices]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return voices.filter((v) => {
       if (gender && v.gender !== gender) return false;
       if (language && v.language !== language) return false;
+      if (accent && !(v.accents || []).some((a) => a.accent === accent)) return false;
       if (q && !`${v.name} ${v.tagline ?? ""} ${v.description ?? ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [voices, query, gender, language]);
+  }, [voices, query, gender, language, accent]);
 
   function togglePlay(v: PickerVoice) {
     if (!v.previewUrl) return;
@@ -89,6 +98,11 @@ export default function VoicePickerModal({
               className="border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none">
               <option value="">Any language</option>
               {languages.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+            <select value={accent} onChange={(e) => setAccent(e.target.value)}
+              className="border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none">
+              <option value="">Any accent</option>
+              {accents.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
             <div className="text-[11.5px] text-ink-soft ml-auto">{filtered.length} of {voices.length} voices</div>
           </div>
