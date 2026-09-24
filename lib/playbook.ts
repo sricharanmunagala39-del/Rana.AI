@@ -122,7 +122,7 @@ Rules:
 - Keep each item short and spoken-style (one or two sentences). Keep the language of each item as in the script. Merge near-duplicates.
 - Find every URL or website mentioned and return it in "links" with a purpose (payment, website, booking, brochure, other).
 - Suggest a greeting in ${lang}: the first sentence the agent says when the call connects (say who is calling and from where, in ${lang}${baseLang(input.openingLanguage) !== "en" ? `, written in ${SCRIPT_NOTE[baseLang(input.openingLanguage)] || "its native script"}` : ""}).
-- List brand names, course names, place names and acronyms the speech system might mishear in "keyterms", and ones a voice might mispronounce in "pronunciations" with a simple sounds-like spelling (e.g. {"word":"DBMCI","sayAs":"D B M C I"}).
+- List brand names, course names, place names and acronyms the speech system might mishear in "keyterms", and ones a voice might mispronounce in "pronunciations" with a sounds-like spelling${baseLang(input.openingLanguage) !== "en" ? ` written in ${SCRIPT_NOTE[baseLang(input.openingLanguage)] || "the native script"} so a ${lang} voice says it the local way (e.g. {"word":"DBMCI","sayAs":"${baseLang(input.openingLanguage) === "te" ? "డి బి ఎం సి ఐ" : baseLang(input.openingLanguage) === "hi" ? "डी बी एम सी आई" : "D B M C I"}"})` : ` (e.g. {"word":"DBMCI","sayAs":"D B M C I"})`}.
 Return ONLY JSON of this shape:
 {"playbook": ${PLAYBOOK_SHAPE},
  "greeting": "string",
@@ -150,6 +150,18 @@ export function translateMessages(text: string, to: string) {
   return [
     { role: "system" as const, content: `Translate for a phone call in India into natural, spoken ${name}${SCRIPT_NOTE[baseLang(to)] ? ` written in ${SCRIPT_NOTE[baseLang(to)]}` : ""}. Keep brand names, course names and English words people normally say in English (fees, batch, online, EMI) as they are. Reply with only the translation.` },
     { role: "user" as const, content: text.slice(0, 4000) },
+  ];
+}
+
+/** Writes a word the way a speaker of `to` would say it, in that language's own script (not a translation). */
+export function transliterateMessages(text: string, to: string) {
+  const code = baseLang(to);
+  const name = LANG_NAMES[code] || "English";
+  return [
+    { role: "system" as const, content: code === "en"
+      ? "Rewrite the word or name as a simple sounds-like spelling in English letters for a voice to read aloud (e.g. DBMCI → D B M C I, Kukatpally → Koo-kut-pal-lee). Reply with only the result."
+      : `Write the word or name exactly as a ${name} speaker in India pronounces it, in ${SCRIPT_NOTE[code] || "the native script"}. This is transliteration, not translation: keep brand names and acronyms, spell them by sound (e.g. DBMCI → ${code === "te" ? "డి బి ఎం సి ఐ" : code === "hi" ? "डी बी एम सी आई" : "letters spelled out"}). Reply with only the result.` },
+    { role: "user" as const, content: text.slice(0, 200) },
   ];
 }
 

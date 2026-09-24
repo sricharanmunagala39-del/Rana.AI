@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 import { getSession } from "@/lib/session";
 import { unauthorized } from "@/lib/auth";
-import { previewLanguage, sampleLine, synthesizePreview } from "@/lib/voicePreview";
+import { previewLanguage, sampleLine, synthesizePreview, carrierLine } from "@/lib/voicePreview";
 import { isForeignVoice } from "@/lib/voiceClone";
 
 /**
@@ -17,7 +17,9 @@ export async function GET(req: Request) {
   if (await isForeignVoice(session.clientId, voiceId)) return Response.json({ error: "Unknown voice" }, { status: 404 });
   const lang = previewLanguage(sp.get("lang"));
   const custom = (sp.get("text") || "").replace(/\s+/g, " ").trim().slice(0, 240);
-  const text = custom || sampleLine(lang, sp.get("name") || "", sp.get("gender"));
+  // ?say=WORD → the word inside a short sentence in this language (pronunciation test).
+  const say = (sp.get("say") || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  const text = say ? carrierLine(lang, say) : custom || sampleLine(lang, sp.get("name") || "", sp.get("gender"));
   const speed = Number(sp.get("speed")) || 1;
   try {
     const audio = await synthesizePreview({ voiceId, text, language: lang, speed });

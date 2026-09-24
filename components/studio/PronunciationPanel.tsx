@@ -6,8 +6,16 @@
 
 import { useRef, useState } from "react";
 import { Spinner } from "./Editors";
+import { LANG_NAMES } from "@/lib/playbook";
 
-export default function PronunciationPanel({ items, onChange, keyterms, onKeytermsChange, voiceId, language, speed }: any) {
+const NATIVE_LABEL: Record<string, string> = { te: "తెలుగు", hi: "हिन्दी", ta: "தமிழ்", kn: "ಕನ್ನಡ", ml: "മലയാളം", mr: "मराठी", bn: "বাংলা", gu: "ગુજરાતી", pa: "ਪੰਜਾਬੀ", en: "English" };
+
+export default function PronunciationPanel({ items, onChange, keyterms, onKeytermsChange, voiceId, voiceName, language, allowedLanguages, speed }: any) {
+  // Test as a caller of this language: the word is spoken inside a short native sentence, in the chosen voice.
+  const testLangs: string[] = Array.from(new Set([language, ...(allowedLanguages || [])])).filter((l: string) => LANG_NAMES[l]);
+  const [testLang, setTestLang] = useState<string>(language);
+  const lang = testLangs.includes(testLang) ? testLang : language;
+  const [writing, setWriting] = useState<number | null>(null);
   const [playing, setPlaying] = useState<string>("");
   const [loadingKey, setLoadingKey] = useState<string>("");
   const [err, setErr] = useState("");
@@ -25,7 +33,7 @@ export default function PronunciationPanel({ items, onChange, keyterms, onKeyter
     if (!text.trim()) return;
     setLoadingKey(key);
     try {
-      const q = new URLSearchParams({ voiceId, lang: language, text, speed: String(speed || 1) });
+      const q = new URLSearchParams({ voiceId, lang, say: text, speed: String(speed || 1) });
       const res = await fetch(`/api/voices/preview?${q}`);
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Couldn't play that.");
       const url = URL.createObjectURL(await res.blob());
@@ -45,6 +53,21 @@ export default function PronunciationPanel({ items, onChange, keyterms, onKeyter
     </button>
   );
 
+  // Spell the word by sound in the test language's own script (e.g. DBMCI → డి బి ఎం సి ఐ).
+  async function writeNative(i: number) {
+    const p = items[i];
+    const source = (p.sayAs || p.word || "").trim();
+    if (!source) return;
+    setWriting(i); setErr("");
+    try {
+      const res = await fetch("/api/studio/translate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: p.word || source, to: lang, mode: "transliterate" }) });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Couldn't write it.");
+      set(i, "sayAs", String(d.text || "").trim());
+    } catch (e: any) { setErr(e.message); }
+    finally { setWriting(null); }
+  }
+
   function addTerm() {
     const t = term.trim();
     if (t && !keyterms.includes(t)) onKeytermsChange([...keyterms, t]);
@@ -56,7 +79,15 @@ export default function PronunciationPanel({ items, onChange, keyterms, onKeyter
       <div>
         <div className="text-[13px] font-semibold">How to say it</div>
         <div className="text-[12px] text-ink-soft mt-0.5 mb-3">
-          If the voice says a word wrong, write it the way it should sound — in English letters or in Telugu/Hindi script. e.g. <span className="font-semibold text-ink">DBMCI → డి బి ఎం సి ఐ</span>, <span className="font-semibold text-ink">Kukatpally → Kuu-kat-pal-lee</span>. Press ▶ to compare.
+          If the voice says a word wrong, write it the way it should sound. For Telugu or Hindi callers, write it in <b>Telugu / Hindi script</b> — English letters are read with an English accent. e.g. <span className="font-semibold text-ink">DBMCI → డి బి ఎం సి ఐ</span>. Press ▶ to hear it in a sentence.
+        </div>
+        <div className="flex flex-wrap items-center gap-2 mb-3 text-[12px]" data-testid="pron-test-lang">
+          <span className="text-ink-soft">Hear it as a</span>
+          {testLangs.map((l) => (
+            <button key={l} type="button" onClick={() => setTestLang(l)} data-testid={`pron-lang-${l}`}
+              className={`font-semibold px-2.5 py-0.5 rounded-full border ${lang === l ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"}`}>{LANG_NAMES[l]}</button>
+          ))}
+          <span className="text-ink-soft">caller{voiceId ? <> · in <b className="text-ink">{voiceName || "your chosen"}</b>'s voice</> : " · pick a voice in step 2"}</span>
         </div>
         <div className="flex flex-col gap-2">
           {items.length > 0 && (
@@ -71,10 +102,15 @@ export default function PronunciationPanel({ items, onChange, keyterms, onKeyter
                 <PlayBtn k={`w${i}`} text={p.word} label="" />
               </div>
               <div className="flex items-center gap-1.5 border border-signal/40 rounded-lg bg-white px-2">
-                <input value={p.sayAs} onChange={(e) => set(i, "sayAs", e.target.value)} placeholder="D B M C I" className="flex-1 min-w-0 py-1.5 text-[13.5px] outline-none bg-transparent" />
+                <input value={p.sayAs} onChange={(e) => set(i, "sayAs", e.target.value)} placeholder={lang === "te" ? "డి బి ఎం సి ఐ" : lang === "hi" ? "डी बी एम सी आई" : "D B M C I"} className="flex-1 min-w-0 py-1.5 text-[13.5px] outline-none bg-transparent" />
                 <PlayBtn k={`s${i}`} text={p.sayAs} label="Test" />
               </div>
-              <span />
+              {lang !== "en" ? (
+                <button type="button" onClick={() => writeNative(i)} disabled={writing === i || !(p.word || p.sayAs)} title={`Spell it by sound in ${LANG_NAMES[lang]} script`} data-testid="pron-native"
+                  className="text-[11.5px] font-semibold border border-line rounded-md px-2 py-1.5 bg-white disabled:opacity-40 whitespace-nowrap flex items-center gap-1">
+                  {writing === i ? <Spinner /> : null} Write in {NATIVE_LABEL[lang] || LANG_NAMES[lang]}
+                </button>
+              ) : <span />}
               <button type="button" onClick={() => del(i)} className="text-miss text-[12px] font-semibold px-1" aria-label="Remove">✕</button>
             </div>
           ))}
