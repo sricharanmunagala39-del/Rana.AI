@@ -27,10 +27,11 @@ export async function GET(req: Request) {
   const fetchFrom = [prev.from, trendFrom].sort()[0];
 
   try {
-    const [all, campaigns] = await Promise.all([
+    const [allRaw, campaigns] = await Promise.all([
       listCallsLean(session.clientId, fetchFrom, range.to),
       listCampaigns(session.clientId).catch(() => []),
     ]);
+    const all = allRaw.filter((r) => r.source !== "manual"); // Talk-page tests are not results
     const dir = (r: any) => direction === "all" || r.direction === direction;
     // Compare as times, not strings: Supabase returns "+00:00" offsets, JS returns "Z".
     const inRange = (r: any, a: string, b: string) => { const t = Date.parse(r.created_at); return t >= Date.parse(a) && t < Date.parse(b); };
