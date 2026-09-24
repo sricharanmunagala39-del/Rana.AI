@@ -6,13 +6,14 @@ import {
   resolveRange, previousRange, kpis, hourly, daily, notConnectedReasons, campaignBreakdown, leadMix,
   isHot, isFollowUp, DEFINITIONS,
 } from "@/lib/metrics";
+import { getSession } from "@/lib/session";
 
 /**
  * GET /api/dashboard?range=today|yesterday|day_before|7d|30d|custom&from=YYYY-MM-DD&to=YYYY-MM-DD&direction=all|inbound|outbound
  * Everything the Overview needs in one response, all computed by lib/metrics.ts.
  */
 export async function GET(req: Request) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return unauthorized();
   await maybeSyncClientCalls(session.clientId);
 
