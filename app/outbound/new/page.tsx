@@ -1,431 +1,241 @@
+// @ts-nocheck
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import { SCRIPTS } from "@/lib/scripts";
-import { Campaign, ScriptId, addCampaign, formatBytes } from "@/lib/storage";
 
-const STEPS = ["Name", "Script", "Contacts", "Schedule", "Review"];
-const MAX_FILE_BYTES = 100 * 1024 * 1024;
-const DAY_OPTIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+type Script = { id: string; name: string; cartesia_agent_id: string | null; tested_at: string | null };
+type PhoneNumber = { id: string; number: string; label: string | null; provider: string };
+type Contact = { name: string; phone: string; variables: Record<string, string>; valid: boolean; dup: boolean };
 
-function StepDots({ step }: { step: number }) {
+/* ── list parsing: paste or CSV, header optional ── */
+function splitLine(line: string): string[] {
+  const out: string[] = []; let cur = ""; let q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { if (q && line[i + 1] === '"') { cur += '"'; i++; } else q = !q; }
+    else if ((ch === "," || ch === "\t" || ch === ";") && !q) { out.push(cur.trim()); cur = ""; }
+    else cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+function normalisePhone(raw: string): string | null {
+  const s = String(raw || "").replace(/[^\d+]/g, "");
+  let out: string;
+  if (s.startsWith("+")) out = s; else if (s.startsWith("00")) out = "+" + s.slice(2);
+  else if (s.length === 11 && s.startsWith("0")) out = "+91" + s.slice(1);
+  else if (s.length === 10) out = "+91" + s;
+  else if (s.length === 12 && s.startsWith("91")) out = "+" + s; else return null;
+  return /^\+[1-9]\d{9,14}$/.test(out) ? out : null;
+}
+function parseList(text: string): { contacts: Contact[]; columns: string[] } {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return { contacts: [], columns: [] };
+  let rows = lines.map(splitLine);
+  const first = rows[0].map((h) => h.toLowerCase());
+  const hasHeader = first.some((h) => /phone|mobile|number|contact|name/.test(h)) && !first.some((h) => normalisePhone(h));
+  let header = hasHeader ? rows[0].map((h) => h.trim()) : [];
+  if (hasHeader) rows = rows.slice(1);
+  const width = Math.max(...rows.map((r) => r.length));
+  if (!hasHeader) header = Array.from({ length: width }, (_, i) => `col${i + 1}`);
+  // Phone column: named, otherwise the column with the most phone-like values.
+  let pi = header.findIndex((h) => /phone|mobile|number|contact/i.test(h));
+  if (pi < 0) {
+    let best = -1;
+    for (let i = 0; i < width; i++) { const n = rows.filter((r) => normalisePhone(r[i] || "")).length; if (n > best) { best = n; pi = i; } }
+  }
+  let ni = header.findIndex((h) => /^(full ?)?name$|student|doctor|customer|lead/i.test(h));
+  if (ni < 0 && !hasHeader) ni = [0, 1].find((i) => i !== pi && rows.some((r) => r[i] && !normalisePhone(r[i]))) ?? -1;
+  const varCols = header.map((h, i) => ({ h, i })).filter(({ i }) => i !== pi && i !== ni && hasHeader);
+  const seen = new Set<string>();
+  const contacts = rows.map((r) => {
+    const phone = normalisePhone(r[pi] || "");
+    const dup = !!phone && seen.has(phone);
+    if (phone) seen.add(phone);
+    const variables: Record<string, string> = {};
+    for (const { h, i } of varCols) if (r[i]) variables[h.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")] = r[i];
+    return { name: ni >= 0 ? r[ni] || "" : "", phone: phone || r[pi] || "", variables, valid: !!phone, dup };
+  });
+  return { contacts, columns: varCols.map(({ h }) => h.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")) };
+}
+
+const SAMPLE = `name,phone,college,year
+Dr Priya Reddy,98480 12345,Osmania Medical College,2024
+Dr Rahul Varma,+91 90000 54321,Gandhi Medical College,2023`;
+
+// Defined at module level so inputs inside keep focus while typing.
+function Section({ n, title, children }: any) {
   return (
-    <div className="flex items-center gap-2">
-      {STEPS.map((label, i) => (
-        <div key={label} className="flex items-center gap-2">
-          <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[12.5px] font-semibold ${
-              i === step
-                ? "bg-ink text-white"
-                : i < step
-                ? "bg-signal-tint text-signal"
-                : "bg-[#E9EBE5] text-ink-soft"
-            }`}
-          >
-            {i < step ? "\u2713" : i + 1} {label}
-          </div>
-          {i < STEPS.length - 1 && <div className="w-5 h-px bg-line" />}
-        </div>
-      ))}
-    </div>
+    <section className="bg-white border border-line rounded-2xl p-5 flex flex-col gap-3">
+      <div className="flex items-center gap-2 text-[14.5px] font-semibold"><span className="w-6 h-6 rounded-full bg-signal text-white text-[12px] flex items-center justify-center">{n}</span>{title}</div>
+      {children}
+    </section>
   );
 }
+const input = "border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal";
 
 export default function NewCampaignPage() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [step, setStep] = useState(0);
+  const [scripts, setScripts] = useState<Script[]>([]);
+  const [numbers, setNumbers] = useState<PhoneNumber[]>([]);
   const [name, setName] = useState("");
-  const [scriptId, setScriptId] = useState<ScriptId>("neet-reactivation");
-  const [file, setFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [windowStart, setWindowStart] = useState("09:00");
-  const [windowEnd, setWindowEnd] = useState("18:00");
-  const [days, setDays] = useState<string[]>(["Mon", "Tue", "Wed", "Thu", "Fri"]);
-  const [dialRate, setDialRate] = useState("2");
+  const [scriptId, setScriptId] = useState("");
+  const [fromId, setFromId] = useState("");
+  const [raw, setRaw] = useState("");
+  const [when, setWhen] = useState<"now" | "later">("now");
+  const [at, setAt] = useState("");
+  const [concurrency, setConcurrency] = useState(5);
   const [launching, setLaunching] = useState(false);
-  const [launched, setLaunched] = useState(false);
+  const [error, setError] = useState("");
 
-  /* CSV parse state */
-  const [csvRows,        setCsvRows]        = useState<string[][]>([]);
-  const [csvHeaders,     setCsvHeaders]     = useState<string[]>([]);
-  const [csvColMap,      setCsvColMap]      = useState<{ name: number; phone: number }>({ name: -1, phone: -1 });
-  const [csvError,       setCsvError]       = useState("");
-  const [csvParsing,     setCsvParsing]     = useState(false);
-  const [csvPreviewOpen, setCsvPreviewOpen] = useState(false);
+  useEffect(() => {
+    fetch("/api/scripts").then((r) => r.json()).then((d) => {
+      const list = (d.scripts || []).filter((s: Script) => s.cartesia_agent_id);
+      setScripts(list);
+      const pre = new URLSearchParams(window.location.search).get("employee");
+      const pick = list.find((s: Script) => s.id === pre) || list.find((s: Script) => s.tested_at);
+      if (pick) setScriptId(pick.id);
+    }).catch(() => {});
+    fetch("/api/admin/cartesia-phone-numbers").then((r) => r.json()).then((d) => {
+      setNumbers(d.numbers || []);
+      if (d.numbers?.length === 1) setFromId(d.numbers[0].id);
+    }).catch(() => {});
+  }, []);
 
-  const scriptLabel = SCRIPTS.find((s) => s.id === scriptId)?.label ?? "";
+  const parsed = useMemo(() => parseList(raw), [raw]);
+  const ok = parsed.contacts.filter((c) => c.valid && !c.dup);
+  const bad = parsed.contacts.filter((c) => !c.valid);
+  const dups = parsed.contacts.filter((c) => c.dup);
+  const script = scripts.find((s) => s.id === scriptId);
+  const from = numbers.find((n) => n.id === fromId);
+  const scheduledIso = when === "later" && at ? new Date(`${at}:00+05:30`).toISOString() : null;
+  const problems = [
+    !name.trim() && "Name the campaign",
+    !script && "Choose an employee",
+    script && !script.tested_at && `${script.name} hasn't been signed off on the Talk page yet`,
+    !from && "Choose the number to call from",
+    !ok.length && "Add at least one valid phone number",
+    ok.length > 5000 && "Maximum 5,000 numbers per campaign",
+    when === "later" && (!scheduledIso || Date.parse(scheduledIso) < Date.now() + 60000) && "Pick a start time in the future",
+  ].filter(Boolean) as string[];
 
-  const canNext =
-    (step === 0 && name.trim().length > 0) ||
-    (step === 1 && !!scriptId) ||
-    (step === 2 && !!file && !fileError && !csvParsing && (csvHeaders.length === 0 || csvColMap.phone !== -1)) ||
-    (step === 3 && !!startDate && days.length > 0) ||
-    step === 4;
-
-  function toggleDay(d: string) {
-    setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
-  }
-
-  function parseCSVText(text: string): string[][] {
-    const rows: string[][] = [];
-    const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      const cells: string[] = [];
-      let cur = ""; let inQ = false;
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === '"') { inQ = !inQ; continue; }
-        if (ch === "," && !inQ) { cells.push(cur.trim()); cur = ""; continue; }
-        cur += ch;
-      }
-      cells.push(cur.trim());
-      rows.push(cells);
-    }
-    return rows;
-  }
-
-  function guessColIndex(headers: string[], keywords: string[]): number {
-    const h = headers.map((x) => x.toLowerCase());
-    for (const kw of keywords) {
-      const idx = h.findIndex((x) => x.includes(kw));
-      if (idx !== -1) return idx;
-    }
-    return -1;
-  }
-
-  function parseAndPreviewFile(f: File) {
-    setCsvParsing(true); setCsvError(""); setCsvRows([]); setCsvHeaders([]); setCsvPreviewOpen(false);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const rows = parseCSVText(text);
-      if (rows.length < 2) { setCsvError("File appears empty or has no data rows."); setCsvParsing(false); return; }
-      const headers = rows[0];
-      setCsvHeaders(headers);
-      setCsvRows(rows);
-      const nameCol  = guessColIndex(headers, ["name","contact","student","lead","first"]);
-      const phoneCol = guessColIndex(headers, ["phone","mobile","number","cell","tel","whatsapp"]);
-      setCsvColMap({ name: nameCol, phone: phoneCol });
-      if (phoneCol === -1) setCsvError("Couldn't auto-detect a phone column. Please map it below.");
-      setCsvParsing(false); setCsvPreviewOpen(true);
-    };
-    reader.onerror = () => { setCsvError("Failed to read file."); setCsvParsing(false); };
-    reader.readAsText(f);
-  }
-
-  function validateAndSetFile(f: File | null) {
+  async function onFile(f: File | undefined) {
     if (!f) return;
-    const okType = /\.(csv|xlsx|xls)$/i.test(f.name);
-    if (!okType) {
-      setFileError("Please upload a .csv, .xlsx, or .xls file.");
-      setFile(null); setCsvRows([]); setCsvHeaders([]);
-      return;
-    }
-    if (f.size > MAX_FILE_BYTES) {
-      setFileError(`That file is ${formatBytes(f.size)} \u2014 the limit is 100 MB.`);
-      setFile(null); setCsvRows([]); setCsvHeaders([]);
-      return;
-    }
-    setFileError("");
-    setFile(f);
-    if (/\.csv$/i.test(f.name)) {
-      parseAndPreviewFile(f);
-    } else {
-      setCsvRows([]); setCsvHeaders([]); setCsvParsing(false); setCsvPreviewOpen(false); setCsvError("");
-    }
+    setRaw(await f.text());
   }
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    validateAndSetFile(e.dataTransfer.files?.[0] ?? null);
-  }
-
-  function handleLaunch() {
-    setLaunching(true);
-    setTimeout(() => {
-      const campaign: Campaign = {
-        id: `c_${Date.now()}`,
-        name: name.trim(),
-        scriptId,
-        scriptLabel,
-        fileName: file?.name ?? "",
-        fileSizeLabel: file ? formatBytes(file.size) : "",
-        contactCountLabel: csvRows.length > 1 ? `${csvRows.length - 1} contacts` : "Processing list\u2026",
-        startDate,
-        windowStart,
-        windowEnd,
-        days,
-        dialRate: `${dialRate} / sec`,
-        status: "Scheduled",
-        createdAt: Date.now(),
-      };
-      addCampaign(campaign);
-      setLaunching(false);
-      setLaunched(true);
-      setTimeout(() => router.push("/outbound"), 1600);
-    }, 1100);
+  async function launch() {
+    if (problems.length) return;
+    setLaunching(true); setError("");
+    try {
+      const res = await fetch("/api/campaigns", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), scriptId, fromNumberId: fromId, scheduledAt: scheduledIso, concurrency,
+          contacts: ok.map((c) => ({ name: c.name, phone: c.phone, variables: c.variables })) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Launch failed");
+      router.push(`/outbound/${data.campaign.id}`);
+    } catch (e: any) { setError(e.message); setLaunching(false); }
   }
 
   return (
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="outbound" />
-
-      <main className="flex-1 box-border p-11 flex flex-col gap-7 max-w-[900px]">
-        <div>
-          <button onClick={() => router.push("/outbound")} className="text-[12.5px] text-ink-soft flex items-center gap-1 mb-3">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-            Back to Outbound
-          </button>
-          <h1 className="font-display text-[26px] font-semibold m-0">Start a campaign</h1>
-          <div className="text-[13px] text-ink-soft mt-1">Set it up in five quick steps.</div>
-        </div>
-
-        <StepDots step={step} />
-
-        <div className="bg-raised border border-line rounded-[10px] p-7 min-h-[340px] flex flex-col">
-          {launched ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
-              <div className="w-14 h-14 rounded-full bg-signal-tint text-signal flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-              </div>
-              <div className="text-[16px] font-semibold">Campaign launched</div>
-              <div className="text-[13px] text-ink-soft">Taking you back to Outbound\u2026</div>
-            </div>
-          ) : (
-            <>
-              {/* STEP 0 — Name */}
-              {step === 0 && (
-                <div className="flex flex-col gap-3">
-                  <label className="text-[14px] font-semibold">What should we call this campaign?</label>
-                  <div className="text-[12.5px] text-ink-soft -mt-1.5">Name it however makes sense to you \u2014 college, city, batch, or anything else.</div>
-                  <input autoFocus value={name} onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Vijayawada INDRA \u2014 New batch, or Osmania College follow-up"
-                    className="w-full border border-line rounded-lg px-3.5 py-3 text-sm bg-white outline-none focus:border-signal" />
-                </div>
-              )}
-
-              {/* STEP 1 — Script */}
-              {step === 1 && (
-                <div className="flex flex-col gap-3">
-                  <label className="text-[14px] font-semibold">Which script should the agent use?</label>
-                  <div className="flex flex-col gap-2.5">
-                    {SCRIPTS.map((s) => (
-                      <button key={s.id} onClick={() => setScriptId(s.id)}
-                        className={`text-left border rounded-lg px-4 py-3 ${scriptId === s.id ? "border-signal bg-signal-tint" : "border-line bg-white"}`}>
-                        <div className="flex items-center gap-2">
-                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${scriptId === s.id ? "border-signal" : "border-line"}`}>
-                            {scriptId === s.id && <div className="w-2 h-2 rounded-full bg-signal" />}
-                          </div>
-                          <span className="text-[13.5px] font-semibold">{s.label}</span>
-                        </div>
-                        <div className="text-[12.5px] text-ink-soft mt-1 ml-6">{s.description}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 2 — Contacts */}
-              {step === 2 && (
-                <div className="flex flex-col gap-3">
-                  <label className="text-[14px] font-semibold">Upload your contact list</label>
-                  <div className="text-[12.5px] text-ink-soft -mt-1.5">CSV or Excel, up to 100 MB. Column headers must be on row 1.</div>
-
-                  {/* Drop zone — hidden once file is selected */}
-                  {!file && (
-                    <div onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}
-                      className="border-2 border-dashed border-line rounded-xl py-10 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-signal hover:bg-signal-tint/30">
-                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-ink-soft"><path d="M12 16V4M12 4l-4 4M12 4l4 4" strokeLinecap="round" strokeLinejoin="round" /><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                      <div className="text-[13.5px] font-semibold">Click to upload, or drag a file here</div>
-                      <div className="text-[12px] text-ink-soft">.csv, .xlsx, .xls \u00b7 max 100 MB</div>
-                    </div>
-                  )}
-                  <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden"
-                    onChange={(e) => validateAndSetFile(e.target.files?.[0] ?? null)} />
-
-                  {/* Parsing spinner */}
-                  {csvParsing && <div className="text-[13px] text-ink-soft animate-pulse py-2">Reading file\u2026</div>}
-
-                  {/* File chip */}
-                  {file && !fileError && (
-                    <div className="flex items-center gap-2.5 border border-line rounded-lg px-3.5 py-2.5 bg-white">
-                      <div className="w-8 h-8 rounded bg-signal-tint text-signal flex items-center justify-center text-[11px] font-bold">
-                        {file.name.split(".").pop()?.toUpperCase()}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-[13px] font-semibold">{file.name}</div>
-                        <div className="text-[11.5px] text-ink-soft">
-                          {formatBytes(file.size)}
-                          {csvRows.length > 1 && <span className="ml-2 text-signal font-semibold">{csvRows.length - 1} contacts found</span>}
-                        </div>
-                      </div>
-                      <button onClick={() => { setFile(null); setCsvRows([]); setCsvHeaders([]); setCsvError(""); setCsvPreviewOpen(false); }}
-                        className="text-[12px] text-miss font-semibold">Remove</button>
-                    </div>
-                  )}
-
-                  {/* Column mapping card — only for parsed CSVs */}
-                  {csvHeaders.length > 0 && (
-                    <div className="border border-line rounded-xl p-4 bg-white flex flex-col gap-3">
-                      <div className="text-[13px] font-semibold">Column mapping</div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-[12px] text-ink-soft block mb-1">\uD83D\uDCDE Phone column <span className="text-miss">*</span></label>
-                          <select value={csvColMap.phone} onChange={(e) => setCsvColMap((m) => ({ ...m, phone: Number(e.target.value) }))}
-                            className={`w-full border rounded-lg px-2.5 py-2 text-[13px] bg-white outline-none ${csvColMap.phone === -1 ? "border-miss" : "border-signal"}`}>
-                            <option value={-1}>\u2014 select column \u2014</option>
-                            {csvHeaders.map((h, i) => <option key={i} value={i}>{h || `Column ${i + 1}`}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[12px] text-ink-soft block mb-1">\uD83D\uDC64 Name column (optional)</label>
-                          <select value={csvColMap.name} onChange={(e) => setCsvColMap((m) => ({ ...m, name: Number(e.target.value) }))}
-                            className="w-full border border-line rounded-lg px-2.5 py-2 text-[13px] bg-white outline-none focus:border-signal">
-                            <option value={-1}>\u2014 none \u2014</option>
-                            {csvHeaders.map((h, i) => <option key={i} value={i}>{h || `Column ${i + 1}`}</option>)}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Preview toggle */}
-                      <button onClick={() => setCsvPreviewOpen((v) => !v)}
-                        className="text-[12px] text-signal font-semibold text-left flex items-center gap-1">
-                        {csvPreviewOpen ? "\u25BE Hide preview" : "\u25B8 Show first 5 rows"}
-                      </button>
-                      {csvPreviewOpen && csvRows.length > 1 && (
-                        <div className="overflow-x-auto rounded-lg border border-line">
-                          <table className="text-[11.5px] w-full">
-                            <thead>
-                              <tr className="bg-paper">
-                                {csvHeaders.map((h, i) => (
-                                  <th key={i} className={`text-left px-2.5 py-1.5 font-semibold border-b border-line whitespace-nowrap
-                                    ${i === csvColMap.phone || i === csvColMap.name ? "text-signal" : "text-ink-soft"}`}>
-                                    {h || `Col ${i + 1}`}
-                                    {i === csvColMap.phone && " \uD83D\uDCDE"}
-                                    {i === csvColMap.name && " \uD83D\uDC64"}
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {csvRows.slice(1, 6).map((row, ri) => (
-                                <tr key={ri} className="border-b border-line last:border-0">
-                                  {row.map((cell, ci) => (
-                                    <td key={ci} className={`px-2.5 py-1.5 max-w-[160px] truncate
-                                      ${ci === csvColMap.phone ? "font-semibold text-ink" : "text-ink-soft"}`}>
-                                      {cell || "\u2014"}
-                                    </td>
-                                  ))}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                          {csvRows.length > 6 && (
-                            <div className="text-[11.5px] text-ink-soft px-2.5 py-1.5 bg-paper border-t border-line">
-                              + {csvRows.length - 6} more rows not shown
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {csvColMap.phone === -1 && (
-                        <div className="text-[12px] text-miss font-medium">Select a phone column to continue.</div>
-                      )}
-                    </div>
-                  )}
-
-                  {(fileError || csvError) && (
-                    <div className="text-[12.5px] text-miss font-medium">{fileError || csvError}</div>
-                  )}
-                </div>
-              )}
-
-              {/* STEP 3 — Schedule */}
-              {step === 3 && (
-                <div className="flex flex-col gap-5">
-                  <div>
-                    <label className="text-[14px] font-semibold block mb-2">Start date</label>
-                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                      className="border border-line rounded-lg px-3.5 py-2.5 text-sm bg-white outline-none focus:border-signal" />
-                  </div>
-                  <div>
-                    <label className="text-[14px] font-semibold block mb-2">Calling window</label>
-                    <div className="flex items-center gap-3">
-                      <input type="time" value={windowStart} onChange={(e) => setWindowStart(e.target.value)} className="border border-line rounded-lg px-3.5 py-2.5 text-sm bg-white outline-none focus:border-signal" />
-                      <span className="text-ink-soft text-sm">to</span>
-                      <input type="time" value={windowEnd} onChange={(e) => setWindowEnd(e.target.value)} className="border border-line rounded-lg px-3.5 py-2.5 text-sm bg-white outline-none focus:border-signal" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[14px] font-semibold block mb-2">Days to call</label>
-                    <div className="flex gap-2">
-                      {DAY_OPTIONS.map((d) => (
-                        <button key={d} onClick={() => toggleDay(d)}
-                          className={`w-11 h-9 rounded-lg text-[12.5px] font-semibold border ${days.includes(d) ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"}`}>
-                          {d}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[14px] font-semibold block mb-2">Dial rate</label>
-                    <select value={dialRate} onChange={(e) => setDialRate(e.target.value)}
-                      className="border border-line rounded-lg px-3.5 py-2.5 text-sm bg-white outline-none focus:border-signal">
-                      <option value="1">1 call / sec \u2014 gentle</option>
-                      <option value="2">2 calls / sec \u2014 recommended</option>
-                      <option value="4">4 calls / sec \u2014 fast</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 4 — Review */}
-              {step === 4 && (
-                <div className="flex flex-col gap-4">
-                  <label className="text-[14px] font-semibold">Review before you launch</label>
-                  <div className="border border-line rounded-lg divide-y divide-line bg-white">
-                    {[
-                      ["Campaign name", name || "\u2014"],
-                      ["Script", scriptLabel],
-                      ["Contact list", file ? `${file.name} \u00b7 ${csvRows.length > 1 ? `${csvRows.length - 1} contacts` : formatBytes(file.size)}` : "\u2014"],
-                      ["Start date", startDate || "\u2014"],
-                      ["Calling window", `${windowStart} \u2013 ${windowEnd}`],
-                      ["Days", days.join(", ") || "\u2014"],
-                      ["Dial rate", `${dialRate} / sec`],
-                    ].map(([k, v]) => (
-                      <div key={k} className="flex items-center justify-between px-4 py-3">
-                        <span className="text-[13px] text-ink-soft">{k}</span>
-                        <span className="text-[13px] font-semibold text-right">{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {!launched && (
-          <div className="flex items-center justify-between">
-            <button onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}
-              className="text-[13.5px] font-semibold text-ink-soft disabled:opacity-0 px-4 py-2.5">Back</button>
-            {step < STEPS.length - 1 ? (
-              <button onClick={() => setStep((s) => s + 1)} disabled={!canNext}
-                className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-40">Continue</button>
-            ) : (
-              <button onClick={handleLaunch} disabled={launching}
-                className="bg-signal text-white rounded-lg px-6 py-2.5 text-[13.5px] font-semibold disabled:opacity-60">
-                {launching ? "Launching\u2026" : "Launch campaign"}
-              </button>
-            )}
+      <div className="flex-1 min-w-0 px-6 py-8 lg:px-10">
+        <div className="max-w-[860px] flex flex-col gap-4">
+          <div>
+            <Link href="/outbound" className="text-[12.5px] text-ink-soft hover:text-ink">← Campaigns</Link>
+            <div className="text-[22px] font-display font-semibold mt-1">New calling campaign</div>
+            <div className="text-[13px] text-ink-soft">Your employee dials every number on the list, has the conversation, and labels each lead. Results appear live on the campaign page and dashboard.</div>
           </div>
-        )}
-      </main>
+
+          <Section n={1} title="Who calls, and from which number">
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder='Campaign name, e.g. "NEET PG Oct batch — Hyderabad reactivation"' className={input} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1 text-[12px] text-ink-soft">Employee
+                <select value={scriptId} onChange={(e) => setScriptId(e.target.value)} className={input}>
+                  <option value="">Choose…</option>
+                  {scripts.map((s) => <option key={s.id} value={s.id}>{s.name}{s.tested_at ? "" : " (not signed off)"}</option>)}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-[12px] text-ink-soft">Call from
+                <select value={fromId} onChange={(e) => setFromId(e.target.value)} className={input}>
+                  <option value="">Choose…</option>
+                  {numbers.map((n) => <option key={n.id} value={n.id}>{n.number}{n.label ? ` — ${n.label}` : ""}</option>)}
+                </select>
+              </label>
+            </div>
+            {script && !script.tested_at && <div className="text-[12px] text-miss">{script.name} must be tested first. <Link href={`/talk?scriptId=${script.id}`} className="font-semibold underline">Talk & sign off →</Link></div>}
+            {scripts.length === 0 && <div className="text-[12px] text-ink-soft">No published employees yet — <Link href="/employees" className="text-signal font-semibold">publish one</Link> first.</div>}
+            {numbers.length === 0 && <div className="text-[12px] text-ink-soft">No phone numbers yet — add one on <Link href="/phone-numbers" className="text-signal font-semibold">Phone Numbers</Link>.</div>}
+          </Section>
+
+          <Section n={2} title="Who to call">
+            <div className="text-[12.5px] text-ink-soft">Paste from Excel/Sheets or upload a CSV. One person per line. A <span className="font-semibold">phone</span> column is required; <span className="font-semibold">name</span> and any other columns (college, year, course…) are passed to the employee so it can use them in the conversation.</div>
+            <textarea value={raw} onChange={(e) => setRaw(e.target.value)} rows={7} placeholder={SAMPLE} className={`${input} font-mono text-[12px]`} />
+            <div className="flex flex-wrap items-center gap-3 text-[12.5px]">
+              <label className="border border-line rounded-lg px-3 py-1.5 font-semibold cursor-pointer hover:bg-paper">Upload CSV<input type="file" accept=".csv,.txt,.tsv" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} /></label>
+              <button onClick={() => setRaw(SAMPLE)} className="text-ink-soft hover:text-ink">Use sample</button>
+              {parsed.contacts.length > 0 && (
+                <span className="text-ink-soft"><span className="font-semibold text-signal">{ok.length} ready</span>{bad.length ? ` · ${bad.length} invalid` : ""}{dups.length ? ` · ${dups.length} duplicates removed` : ""}</span>
+              )}
+            </div>
+            {parsed.columns.length > 0 && <div className="text-[12px] text-ink-soft">Extra details the employee can use: {parsed.columns.map((c) => <span key={c} className="font-mono bg-paper border border-line rounded px-1.5 py-0.5 mr-1">{`{{${c}}}`}</span>)}</div>}
+            {parsed.contacts.length > 0 && (
+              <div className="border border-line rounded-lg overflow-hidden">
+                <table className="w-full text-[12.5px]">
+                  <thead className="bg-paper text-ink-soft text-left"><tr><th className="px-3 py-1.5 font-medium">Name</th><th className="px-3 py-1.5 font-medium">Phone</th><th className="px-3 py-1.5 font-medium">Details</th><th className="px-3 py-1.5 font-medium"></th></tr></thead>
+                  <tbody>
+                    {parsed.contacts.slice(0, 6).map((c, i) => (
+                      <tr key={i} className="border-t border-line">
+                        <td className="px-3 py-1.5">{c.name || "—"}</td><td className="px-3 py-1.5 font-mono">{c.phone}</td>
+                        <td className="px-3 py-1.5 text-ink-soft truncate max-w-[260px]">{Object.values(c.variables).join(" · ") || "—"}</td>
+                        <td className="px-3 py-1.5 text-right">{!c.valid ? <span className="text-miss">invalid</span> : c.dup ? <span className="text-ink-soft">duplicate</span> : <span className="text-signal">✓</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {parsed.contacts.length > 6 && <div className="px-3 py-1.5 text-[11.5px] text-ink-soft border-t border-line">+ {parsed.contacts.length - 6} more</div>}
+              </div>
+            )}
+          </Section>
+
+          <Section n={3} title="When">
+            <div className="flex flex-wrap gap-2">
+              {[{ k: "now", l: "Start now" }, { k: "later", l: "Schedule" }].map((o) => (
+                <button key={o.k} onClick={() => setWhen(o.k as any)} className={`text-[12.5px] font-semibold px-3.5 py-1.5 rounded-lg border ${when === o.k ? "bg-ink text-white border-ink" : "border-line text-ink-soft"}`}>{o.l}</button>
+              ))}
+              {when === "later" && <input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} className={input} />}
+            </div>
+            <label className="flex items-center gap-3 text-[12.5px] text-ink-soft">
+              Calls at the same time
+              <input type="number" min={1} max={50} value={concurrency} onChange={(e) => setConcurrency(Number(e.target.value) || 1)} className={`${input} w-20`} />
+              <span>— keep this at or below how many leads your sales team can follow up quickly.</span>
+            </label>
+            <div className="text-[11.5px] text-ink-soft">Times are India time. Call only people who've agreed to hear from you, and within 9am–9pm.</div>
+          </Section>
+
+          <section className="bg-white border border-line rounded-2xl p-5 flex flex-col gap-3">
+            <div className="text-[14.5px] font-semibold">Review</div>
+            <div className="text-[13px] leading-relaxed">
+              <span className="font-semibold">{script?.name || "—"}</span> will call <span className="font-semibold">{ok.length.toLocaleString("en-IN")}</span> people
+              from <span className="font-semibold">{from?.number || "—"}</span>, {when === "now" ? "starting now" : scheduledIso ? `starting ${new Date(scheduledIso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" })}` : "at the time you pick"},
+              up to {concurrency} at a time.
+            </div>
+            {problems.length > 0 && <ul className="text-[12.5px] text-ink-soft list-disc pl-5">{problems.map((p) => <li key={p}>{p}</li>)}</ul>}
+            {error && <div className="text-[12.5px] text-miss bg-miss-tint rounded-lg px-3 py-2">{error}</div>}
+            <div>
+              <button onClick={launch} disabled={launching || problems.length > 0} className="bg-signal text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-40">
+                {launching ? "Launching…" : when === "now" ? `Launch — call ${ok.length} people` : "Schedule campaign"}
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
   );
 }

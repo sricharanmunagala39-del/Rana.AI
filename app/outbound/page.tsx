@@ -1,269 +1,90 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
-import StatusPill, { PillTone } from "@/components/StatusPill";
-import { Campaign, CampaignStats, getCampaigns, updateCampaign } from "@/lib/storage";
+import StatusPill, { type PillTone } from "@/components/StatusPill";
+import { fmtDate, fmtClock } from "@/lib/format";
+import { CAMPAIGN_STATUS as STATUS } from "@/lib/campaignUi";
 
-type Tab = "active" | "scheduled" | "completed";
+type Kpis = { dialled: number; connected: number; connectRate: number; dnp: number; hot: number; warm: number; followUps: number; talkSeconds: number };
+type Campaign = { id: string; name: string; status: string; total_contacts: number; created_at: string; scheduled_at: string | null; from_number: string | null; last_error: string | null; kpis: Kpis };
 
-type Row = {
-  key: string;
-  name: string;
-  meta: string;
-  status: string;
-  tone: PillTone;
-  progressPct: string;
-  progressLabel: string;
-  connected: string;
-  connectRate: string;
-  avgDuration: string;
-  isLive: boolean;
-};
+const TABS = [{ k: "all", l: "All" }, { k: "running", l: "Running" }, { k: "scheduled", l: "Scheduled" }, { k: "done", l: "Finished" }];
 
-/* ---------- demo rows (replace once Sarvam live data flows) ---------- */
-const demoByTab: Record<Tab, Row[]> = {
-  active: [
-    {
-      key: "d1", name: "NEET PG Reactivation — Sept batch",
-      meta: "500 contacts · Mon–Fri, 9am–6pm", status: "Active", tone: "signal",
-      progressPct: "68%", progressLabel: "340 of 500 called",
-      connected: "208", connectRate: "61%", avgDuration: "2m 14s", isLive: false,
-    },
-    {
-      key: "d2", name: "Vizag ASC — Drop-off follow-up",
-      meta: "140 contacts · Mon–Sat, 10am–7pm", status: "Active", tone: "signal",
-      progressPct: "22%", progressLabel: "31 of 140 called",
-      connected: "17", connectRate: "55%", avgDuration: "1m 48s", isLive: false,
-    },
-  ],
-  scheduled: [
-    {
-      key: "d3", name: "Vijayawada INDRA — New batch launch",
-      meta: "260 contacts · Starts tomorrow, 9:00am", status: "Scheduled", tone: "warm",
-      progressPct: "0%", progressLabel: "Not started",
-      connected: "—", connectRate: "—", avgDuration: "—", isLive: false,
-    },
-  ],
-  completed: [
-    {
-      key: "d4", name: "August Inquiry Re-engagement",
-      meta: "812 contacts · Completed 4 Sept", status: "Completed", tone: "neutral",
-      progressPct: "100%", progressLabel: "812 of 812 called",
-      connected: "471", connectRate: "58%", avgDuration: "2m 05s", isLive: false,
-    },
-    {
-      key: "d5", name: "Hyderabad ASC — Fee reminder",
-      meta: "95 contacts · Completed 28 Aug", status: "Completed", tone: "neutral",
-      progressPct: "100%", progressLabel: "95 of 95 called",
-      connected: "61", connectRate: "64%", avgDuration: "1m 52s", isLive: false,
-    },
-  ],
-};
+export default function CampaignsPage() {
+  const [rows, setRows] = useState<Campaign[] | null>(null);
+  const [tab, setTab] = useState("all");
+  const [error, setError] = useState("");
 
-/* ---------- helpers ---------- */
-function fmtDuration(secs: number): string {
-  if (!secs) return "—";
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return m > 0 ? `${m}m ${s}s` : `${s}s`;
-}
-
-function campaignToRow(c: Campaign): Row {
-  const statusMap: Record<Campaign["status"], { label: string; tone: PillTone }> = {
-    Scheduled: { label: "Scheduled",  tone: "warm" },
-    Active:    { label: "Active",     tone: "signal" },
-    Launching: { label: "Launching…", tone: "warm" },
-    Error:     { label: "Error",      tone: "miss" },
-  };
-  const { label: statusLabel, tone } = statusMap[c.status] ?? { label: c.status, tone: "neutral" as PillTone };
-  const idHint    = c.sarvamCampaignId ? ` · ID: ${c.sarvamCampaignId.slice(0, 8)}…` : "";
-  const errorHint = c.sarvamError ? ` · ${c.sarvamError.slice(0, 60)}` : "";
-
-  const st = c.stats;
-  return {
-    key: c.id,
-    name: c.name,
-    meta: `${c.contactCountLabel} · ${c.scriptLabel} · ${c.days.join(", ")}, ${c.windowStart}–${c.windowEnd}${idHint}${errorHint}`,
-    status: statusLabel,
-    tone,
-    progressPct: st ? `${Math.min(100, Math.round((st.total / parseInt(c.contactCountLabel)) * 100))}%` : "0%",
-    progressLabel: st ? `${st.total} attempts · ${st.connected} connected` : `Starts ${c.startDate || "soon"}`,
-    connected: st ? String(st.connected) : "—",
-    connectRate: st ? `${st.connectRate}%` : "—",
-    avgDuration: st ? fmtDuration(st.avgDuration) : "—",
-    isLive: !!c.sarvamCampaignId,
-  };
-}
-
-/* ------------------------------------------------------------------ */
-export default function OutboundPage() {
-  const [tab, setTab] = useState<Tab>("scheduled");
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  /* load from localStorage on mount */
+  async function load() {
+    try {
+      const res = await fetch("/api/campaigns", { cache: "no-store" });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Failed to load");
+      setRows(d.campaigns); setError("");
+    } catch (e: any) { setError(e.message); }
+  }
   useEffect(() => {
-    setCampaigns(getCampaigns());
+    // Older dashboard links use /outbound?campaign=<id>; send them to the campaign page.
+    const legacy = new URLSearchParams(window.location.search).get("campaign");
+    if (legacy && legacy !== "__instant__") { window.location.replace(`/outbound/${encodeURIComponent(legacy)}`); return; }
+    load(); const t = setInterval(load, 30000); return () => clearInterval(t);
   }, []);
 
-  /* fetch stats for all campaigns that have a sarvamCampaignId */
-  async function fetchStats(camp: Campaign[]): Promise<void> {
-    const withId = camp.filter(c => c.sarvamCampaignId);
-    if (!withId.length) return;
-
-    await Promise.all(withId.map(async (c) => {
-      try {
-        const r = await fetch(`/api/campaign-stats?campaignId=${encodeURIComponent(c.sarvamCampaignId!)}`);
-        if (!r.ok) return;
-        const stats: CampaignStats = await r.json();
-        updateCampaign(c.id, { stats });
-      } catch {
-        // silently ignore per-campaign fetch failures
-      }
-    }));
-
-    /* re-read from localStorage after all updates */
-    setCampaigns(getCampaigns());
-  }
-
-  /* manual refresh */
-  async function handleRefresh() {
-    setRefreshing(true);
-    await fetchStats(campaigns);
-    setRefreshing(false);
-  }
-
-  /* auto-poll every 2 min */
-  useEffect(() => {
-    if (campaigns.length === 0) return;
-    fetchStats(campaigns); // immediate on load
-    pollRef.current = setInterval(() => fetchStats(getCampaigns()), 2 * 60 * 1000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaigns.length]);
-
-  const liveRows  = campaigns.map(campaignToRow);
-  const rowsByTab: Record<Tab, Row[]> = {
-    active:    [...demoByTab.active, ...liveRows.filter(r => r.status === "Active")],
-    scheduled: [...liveRows.filter(r => r.status !== "Active" && r.status !== "Completed"), ...demoByTab.scheduled],
-    completed: demoByTab.completed,
-  };
-
-  const tabCounts: Record<Tab, number> = {
-    active:    rowsByTab.active.length,
-    scheduled: rowsByTab.scheduled.length,
-    completed: rowsByTab.completed.length,
-  };
-
-  const hasLive = campaigns.some(c => !!c.sarvamCampaignId);
+  const shown = (rows || []).filter((c) => tab === "all" || (tab === "done" ? ["completed", "paused", "failed"].includes(c.status) : c.status === tab));
 
   return (
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="outbound" />
-
-      <main className="flex-1 box-border p-11 flex flex-col gap-5.5">
-        {/* header */}
-        <div className="flex items-start justify-between">
+      <main className="flex-1 min-w-0 px-6 py-8 lg:px-10 flex flex-col gap-5">
+        <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="font-display text-[26px] font-semibold m-0">Outbound</h1>
-            <div className="text-[13px] text-ink-soft mt-1">Call your lead lists automatically</div>
+            <h1 className="font-display text-[26px] font-semibold m-0">Outbound campaigns</h1>
+            <div className="text-[13px] text-ink-soft mt-1">Every list your employees have called. Open one to see every number, what happened, and who to follow up.</div>
           </div>
-          <div className="flex items-center gap-3">
-            {hasLive && (
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="text-[13px] text-ink-soft border border-line rounded-lg px-3.5 py-2 flex items-center gap-1.5 hover:bg-raised disabled:opacity-50"
-              >
-                <svg
-                  width="13" height="13" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2.3" strokeLinecap="round"
-                  className={refreshing ? "animate-spin" : ""}
-                >
-                  <path d="M23 4v6h-6" />
-                  <path d="M1 20v-6h6" />
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                </svg>
-                {refreshing ? "Refreshing…" : "Refresh stats"}
-              </button>
-            )}
-            <Link
-              href="/outbound/new"
-              className="bg-ink text-white rounded-lg px-4.5 py-2.5 text-[13.5px] font-semibold flex items-center gap-2"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Start a campaign
-            </Link>
-          </div>
+          <Link href="/outbound/new" className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold">+ New campaign</Link>
         </div>
 
-        {/* tabs */}
         <div className="flex gap-1 bg-raised border border-line rounded-[9px] p-1 w-fit">
-          {(["active", "scheduled", "completed"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`text-[13.5px] font-semibold px-3.5 py-2 rounded-md capitalize ${
-                tab === t ? "bg-ink text-white" : "text-ink-soft"
-              }`}
-            >
-              {t} <span className="opacity-60">{tabCounts[t]}</span>
-            </button>
+          {TABS.map((t) => (
+            <button key={t.k} onClick={() => setTab(t.k)} className={`text-[13px] font-semibold px-3.5 py-1.5 rounded-md ${tab === t.k ? "bg-ink text-white" : "text-ink-soft"}`}>{t.l}</button>
           ))}
         </div>
 
-        {/* campaign cards */}
-        <div className="overflow-y-auto flex-1 flex flex-col gap-3">
-          {rowsByTab[tab].map((c) => (
-            <div key={c.key} className="bg-raised border border-line rounded-[10px] px-5.5 py-5 flex flex-col gap-3.5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-[15px] font-semibold">{c.name}</div>
-                    {c.isLive && (
-                      <span className="text-[10px] font-semibold text-signal bg-signal-tint rounded px-1.5 py-0.5 leading-none">
-                        LIVE
-                      </span>
-                    )}
+        {error && <div className="text-[12.5px] text-miss bg-miss-tint rounded-lg px-3 py-2.5">{error}</div>}
+        {rows === null && !error && <div className="text-[13px] text-ink-soft">Loading…</div>}
+        {rows && shown.length === 0 && (
+          <div className="border border-dashed border-line rounded-2xl bg-raised p-8 text-center text-[13.5px] text-ink-soft">
+            No campaigns here yet. <Link href="/outbound/new" className="text-signal font-semibold">Create one</Link> — pick a tested employee, paste your list, launch.
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3">
+          {shown.map((c) => {
+            const st = STATUS[c.status] || { label: c.status, tone: "neutral" as PillTone };
+            const pct = c.total_contacts ? Math.min(100, Math.round((c.kpis.dialled / c.total_contacts) * 100)) : 0;
+            return (
+              <Link key={c.id} href={`/outbound/${c.id}`} className="bg-raised border border-line rounded-[12px] px-5 py-4 hover:border-ink-soft grid grid-cols-1 lg:grid-cols-[1.4fr_1fr_1.6fr] gap-4 items-center">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2"><span className="text-[15px] font-semibold truncate">{c.name}</span><StatusPill label={st.label} tone={st.tone} /></div>
+                  <div className="text-[12px] text-ink-soft mt-0.5">
+                    {c.status === "scheduled" && c.scheduled_at ? `Starts ${fmtDate(c.scheduled_at)} ${fmtClock(c.scheduled_at)}` : `Created ${fmtDate(c.created_at)}`}{c.from_number ? ` · from ${c.from_number}` : ""}
                   </div>
-                  <div className="text-[12.5px] text-ink-soft mt-0.5">{c.meta}</div>
-                </div>
-                <StatusPill label={c.status} tone={c.tone} />
-              </div>
-
-              {/* progress bar */}
-              <div className="flex items-center gap-5">
-                <div className="flex-1 h-1.5 rounded bg-[#E9EBE5] overflow-hidden">
-                  <div className="h-full bg-signal rounded" style={{ width: c.progressPct }} />
-                </div>
-                <span className="text-[12.5px] text-ink-soft whitespace-nowrap">{c.progressLabel}</span>
-              </div>
-
-              {/* stats */}
-              <div className="flex gap-7">
-                <div>
-                  <div className="text-[11.5px] text-ink-soft">Connected</div>
-                  <div className="text-[15px] font-semibold mt-0.5">{c.connected}</div>
+                  {c.last_error && <div className="text-[11.5px] text-miss mt-0.5 truncate">{c.last_error}</div>}
                 </div>
                 <div>
-                  <div className="text-[11.5px] text-ink-soft">Connect rate</div>
-                  <div className="text-[15px] font-semibold mt-0.5 text-signal">{c.connectRate}</div>
+                  <div className="flex justify-between text-[11.5px] text-ink-soft mb-1"><span>{c.kpis.dialled.toLocaleString("en-IN")} of {c.total_contacts.toLocaleString("en-IN")} dialled</span><span>{pct}%</span></div>
+                  <div className="h-[8px] bg-paper rounded-full overflow-hidden"><div className="h-full bg-signal rounded-full" style={{ width: `${pct}%` }} /></div>
                 </div>
-                <div>
-                  <div className="text-[11.5px] text-ink-soft">Avg duration</div>
-                  <div className="text-[15px] font-semibold mt-0.5">{c.avgDuration}</div>
+                <div className="grid grid-cols-5 gap-2 text-center">
+                  {[["Lifted", `${c.kpis.connected}`, `${c.kpis.connectRate}%`], ["DNP", `${c.kpis.dnp}`, ""], ["Hot", `${c.kpis.hot}`, ""], ["Warm", `${c.kpis.warm}`, ""], ["Follow-up", `${c.kpis.followUps}`, ""]].map(([l, v, sub]) => (
+                    <div key={l}><div className="text-[16px] font-display font-bold tabular-nums">{v}</div><div className="text-[10.5px] text-ink-soft">{l}{sub ? ` · ${sub}` : ""}</div></div>
+                  ))}
                 </div>
-              </div>
-            </div>
-          ))}
-          {rowsByTab[tab].length === 0 && (
-            <div className="text-center text-[13px] text-ink-soft py-10">No campaigns here yet.</div>
-          )}
+              </Link>
+            );
+          })}
         </div>
       </main>
     </div>

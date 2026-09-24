@@ -310,3 +310,45 @@ export async function listCartesiaCalls(opts: { agentId: string; startTimeGte?: 
     return `/agents/calls?${q.toString()}`;
   }, opts.maxPages ?? 10);
 }
+
+/* ── Inbound deployment: point a number at an agent ──
+   PATCH /agents/phone-numbers/{id} { agent_id } — null unassigns (docs.cartesia.ai/line/integrations/telephony/phone-numbers). */
+export async function assignPhoneNumberAgent(phoneNumberId: string, agentId: string | null): Promise<any> {
+  return cartesiaFetch(`/agents/phone-numbers/${phoneNumberId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ agent_id: agentId }),
+  });
+}
+
+/* ── Outbound campaigns: batch calling ──
+   POST /agents/calls/batches { agent_id, from_number_id, name, recipients[{to_number, dynamic_variables}],
+     target_concurrency_limit?, scheduled_at? } → { id, status, total_calls_*, recipients[{to_number, status, agent_call_id}] }
+   GET  /agents/calls/batches/{id} · POST .../cancel · POST .../retry
+   (docs.cartesia.ai/line/integrations/telephony/batch-calling). Max 5,000 recipients per batch. */
+export type BatchRecipient = { to_number: string; dynamic_variables?: Record<string, string> };
+
+export async function createCartesiaBatch(input: {
+  agentId: string; fromNumberId: string; name: string; recipients: BatchRecipient[];
+  concurrency?: number; scheduledAt?: string;
+}): Promise<any> {
+  return cartesiaFetch("/agents/calls/batches", {
+    method: "POST",
+    body: JSON.stringify({
+      agent_id: input.agentId,
+      from_number_id: input.fromNumberId,
+      name: input.name,
+      recipients: input.recipients,
+      ...(input.concurrency ? { target_concurrency_limit: input.concurrency } : {}),
+      ...(input.scheduledAt ? { scheduled_at: input.scheduledAt } : {}),
+    }),
+  });
+}
+export async function getCartesiaBatch(batchId: string): Promise<any> {
+  return cartesiaFetch(`/agents/calls/batches/${batchId}`, { method: "GET" });
+}
+export async function cancelCartesiaBatch(batchId: string): Promise<any> {
+  return cartesiaFetch(`/agents/calls/batches/${batchId}/cancel`, { method: "POST", body: "{}" });
+}
+export async function retryCartesiaBatch(batchId: string): Promise<any> {
+  return cartesiaFetch(`/agents/calls/batches/${batchId}/retry`, { method: "POST", body: "{}" });
+}

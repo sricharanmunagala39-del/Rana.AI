@@ -84,6 +84,7 @@ export async function listCalls(clientId: string, opts: { direction?: string; le
   if (opts.direction === "inbound" || opts.direction === "outbound") q.set("direction", `eq.${opts.direction}`);
   if (opts.lead) q.set("lead_status", `eq.${opts.lead}`);
   if (opts.since) q.set("created_at", `gte.${opts.since}`);
+  q.set("source", "neq.manual"); // Talk-page tests never show up as real calls
   q.set("order", "created_at.desc");
   q.set("limit", String(Math.min(opts.limit ?? 50, 500)));
   return await sb(`/calls?${q.toString()}`);
@@ -318,12 +319,14 @@ export function callFromCartesiaApi(call: any, clientId: string): Partial<CallRo
   });
   const customerPhone = direction === "inbound" ? (tp.from ?? null) : (tp.to ?? null);
   const agentPhone = direction === "inbound" ? (tp.to ?? null) : (tp.from ?? null);
+  // No phone on either side = a browser test from the Talk page. Kept, but never counted in results.
+  const isTest = !tp.to && !tp.from && !call?.batch_id;
 
   return {
     client_id: clientId,
     interaction_id: call?.id ?? null,
     direction,
-    source: direction === "outbound" ? (call?.batch_id ? "campaign" : "instant_outbound") : "deployment",
+    source: isTest ? "manual" : direction === "outbound" ? (call?.batch_id ? "campaign" : "instant_outbound") : "deployment",
     campaign_id: call?.batch_id ?? null,
     deployment_id: null,
     engine_app_id: call?.agent_id ?? null,
@@ -335,7 +338,7 @@ export function callFromCartesiaApi(call: any, clientId: string): Partial<CallRo
     completion_status: call?.status ?? null,
     failure_reason: call?.error_message ?? endReason,
     lead_status: verdict.status,
-    lead_reason: verdict.reason,
+    lead_reason: isTest ? `Test call from the Talk page (would have been: ${verdict.status.replace(/_/g, " ")}). Not counted in results.` : verdict.reason,
     follow_up: verdict.followUp,
     caller_turns: callerTurns.length,
     summary,
