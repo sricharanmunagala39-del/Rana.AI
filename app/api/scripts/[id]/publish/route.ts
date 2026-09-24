@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 import { getScriptById, updateScript, getClientById } from "@/lib/supabase";
-import { parseSession } from "../../../auth/me/route";
+import { parseSession } from "@/lib/auth";
 import {
   createCartesiaAgent,
   updateCartesiaAgent,
@@ -8,10 +8,15 @@ import {
   listCartesiaVoices,
   toCartesiaLanguage,
 } from "@/lib/cartesia";
+import { getSession } from "@/lib/session";
+import { forbidUnless } from "@/lib/auth";
+import { audit } from "@/lib/audit";
+import { claimResource } from "@/lib/ownership";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = parseSession(req);
+  const session = await getSession(req);
   if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
+  const denied = forbidUnless(session, "admin"); if (denied) return denied;
 
   if (!process.env.CARTESIA_API_KEY) {
     return Response.json(
@@ -84,6 +89,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // need to poll GET /v1/agents/calls (and GET /v1/agents/calls/{id} for a transcript)
     // instead of relying on a pushed webhook — not built yet. Deliberately not attempting
     // webhook setup here so it can't block Publish.
+
+    await claimResource(session.clientId, "agent", agentId!, script.name).catch(() => {});
+    await audit(session, "employee_published", { req, targetType: "employee", targetId: script.id, detail: { name: script.name, agentId } });
 
     const updated = await updateScript(params.id, {
       cartesia_agent_id: agentId,
