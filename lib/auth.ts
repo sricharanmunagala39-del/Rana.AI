@@ -4,7 +4,29 @@ import { scryptSync, randomBytes, timingSafeEqual, createHmac } from "crypto";
 const SESSION_COOKIE = "rana_session";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-export type Session = { clientId: string; email: string; exp: number };
+export type Role = "owner" | "admin" | "manager" | "agent" | "viewer";
+export const ROLES: Role[] = ["owner", "admin", "manager", "agent", "viewer"];
+const RANK: Record<Role, number> = { owner: 5, admin: 4, manager: 3, agent: 2, viewer: 1 };
+export const ROLE_INFO: Record<Role, { label: string; can: string }> = {
+  owner: { label: "Owner", can: "Everything, including team and billing" },
+  admin: { label: "Admin", can: "Employees, phone numbers, calling rules and team" },
+  manager: { label: "Manager", can: "Launch and stop campaigns, work leads, export" },
+  agent: { label: "Sales rep", can: "Work leads: mark outcomes, follow-ups and notes" },
+  viewer: { label: "Viewer", can: "Read-only dashboards and results" },
+};
+
+/** userId is absent on sessions from the old shared client login; those act as the owner. */
+export type Session = { clientId: string; email: string; exp: number; userId?: string; role?: Role; name?: string };
+
+export function roleOf(s: Session): Role { return s.role && RANK[s.role] ? s.role : "owner"; }
+export function hasRole(s: Session, min: Role): boolean { return RANK[roleOf(s)] >= RANK[min]; }
+export function outranks(a: Role, b: Role): boolean { return RANK[a] >= RANK[b]; }
+
+/** Returns a 403 response when the session's role is below `min`, else null. */
+export function forbidUnless(s: Session, min: Role): Response | null {
+  if (hasRole(s, min)) return null;
+  return Response.json({ error: `Your role (${ROLE_INFO[roleOf(s)].label}) can't do this. Ask an ${ROLE_INFO[min].label.toLowerCase()} on your team.` }, { status: 403 });
+}
 
 /** Cookie signing secret. Set SESSION_SECRET in Vercel; falls back to the Supabase service key so nothing breaks unsigned. */
 function secret(): string {
@@ -40,8 +62,8 @@ export function verifyPassword(plain: string, stored: string): boolean {
   return derived.length === expected.length && timingSafeEqual(derived, expected);
 }
 
-export function createSessionCookie(clientId: string, email: string): string {
-  const payload: Session = { clientId, email, exp: Date.now() + SESSION_TTL_MS };
+export function createSessionCookie(clientId: string, email: string, user?: { userId: string; role: Role; name?: string | null }): string {
+  const payload: Session = { clientId, email, exp: Date.now() + SESSION_TTL_MS, ...(user ? { userId: user.userId, role: user.role, name: user.name ?? undefined } : {}) };
   const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const value = `${data}.${sign(data)}`;
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
