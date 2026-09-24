@@ -21,7 +21,7 @@ function ComingSoonInner() {
           </div>
           <div className="text-[16px] font-semibold">{feature} is coming soon</div>
           <div className="text-[13px] text-ink-soft mt-2 leading-relaxed">
-            This section of RANA is on the build list but isn't wired up yet. Ask Claude to build it whenever you're ready.
+            We're building this part of RANA now. It will appear here as soon as it's ready — everything else keeps working in the meantime.
           </div>
           <a href="/" className="inline-block mt-5 text-[12.5px] font-semibold text-signal">← Back to Dashboard</a>
         </div>

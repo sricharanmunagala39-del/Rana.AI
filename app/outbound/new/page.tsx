@@ -236,7 +236,7 @@ export default function NewCampaignPage() {
             <div className="text-[11.5px] text-ink-soft">
               Times are India time. Call only people who&apos;ve agreed to hear from you.{" "}
               {hours && (hours.enforce
-                ? <>Your calling hours: <span className="font-semibold">{hours.summary}</span>{when === "now" && !hours.openNow ? <span className="text-miss font-semibold"> — closed right now, so schedule this for later.</span> : ""}. Numbers on your do-not-call list are skipped automatically. <a href="/settings?tab=calling" className="text-signal font-semibold">Change</a></>
+                ? <>Your calling hours: <span className="font-semibold">{hours.summary}</span>{when === "now" && !hours.openNow ? <span className="text-miss font-semibold"> — closed right now, so schedule this for later</span> : ""}. Numbers on your do-not-call list are skipped automatically. <a href="/settings?tab=calling" className="text-signal font-semibold">Change</a></>
                 : <>Calling hours aren&apos;t enforced. <a href="/settings?tab=calling" className="text-signal font-semibold">Set them</a></>)}
             </div>
           </Section>

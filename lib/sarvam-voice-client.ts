@@ -66,6 +66,7 @@ export class SarvamVoiceCall {
   private live = false;
   private sawAgentText = false;
   private ended = false;
+  private greeting = "";
   private onEvent: (e: SarvamCallEvent) => void;
 
   constructor(onEvent: (e: SarvamCallEvent) => void) { this.onEvent = onEvent; }
@@ -75,6 +76,7 @@ export class SarvamVoiceCall {
     const res = await fetch("/api/sarvam/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scriptId }) });
     const session = await res.json();
     if (!res.ok) throw new Error(session.error || "Couldn't start the call");
+    this.greeting = String(session.start?.initial_bot_message || "").trim();
 
     this.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
     this.playCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -102,7 +104,10 @@ export class SarvamVoiceCall {
           case "server.system.ping":
             this.send({ type: "client.system.pong", origin: "client", timestamp: now() }); break;
           case "server.action.interaction_connected":
-            goLive(); break;
+            goLive();
+            // Sarvam speaks the greeting without sending its text; show it so the transcript starts at the top.
+            if (this.greeting) this.onEvent({ type: "transcript", role: "agent", text: this.greeting });
+            break;
           case "server.media.audio_chunk":
             goLive();
             if (d.audio_base64) this.play(d.audio_base64);
@@ -118,6 +123,7 @@ export class SarvamVoiceCall {
             if (!text) break;
             const role = d.role === "user" ? "user" : "agent";
             if (role === "agent" && this.sawAgentText) break; // agent lines already came as server.media.text
+            if (role === "agent" && this.greeting && text === this.greeting) break; // greeting already shown
             this.onEvent({ type: "transcript", role, text });
             break;
           }

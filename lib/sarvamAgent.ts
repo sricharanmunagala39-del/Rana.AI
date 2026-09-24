@@ -73,6 +73,32 @@ async function call<T = any>(url: string, init: RequestInit & { key: string }): 
   return data as T;
 }
 
+/** Sarvam names: letters, numbers, spaces, underscores and hyphens only, max 50. */
+export function sarvamName(name: string, fallback = "RANA campaign"): string {
+  const clean = String(name || "").normalize("NFKD").replace(/[^\w\- ]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 50).trim();
+  return clean || fallback;
+}
+
+/** Ways Sarvam has accepted a phone connection (its docs and live API differ); tried in order, moving on only when Sarvam rejects the shape (422). */
+function connectionShapes(cfg: SarvamConfig): Record<string, any>[] {
+  const n = cfg.agentNumber;
+  if (!n) return [{ connection_id: cfg.connectionId }];
+  return [
+    { connection_id: cfg.connectionId, phone_numbers: [n] },
+    { connection_id: cfg.connectionId, agent_phone_number: n, phone_numbers: [n] },
+    { connection_id: cfg.connectionId, agent_phone_number: n },
+  ];
+}
+
+async function postWithConnection<T>(url: string, cfg: SarvamConfig, build: (conn: Record<string, any>) => any): Promise<T> {
+  let last: any = null;
+  for (const conn of connectionShapes(cfg)) {
+    try { return await call<T>(url, { method: "POST", key: cfg.apiKey, body: JSON.stringify(build(conn)) }); }
+    catch (e: any) { last = e; if (!/Sarvam 422/.test(String(e?.message))) throw e; }
+  }
+  throw last;
+}
+
 /** A single-use WebSocket URL for one browser voice session (the API key never reaches the browser). */
 export async function signedSessionUrl(cfg: SarvamConfig, userId: string): Promise<{ url: string; referenceId: string; expiresAt: number | null }> {
   const q = new URLSearchParams({ interaction_type: "call", version: String(cfg.appVersion) });
@@ -103,14 +129,15 @@ export async function placeOutboundCall(cfg: SarvamConfig, input: { phone: strin
   const body = {
     app_config: {
       app_id: cfg.appId, app_version: cfg.appVersion, app_type: "agent",
-      connection_config: { connection_id: cfg.connectionId, ...(cfg.agentNumber ? { agent_phone_number: cfg.agentNumber } : {}) },
+      connection_config: null as any,
       agent_variables: p.agent_variables,
       app_overrides: { initial_bot_message: p.initial_bot_message, initial_language_name: p.initial_language_name },
     },
     user_config: { user_phone_number: input.phone },
     ...(input.webhook ? { webhook_config: { url: input.webhook, metadata: input.metadata || {} } } : {}),
   };
-  return call<{ attempt_id: string }>(`${APPS}/outbounds/v1/orgs/${cfg.orgId}/workspaces/${cfg.workspaceId}/outbounds`, { method: "POST", key: cfg.apiKey, body: JSON.stringify(body) });
+  return postWithConnection<{ attempt_id: string }>(`${APPS}/outbounds/v1/orgs/${cfg.orgId}/workspaces/${cfg.workspaceId}/outbounds`, cfg,
+    (conn) => ({ ...body, app_config: { ...body.app_config, connection_config: conn } }));
 }
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -124,7 +151,7 @@ export async function createSarvamCampaign(cfg: SarvamConfig, input: {
   if (!cfg.connectionId) throw new Error("No Sarvam phone connection is set (RANA_SARVAM_CONNECTION_ID).");
   const end = new Date(input.startAt.getTime() + 30 * 86400000);
   const body = {
-    name: input.name.slice(0, 80), description: `RANA AI — ${input.name}`.slice(0, 150),
+    name: sarvamName(input.name), description: `RANA AI - ${input.name}`.slice(0, 150),
     start_timestamp: input.startAt.toISOString(), end_timestamp: end.toISOString(),
     allowed_schedule: {
       allowed_start_time: hhmm(input.rules.startMin), allowed_end_time: hhmm(Math.min(input.rules.endMin, 23 * 60 + 59)),
@@ -135,14 +162,15 @@ export async function createSarvamCampaign(cfg: SarvamConfig, input: {
     app_config: {
       app_id: cfg.appId, app_version: cfg.appVersion, app_type: "agent",
       attempts_per_second: Math.max(0.1, Math.min(10, input.attemptsPerSecond)),
-      connection_configs: [{ connection_id: cfg.connectionId, ...(cfg.agentNumber ? { agent_phone_number: cfg.agentNumber } : {}) }],
+      connection_configs: [] as any[],
       retry_config: {
         max_retries: 2, retry_interval_minutes: 60,
         retry_on: { busy: { enabled: true }, no_answer: { enabled: true }, failed: { enabled: false }, short_duration: { enabled: false, threshold_seconds: 10 } },
       },
     },
   };
-  return call<{ campaign_id: string; status: string }>(`${APPS}/scheduling/v1/orgs/${cfg.orgId}/workspaces/${cfg.workspaceId}/campaigns`, { method: "POST", key: cfg.apiKey, body: JSON.stringify(body) });
+  return postWithConnection<{ campaign_id: string; status: string }>(`${APPS}/scheduling/v1/orgs/${cfg.orgId}/workspaces/${cfg.workspaceId}/campaigns`, cfg,
+    (conn) => ({ ...body, app_config: { ...body.app_config, connection_configs: [conn] } }));
 }
 
 /** Adds contacts (max 1,000 per request) with each person's instructions and greeting. */
@@ -159,7 +187,7 @@ export async function streamCampaignContacts(cfg: SarvamConfig, campaignId: stri
       };
     });
     results.push(await call(`${APPS}/scheduling/v1/orgs/${cfg.orgId}/workspaces/${cfg.workspaceId}/campaigns/${campaignId}/cohorts/stream`, {
-      method: "POST", key: cfg.apiKey, body: JSON.stringify({ name: `${label} ${Math.floor(i / 1000) + 1}`.slice(0, 80), users }),
+      method: "POST", key: cfg.apiKey, body: JSON.stringify({ name: sarvamName(`${sarvamName(label).slice(0, 44)} ${Math.floor(i / 1000) + 1}`, "RANA contacts"), users }),
     }));
   }
   return results;
