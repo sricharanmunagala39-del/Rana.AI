@@ -237,3 +237,86 @@ export function payloadToCallFromCartesia(p: any, clientId: string): Partial<Cal
     ended_at: null,
   } as Partial<CallRow>;
 }
+
+/* ── Cartesia List Calls → CallRow ──
+   Shape confirmed against docs.cartesia.ai/api-reference/agents/calls/list-calls:
+   { id, agent_id, agent_name, start_time, end_time, status (created|started|completed|failed),
+     end_reason, transcript[] (with expand=transcript), summary, telephony_params {to, from, call_sid,
+     direction, connection_type}, telephony_account_type, error_message, dynamic_variables }
+*/
+
+/** Reads Cartesia's auto-summary for buying signals. Duration and end_reason gate it first. */
+export function classifyFromSummary(summary: string | null, endReason: string | null, duration: number, vars: Record<string, unknown> = {}): LeadStatus {
+  const fromVars = classifyLead(vars, null, 999);
+  if (fromVars !== "new") return fromVars;
+  if (endReason && /dial_failed|no_answer|busy|failed|voicemail/.test(endReason)) return "no_answer";
+  if (duration > 0 && duration < 15) return "cold";
+  const s = (summary || "").toLowerCase();
+  if (!s) return "new";
+  if (/not interested|no interest|declined|do not call|dnd|wrong number|already (joined|enrolled|bought)/.test(s)) return "not_interested";
+  if (/ready to (join|enrol|enroll|pay|book|buy)|wants to (join|enrol|enroll|pay|book|buy)|payment|site visit|schedule[d]? (a )?(visit|demo)|confirmed/.test(s)) return "ready_to_close";
+  if (/fee|price|cost|batch|when (does|will)|interested|callback|call back|details|brochure|discount|emi|availability/.test(s)) return duration >= 60 ? "hot" : "warm";
+  return duration >= 90 ? "warm" : "cold";
+}
+
+export function callFromCartesiaApi(call: any, clientId: string): Partial<CallRow> & { created_at?: string } {
+  const tp = call?.telephony_params ?? {};
+  const direction: "inbound" | "outbound" = tp.direction === "outbound" || call?.batch_id ? "outbound" : "inbound";
+  const start = call?.start_time ?? null;
+  const end = call?.end_time ?? null;
+  const duration = start && end ? Math.max(0, Math.round((Date.parse(end) - Date.parse(start)) / 1000)) : 0;
+  const endReason: string | null = call?.end_reason ?? null;
+  const transcript = normaliseCartesiaTranscript(call?.transcript);
+  const vars = (call?.dynamic_variables ?? {}) as Record<string, unknown>;
+  const connectivity =
+    call?.status === "failed" || (endReason && /dial_failed|no_answer|busy/.test(endReason)) ? "failed"
+    : duration > 0 ? "connected" : (call?.status ?? null);
+  const firstUser = transcript.find((t) => t.role === "user")?.text ?? null;
+  const summary: string | null = call?.summary || (firstUser ? firstUser.slice(0, 160) : null);
+  const customerPhone = direction === "inbound" ? (tp.from ?? null) : (tp.to ?? null);
+  const agentPhone = direction === "inbound" ? (tp.to ?? null) : (tp.from ?? null);
+
+  return {
+    client_id: clientId,
+    interaction_id: call?.id ?? null,
+    direction,
+    source: direction === "outbound" ? (call?.batch_id ? "campaign" : "instant_outbound") : "deployment",
+    campaign_id: call?.batch_id ?? null,
+    deployment_id: null,
+    engine_app_id: call?.agent_id ?? null,
+    caller_phone: customerPhone,
+    agent_phone: agentPhone,
+    caller_name: (vars.name as string) ?? (vars.caller_name as string) ?? null,
+    duration_seconds: duration,
+    connectivity_status: connectivity,
+    completion_status: call?.status ?? null,
+    failure_reason: call?.error_message ?? endReason,
+    lead_status: classifyFromSummary(summary, endReason, duration, vars),
+    summary,
+    transcript,
+    agent_variables: vars,
+    recording_url: null,
+    raw_payload: call,
+    started_at: start,
+    ended_at: end,
+    // Keep dashboard "today" counts honest: a call's row dates from when the call happened, not when we synced it.
+    ...(start ? { created_at: start } : {}),
+  } as any;
+}
+
+/** Newest start_time we already hold for this client's Cartesia calls — the sync resumes from here. */
+export async function latestCartesiaCallStart(clientId: string): Promise<string | null> {
+  const r = await sb(`/calls?client_id=eq.${clientId}&engine_app_id=like.agent_*&started_at=not.is.null&order=started_at.desc&limit=1&select=started_at`);
+  return r?.[0]?.started_at ?? null;
+}
+
+/** Which of these Cartesia call ids we already hold, and whether that copy is final. Finished calls are never
+ *  re-written, so a lead status or note a salesperson changed by hand survives every later sync. */
+export async function existingCallState(ids: string[]): Promise<Record<string, { final: boolean }>> {
+  if (!ids.length) return {};
+  const list = ids.map((i) => `"${i.replace(/"/g, "")}"`).join(",");
+  const r = await sb(`/calls?interaction_id=in.(${encodeURIComponent(list)})&select=interaction_id,completion_status`);
+  const out: Record<string, { final: boolean }> = {};
+  for (const row of r || []) out[row.interaction_id] = { final: row.completion_status === "completed" || row.completion_status === "failed" };
+  return out;
+}
