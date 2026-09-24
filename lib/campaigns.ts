@@ -119,7 +119,13 @@ async function refreshSarvamCampaign(c: Campaign): Promise<Campaign> {
   if (!cfg || !id) return c;
   const sc = await getSarvamCampaign(cfg, id);
   const raw = String(sc?.status || "").toLowerCase();
-  const status = raw === "ended" ? "completed" : raw === "cancelled" ? "cancelled" : raw === "paused" ? "paused" : raw === "scheduled" ? "scheduled" : "running";
+  // Only statuses the campaigns table allows; a cancelled campaign shows as Stopped (paused), like Cartesia's.
+  const status =
+    ["ended", "completed", "finished"].includes(raw) ? "completed"
+    : ["cancelled", "canceled", "stopped", "paused"].includes(raw) ? "paused"
+    : ["scheduled", "created", "draft", "pending"].includes(raw) ? "scheduled"
+    : ["failed", "error"].includes(raw) ? "failed"
+    : "running";
   return updateCampaignRow(c.id, {
     status, last_synced_at: new Date().toISOString(),
     ...(status === "completed" && !c.completed_at ? { completed_at: new Date().toISOString() } : {}),
