@@ -37,10 +37,13 @@ export async function POST(req: Request) {
     speechRate?: number;
     voiceId?: string;
     modelId?: string;
+    noiseSuppression?: "off" | "auto" | "max";
+    backgroundSoundId?: string | null;
+    backgroundVolume?: number;
   };
   try { body = await req.json(); } catch { return Response.json({ error: "Invalid body." }, { status: 400 }); }
 
-  const { name, greeting, instructions, startingLanguage, speechRate, voiceId, modelId } = body;
+  const { name, greeting, instructions, startingLanguage, speechRate, voiceId, modelId, noiseSuppression, backgroundSoundId, backgroundVolume } = body;
   if (!name || !instructions) {
     return Response.json({ error: "name and instructions are required." }, { status: 400 });
   }
@@ -81,6 +84,8 @@ export async function POST(req: Request) {
       voiceId: resolvedVoiceId,
       speed: speechRate,
       modelId: resolvedModelId,
+      noiseSuppression: noiseSuppression ?? "auto",
+      backgroundSound: backgroundSoundId ? { fileId: backgroundSoundId, volume: backgroundVolume ?? 1 } : null,
     };
 
     let agentId = client.cartesia_agent_id;
