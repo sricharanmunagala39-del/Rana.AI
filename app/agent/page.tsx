@@ -4,6 +4,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
 import VoicePickerModal, { PickerVoice } from "@/components/VoicePickerModal";
+import ModelPickerModal, { PickerModel } from "@/components/ModelPickerModal";
+import BackgroundSoundPicker, { PickerBackgroundSound } from "@/components/BackgroundSoundPicker";
 import {
   AgentSettings,
   AgentStep,
@@ -87,11 +89,17 @@ export default function AgentPage() {
 
   /* Cartesia catalog + publish */
   const [cartesiaVoices, setCartesiaVoices] = useState<PickerVoice[]>([]);
-  const [cartesiaModels, setCartesiaModels] = useState<{ id: string; name: string; provider?: string | null }[]>([]);
+  const [cartesiaModels, setCartesiaModels] = useState<PickerModel[]>([]);
+  const [backgroundSounds, setBackgroundSounds] = useState<PickerBackgroundSound[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError,   setCatalogError]   = useState("");
   const [selectedModelId, setSelectedModelId] = useState("");
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
+  const [modelModalOpen, setModelModalOpen] = useState(false);
+  const [soundModalOpen, setSoundModalOpen] = useState(false);
+  const [backgroundSoundId, setBackgroundSoundId] = useState<string | null>(null);
+  const [backgroundVolume, setBackgroundVolume] = useState(1);
+  const [noiseSuppression, setNoiseSuppression] = useState<"off" | "auto" | "max">("auto");
 
   const [publishStatus, setPublishStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [publishError,  setPublishError]  = useState("");
@@ -146,6 +154,7 @@ export default function AgentPage() {
       if (!res.ok) throw new Error(data.error || "Failed to load voices/models.");
       setCartesiaVoices(data.voices || []);
       setCartesiaModels(data.models || []);
+      setBackgroundSounds(data.backgroundSounds || []);
     } catch (err: any) {
       setCatalogError(err?.message || "Something went wrong.");
     } finally { setCatalogLoading(false); }
@@ -173,6 +182,9 @@ export default function AgentPage() {
           speechRate: settings.speechRate,
           voiceId: settings.speaker || undefined,
           modelId: selectedModelId || undefined,
+          noiseSuppression,
+          backgroundSoundId,
+          backgroundVolume,
         }),
       });
       const data = await res.json();
@@ -547,7 +559,7 @@ export default function AgentPage() {
                       <input value={v.key} onChange={(e) => updateVariable(i, "key", e.target.value)} placeholder="field_key"
                         className="w-[170px] border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] font-mono bg-white outline-none focus:border-signal" />
                       <input value={v.label} onChange={(e) => updateVariable(i, "label", e.target.value)} placeholder="Label shown to your team"
-                        className="flex-1 border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none focus:border-signal" />
+                        className="flex-1 border border-line rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-signal text-[12.5px]" />
                       <button onClick={() => removeVariable(i)} className="text-miss text-xs font-semibold px-1">✕</button>
                     </div>
                   ))}
@@ -758,13 +770,63 @@ export default function AgentPage() {
 
                 <div>
                   <label className="text-[13px] font-semibold block mb-1.5">Model — the agent's brain</label>
-                  <select value={selectedModelId} onChange={(e) => setSelectedModelId(e.target.value)}
-                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal">
-                    <option value="">Let Cartesia pick (defaults to a Claude model)</option>
-                    {cartesiaModels.map((m) => (
-                      <option key={m.id} value={m.id}>{m.name}{m.provider ? ` — ${m.provider}` : ""}</option>
+                  <button type="button" onClick={() => setModelModalOpen(true)} disabled={catalogLoading}
+                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal flex items-center justify-between disabled:opacity-60">
+                    <span className="truncate text-left">
+                      {catalogLoading
+                        ? "Loading models…"
+                        : cartesiaModels.find((m) => m.id === selectedModelId)
+                        ? cartesiaModels.find((m) => m.id === selectedModelId)!.name
+                        : "Let Cartesia pick (defaults to a Claude model)"}
+                    </span>
+                    <span className="text-[12px] font-semibold text-signal shrink-0 ml-3">Browse</span>
+                  </button>
+                  {modelModalOpen && (
+                    <ModelPickerModal
+                      models={cartesiaModels}
+                      currentId={selectedModelId}
+                      onSelect={(m) => { setSelectedModelId(m.id); setModelModalOpen(false); }}
+                      onClose={() => setModelModalOpen(false)}
+                    />
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-[13px] font-semibold block mb-1.5">Background sound</label>
+                  <button type="button" onClick={() => setSoundModalOpen(true)}
+                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal flex items-center justify-between">
+                    <span className="truncate text-left">
+                      {backgroundSounds.find((s) => s.id === backgroundSoundId)?.filename || "None"}
+                    </span>
+                    <span className="text-[12px] font-semibold text-signal shrink-0 ml-3">Browse</span>
+                  </button>
+                  {backgroundSoundId && (
+                    <div className="mt-2">
+                      <label className="text-[11px] text-ink-soft block mb-1">Volume <span className="font-semibold text-ink">{backgroundVolume.toFixed(1)}</span></label>
+                      <input type="range" min={0} max={2} step={0.1} value={backgroundVolume} onChange={(e) => setBackgroundVolume(parseFloat(e.target.value))} className="w-full accent-signal" />
+                    </div>
+                  )}
+                  {soundModalOpen && (
+                    <BackgroundSoundPicker
+                      sounds={backgroundSounds}
+                      currentId={backgroundSoundId}
+                      onSelect={(s) => { setBackgroundSoundId(s?.id ?? null); setSoundModalOpen(false); }}
+                      onUploaded={(s) => { setBackgroundSounds((list) => [s, ...list]); setBackgroundSoundId(s.id); setSoundModalOpen(false); }}
+                      onClose={() => setSoundModalOpen(false)}
+                    />
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-[13px] font-semibold block mb-1.5">Noise suppression</label>
+                  <div className="flex gap-2">
+                    {(["off", "auto", "max"] as const).map((n) => (
+                      <button key={n} type="button" onClick={() => setNoiseSuppression(n)}
+                        className={`text-[12.5px] font-semibold px-3.5 py-1.5 rounded-full border capitalize ${noiseSuppression === n ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"}`}>
+                        {n}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-5">
@@ -784,18 +846,6 @@ export default function AgentPage() {
                   <select value={settings.startingLanguage} onChange={(e) => setSettings((s) => ({ ...s, startingLanguage: e.target.value }))} className="border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal">
                     {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
                   </select>
-                </div>
-                <div>
-                  <label className="text-[13px] font-semibold block mb-1.5">Background sound</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {BACKGROUND_OPTIONS.map((b) => (
-                      <button key={b.id} onClick={() => setSettings((s) => ({ ...s, backgroundSound: b.id }))}
-                        className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-full border ${settings.backgroundSound === b.id ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"}`}>
-                        {b.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="text-[11px] text-ink-soft mt-1">Preview only — not yet sent to Cartesia.</div>
                 </div>
                 <div className="flex items-center gap-3 pt-2 border-t border-line">
                   <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">Save changes</button>
