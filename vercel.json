@@ -1,4 +1,17 @@
 {
-  "crons": [{ "path": "/api/cron/sync-calls", "schedule": "30 0 * * *" }],
-  "git": { "deploymentEnabled": { "work-*": false } }
+  "crons": [
+    {
+      "path": "/api/cron/sync-calls",
+      "schedule": "30 0 * * *"
+    },
+    {
+      "path": "/api/cron/billing",
+      "schedule": "0 1 * * *"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "work-*": false
+    }
+  }
 }

@@ -39,7 +39,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (b.plan !== "trial" && c.plan === "trial") patch.billing_cycle_start = new Date().toISOString().slice(0, 10);
     if (b.plan === "trial" && !c.trial_ends_at) { patch.trial_started_at = new Date().toISOString(); patch.trial_ends_at = new Date(Date.now() + 14 * 86400000).toISOString(); }
   }
-  if ("status" in b) { if (!["active", "suspended"].includes(b.status)) return Response.json({ error: "Unknown status" }, { status: 400 }); patch.status = b.status; }
+  if ("status" in b) { if (!["active", "suspended"].includes(b.status)) return Response.json({ error: "Unknown status" }, { status: 400 }); patch.status = b.status; patch.suspended_reason = b.status === "suspended" ? "hq" : null; }
   if ("extendTrialDays" in b) {
     const days = Math.max(1, Math.min(60, Number(b.extendTrialDays) || 7));
     const base = c.trial_ends_at && Date.parse(c.trial_ends_at) > Date.now() ? Date.parse(c.trial_ends_at) : Date.now();
