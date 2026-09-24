@@ -59,6 +59,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       voiceId: resolvedVoiceId,
       speed: script.speech_rate,
       modelId: resolvedModelId,
+      noiseSuppression: (script.noise_suppression as "off" | "auto" | "max" | undefined) ?? "auto",
+      backgroundSound: script.background_sound_id
+        ? { fileId: script.background_sound_id, volume: typeof script.background_volume === "number" ? script.background_volume : 1 }
+        : null,
     };
 
     // Every named agent gets its own Cartesia agent_id — that's what makes each one
