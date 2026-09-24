@@ -74,6 +74,8 @@ export type CartesiaAgentInput = {
   modelId: string;     // an ID from GET /v1/agents/models
   noiseSuppression?: "off" | "auto" | "max";
   backgroundSound?: { fileId: string; volume: number } | null; // volume 0-2
+  keyterms?: string[];  // words the speech recogniser should listen for (brand, course, place names)
+  pronunciationDictionaryId?: string | null;
 };
 
 function buildConfig(cfg: CartesiaAgentInput) {
@@ -84,7 +86,7 @@ function buildConfig(cfg: CartesiaAgentInput) {
     language: { primary: cfg.language },
     audio: {
       input: {
-        keyterms: [],
+        keyterms: (cfg.keyterms || []).map((k) => String(k).trim()).filter(Boolean).slice(0, 100),
         noise_suppression: cfg.noiseSuppression ?? "auto",
       },
       output: {
@@ -92,7 +94,7 @@ function buildConfig(cfg: CartesiaAgentInput) {
         speed: Math.min(1.5, Math.max(0.6, cfg.speed ?? 1)),
         volume: null,
         emotion: null,
-        pronunciation_dictionary_id: null,
+        pronunciation_dictionary_id: cfg.pronunciationDictionaryId ?? null,
         background_sound: cfg.backgroundSound
           ? { file_id: cfg.backgroundSound.fileId, volume: Math.min(2, Math.max(0, cfg.backgroundSound.volume)) }
           : null,
