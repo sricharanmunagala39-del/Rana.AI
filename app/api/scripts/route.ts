@@ -34,6 +34,9 @@ export async function POST(req: Request) {
       speech_pitch: body.speech_pitch ?? 1.0,
       starting_language: body.starting_language ?? template?.language ?? "en-IN",
       model_id: body.model_id ?? null,
+      background_sound_id: body.background_sound_id ?? null,
+      background_volume: typeof body.background_volume === "number" ? body.background_volume : 1,
+      noise_suppression: body.noise_suppression ?? "auto",
       status: "draft",
     });
     return Response.json({ script }, { status: 201 });
