@@ -47,7 +47,7 @@ export async function runLifecycle(now = new Date()) {
       }
       if (isMonday && c.status === "active") {
         const since = new Date(now.getTime() - 7 * DAY).toISOString();
-        const calls = (await sb<any[]>(`/calls?client_id=eq.${c.id}&created_at=gte.${encodeURIComponent(since)}&select=duration_seconds,lead_status,caller_name,agent_variables&limit=20000`).catch(() => [])) || [];
+        const calls = (await sb<any[]>(`/calls?client_id=eq.${c.id}&created_at=gte.${encodeURIComponent(since)}&or=(source.is.null,source.neq.manual)&select=duration_seconds,lead_status,caller_name,agent_variables&limit=20000`).catch(() => [])) || [];
         if (calls.length) {
           const connected = calls.filter((x) => Number(x.duration_seconds) > 0);
           const minutes = connected.reduce((a, x) => a + Math.ceil(Number(x.duration_seconds) / 30) / 2, 0);

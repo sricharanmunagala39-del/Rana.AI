@@ -23,7 +23,7 @@ export async function maybeAutoRecharge(client: any, wallet?: any) {
   if (w.planMinutesLeft > 0 || w.balance >= Number(client.auto_recharge_below)) return null;
   // Only one open auto-recharge at a time.
   const open = (await sb<any[]>(`/invoices?client_id=eq.${client.id}&kind=eq.recharge&status=eq.issued&select=id,created_at&order=created_at.desc&limit=1`).catch(() => [])) || [];
-  if (open.length && Date.now() - Date.parse(open[0].created_at) < 3 * 86400e3) return null;
+  if (open.length) return null; // the cron voids unpaid ones after 10 days; a DB unique index also blocks doubles
   const r = await rechargeInvoice(client, Number(client.auto_recharge_amount), { createdBy: "auto-recharge", notify: true, auto: true });
   const to = await ownerEmails(client.id, client.billing_email || client.login_email);
   const m = tpl.autoRecharge(client.name, Number(client.auto_recharge_amount), r.invoice.rzp_link_url || null);

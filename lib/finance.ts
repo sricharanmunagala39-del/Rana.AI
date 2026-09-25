@@ -1,7 +1,7 @@
 // RANA HQ money view: what came in (Razorpay/bank), what went out (Razorpay fees, Sarvam), GST, and the Sarvam credit balance.
 // Sarvam has no balance API we can read, so HQ keeps a small ledger: top-ups it paid, and balance readings from the Sarvam
 // dashboard. Between readings, spend is estimated from the minutes RANA records × cost per minute.
-import { sb } from "./db";
+import { sb, sbAll } from "./db";
 import { PLANS, type PlanKey, billedMinutes } from "./plans";
 import { razorpayConfigured, fetchPaymentFee } from "./razorpay";
 import { r2, todayIST, addDays } from "./billing";
@@ -37,7 +37,7 @@ async function feeOf(inv: any): Promise<{ fee: number; tax: number; estimated: b
 
 async function callsBetween(from: Date, to: Date) {
   // Talk-page practice (source "manual") isn't charged by Sarvam, so it's left out of cost estimates.
-  const rows = (await sb<any[]>(`/calls?created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=client_id,duration_seconds,created_at,source&limit=200000`).catch(() => [])) || [];
+  const rows = (await sbAll<any>(`/calls?created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=client_id,duration_seconds,created_at,source&order=created_at.asc,id.asc`).catch(() => [])) || [];
   return rows.filter((r) => r.source !== "manual");
 }
 

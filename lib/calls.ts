@@ -70,6 +70,16 @@ export async function getClientByCartesiaWebhookSecret(secret: string): Promise<
 
 /** Insert or update by interaction_id (idempotent — Sarvam/Cartesia may retry webhooks). */
 export async function upsertCall(row: Partial<CallRow>): Promise<CallRow> {
+  return upsertCallRow(row);
+}
+
+/** The stored row for an interaction id (any client) — used to keep webhook retries from overwriting other data. */
+export async function existingCall(interactionId: string): Promise<any | null> {
+  const r = await sb(`/calls?interaction_id=eq.${encodeURIComponent(interactionId)}&select=client_id,lead_status,lead_reason,recording_url&limit=1`).catch(() => null);
+  return r?.[0] ?? null;
+}
+
+async function upsertCallRow(row: Partial<CallRow>): Promise<CallRow> {
   const r = await sb(`/calls?on_conflict=interaction_id`, {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
@@ -123,10 +133,11 @@ export function classifyLead(vars: Record<string, unknown>, connectivity: string
   if (connectivity && ["no_answer", "busy", "failed"].includes(connectivity)) return "no_answer";
   const raw = (pick(vars, LEAD_KEYS) || "").toLowerCase();
   if (raw) {
+    // Negatives first: "not_interested" contains "interested", "not_ready" contains "ready".
+    if (/not.?interested|no.?interest|not.?ready|no.?book|decline|reject|dnd|do not/.test(raw)) return "not_interested";
     if (/ready|close|enrol|enroll|book|convert/.test(raw)) return "ready_to_close";
     if (/hot|high/.test(raw)) return "hot";
     if (/warm|medium|interested|callback|follow/.test(raw)) return "warm";
-    if (/not.?interested|decline|reject|dnd|do not/.test(raw)) return "not_interested";
     if (/cold|low/.test(raw)) return "cold";
   }
   if (duration < 15) return "cold";
@@ -279,7 +290,7 @@ export function payloadToCallFromCartesia(p: any, clientId: string): Partial<Cal
    Telugu/Hindi transliterations). */
 const RX = {
   unreachable: /dial_failed|no_answer|busy|voicemail|failed|rejected|unreachable/,
-  refusal: /not interested|no interest|don'?t (call|want)|do not call|dnd|wrong number|already (joined|enrolled|bought|taken)|stop calling|vaddu|interest ledu|avasaram ledu|nahi chahiye|mat karo|zaroorat nahi/,
+  refusal: /not interested|no interest|don'?t call (me|again)|don'?t want (it|this|to join|the course)|do not call|dnd|wrong number|already (joined|enrolled|bought|taken)|stop calling|vaddu|interest ledu|avasaram ledu|nahi chahiye|mat karo|zaroorat nahi/,
   commit: /ready to (join|enrol|enroll|pay|book|buy|visit)|wants? to (join|enrol|enroll|pay|book|buy)|send (me )?(the )?(payment|upi) link|how (do|can) i pay|payment link|site visit|book(ed)? (a )?(seat|slot|visit|demo)|confirmed|join chest|join karunga|pay chest/,
   buying: /fee|fees|price|cost|batch|timing|schedule|syllabus|discount|emi|installment|scholarship|availability|location|address|brochure|details|when (does|will|is)|entha|kitna|eppudu|kab se/,
   callback: /call (me )?back|callback|call later|call tomorrow|busy now|follow ?up|tarvata call|repu call|baad mein|kal call/,

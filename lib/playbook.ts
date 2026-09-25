@@ -28,11 +28,11 @@ export type KnowledgeItem = { title: string; kind: string; summary: string | nul
 
 export const LANG_NAMES: Record<string, string> = {
   en: "English", hi: "Hindi", te: "Telugu", ta: "Tamil", kn: "Kannada", ml: "Malayalam", mr: "Marathi",
-  bn: "Bengali", gu: "Gujarati", pa: "Punjabi", ur: "Urdu", ar: "Arabic", es: "Spanish", fr: "French", de: "German", pt: "Portuguese",
+  bn: "Bengali", gu: "Gujarati", pa: "Punjabi", or: "Odia", ur: "Urdu", ar: "Arabic", es: "Spanish", fr: "French", de: "German", pt: "Portuguese",
 };
 const SCRIPT_NOTE: Record<string, string> = {
   te: "Telugu script (తెలుగు)", hi: "Devanagari (हिन्दी)", ta: "Tamil script", kn: "Kannada script", ml: "Malayalam script",
-  mr: "Devanagari", bn: "Bengali script", gu: "Gujarati script", pa: "Gurmukhi", ur: "Urdu script", ar: "Arabic script",
+  mr: "Devanagari", bn: "Bengali script", gu: "Gujarati script", pa: "Gurmukhi", or: "Odia script", ur: "Urdu script", ar: "Arabic script",
 };
 export const baseLang = (l?: string | null) => String(l || "en").toLowerCase().split(/[-_]/)[0] || "en";
 
@@ -74,7 +74,7 @@ export function normalizePronunciations(v: any): Pronunciation[] {
 }
 
 export function normalizePolicy(v: any, opening: string): LanguagePolicy {
-  const allowed = Array.from(new Set([baseLang(opening), ...(Array.isArray(v?.allowed) ? v.allowed.map(baseLang) : [])])).filter((l) => LANG_NAMES[l]).slice(0, 8);
+  const allowed = Array.from(new Set([baseLang(opening), ...(Array.isArray(v?.allowed) ? v.allowed.map(baseLang) : [])])).filter((l) => LANG_NAMES[l]).slice(0, 11);
   const swaps: WordSwap[] = (Array.isArray(v?.swaps) ? v.swaps : [])
     .map((w: any) => ({ avoid: str(w?.avoid, 80), say: str(w?.say, 80) }))
     .filter((w: WordSwap) => w.avoid && w.say && w.avoid !== w.say).slice(0, 60);
@@ -126,6 +126,15 @@ export function spokenUrl(url: string): string {
 
 /** Rough language of a piece of text from its script — enough to warn "your greeting is in English but the agent opens in Telugu". */
 export function detectScriptLanguage(text: string): string | null {
+  return detectScript(text);
+}
+
+/** Hindi and Marathi share Devanagari, so script detection can't tell them apart — treat them as the same. */
+export function sameScriptLanguage(a: string | null, b: string | null): boolean {
+  return a === b || (!!a && !!b && ["hi", "mr"].includes(a) && ["hi", "mr"].includes(b));
+}
+
+function detectScript(text: string): string | null {
   const t = String(text || "");
   const counts: [string, RegExp][] = [["te", /[ఀ-౿]/g], ["hi", /[ऀ-ॿ]/g], ["ta", /[஀-௿]/g], ["kn", /[ಀ-೿]/g],
     ["ml", /[ഀ-ൿ]/g], ["bn", /[ঀ-৿]/g], ["gu", /[઀-૿]/g], ["pa", /[਀-੿]/g], ["ar", /[؀-ۿ]/g], ["en", /[A-Za-z]/g]];
@@ -358,7 +367,8 @@ Speak only ${openName}${SCRIPT_NOTE[open] ? `, written in ${SCRIPT_NOTE[open]}` 
 - Write each language in its own script so it is pronounced correctly: ${allowed.map((a) => { const code = Object.keys(LANG_NAMES).find((k) => LANG_NAMES[k] === a)!; return SCRIPT_NOTE[code] ? `${a} in ${SCRIPT_NOTE[code]}` : `${a} in Latin letters`; }).join("; ")}.
 - Mixing common English words (fees, batch, online, EMI, course names) into Telugu or Hindi is natural — do it the way the caller does.`);
 
-  const style = speakingStyleRules(s.policy, open);
+  // "Always speak X" → the style rules cover only the opening language.
+  const style = speakingStyleRules(s.policy.mode === "fixed" ? { ...s.policy, allowed: [open] } : s.policy, open);
   if (style) parts.push(style);
 
   if (p) {
