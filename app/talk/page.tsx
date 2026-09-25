@@ -432,7 +432,7 @@ function TalkInner() {
                 {allChecked && testsRun === 0 && !testedAt && <span className="text-[11.5px] text-ink-soft">Make at least one test call first.</span>}
               </div>
               {testMsg && <div className="text-[12.5px] text-signal">{testMsg}</div>}
-              <div className="text-[11.5px] text-ink-soft">Test calls are saved with your calls but never counted in the dashboard.</div>
+              <div className="text-[11.5px] text-ink-soft">Practice here in the browser is free — it never uses your plan minutes. "Call me" rings a real phone and counts as a call.</div>
             </div>
           </div>
         )}

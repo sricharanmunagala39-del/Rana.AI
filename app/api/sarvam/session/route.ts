@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   const script: any = b.scriptId ? await getScriptById(String(b.scriptId)) : null;
   if (!script || script.client_id !== session.clientId) return Response.json({ error: "Employee not found" }, { status: 404 });
   if (!script.published_at || !String(script.instructions || "").trim()) return Response.json({ error: `${script.name} isn't published yet — press Publish first.` }, { status: 400 });
-  const planBlock = await callingBlock(await getClientById(session.clientId));
+  const planBlock = await callingBlock(await getClientById(session.clientId), { practice: true }); // practice is free
   if (planBlock) return Response.json({ error: planBlock, code: "plan_limit" }, { status: 402 });
   try {
     const signed = await signedSessionUrl(withVoice(cfg, script.voice_name), `rana-test-${session.clientId.slice(0, 8)}-${Date.now()}`);
