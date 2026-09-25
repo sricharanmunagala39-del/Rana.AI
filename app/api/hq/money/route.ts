@@ -9,14 +9,14 @@ import { todayIST } from "@/lib/billing";
 /** GET ?month=YYYY-MM → money in, money out, GST, profit per client, Sarvam credit balance. RANA HQ only. */
 export async function GET(req: Request) {
   const session = await getSession(req);
-  const denied = requireHq(session); if (denied) return denied;
+  const denied = requireHq(session, "money"); if (denied) return denied;
   return Response.json(await financeReport(new URL(req.url).searchParams.get("month")));
 }
 
 /** POST { kind: "topup" | "balance", amount, date?, gstIncluded?, note? } → Sarvam ledger entry. { deleteId } removes a mistaken entry. */
 export async function POST(req: Request) {
   const session = await getSession(req);
-  const denied = requireHq(session); if (denied) return denied;
+  const denied = requireHq(session, "money"); if (denied) return denied;
   const b = await req.json().catch(() => ({} as any));
   if (b.deleteId) {
     if (!/^[0-9a-f-]{36}$/i.test(String(b.deleteId))) return Response.json({ error: "Bad id" }, { status: 400 });

@@ -6,6 +6,7 @@ import { hashPassword } from "@/lib/auth";
 import { createUser, getUserByEmail, normaliseEmail, validEmail, tempPassword } from "@/lib/users";
 import { PLANS, PLAN_KEYS, usageOf, type PlanKey } from "@/lib/plans";
 import { audit } from "@/lib/audit";
+import { sendEmail, tpl } from "@/lib/notify";
 
 const INDUSTRIES = ["edtech", "realestate", "hospitality", "saas", "other"];
 
@@ -26,7 +27,8 @@ export async function GET(req: Request) {
     return {
       id: c.id, name: c.name, industry: c.industry, plan: c.plan, status: c.status, createdAt: c.created_at,
       contactPhone: c.contact_phone, notes: c.hq_notes, number: c.sarvam_agent_number,
-      overrides: { minutes: c.minutes_included, employees: c.max_employees, concurrency: c.max_concurrency, campaignSize: c.max_campaign_size, allowOverage: c.allow_overage },
+      overrides: { minutes: c.minutes_included, employees: c.max_employees, concurrency: c.max_concurrency, campaignSize: c.max_campaign_size, allowOverage: c.allow_overage, walletEnabled: c.wallet_enabled },
+      signup: c.signup_source || null,
       owner: owner ? { email: owner.email, lastLogin: owner.last_login_at } : { email: c.login_email, lastLogin: null },
       teamSize: team.filter((x) => x.is_active).length,
       lastLogin: team.map((x) => x.last_login_at).filter(Boolean).sort().pop() || null,
@@ -42,7 +44,7 @@ export async function GET(req: Request) {
 /** POST { name, industry, ownerEmail, ownerName?, plan?, contactPhone?, notes? } → new workspace + owner with a one-time password. */
 export async function POST(req: Request) {
   const session = await getSession(req);
-  const denied = requireHq(session); if (denied) return denied;
+  const denied = requireHq(session, "clients"); if (denied) return denied;
   const b = await req.json().catch(() => ({}));
   const name = String(b.name || "").trim().slice(0, 80);
   const email = normaliseEmail(b.ownerEmail);
@@ -73,5 +75,8 @@ export async function POST(req: Request) {
   await createUser({ clientId: client.id, email, name: String(b.ownerName || "").trim() || name, password, role: "owner", invitedBy: session!.email, mustChange: true });
   await audit(session!, "hq_client_created", { req, targetType: "client", targetId: client.id, detail: { name, plan, owner: email } });
   await audit({ clientId: client.id, email: session!.email }, "hq_client_created", { req, targetType: "client", targetId: client.id, detail: { by: "RANA HQ", plan } });
-  return Response.json({ ok: true, client: { id: client.id, name }, owner: { email, password }, loginUrl: "https://rana-ai-roan.vercel.app/login" }, { status: 201 });
+  // Email the owner their login (skipped quietly until email is set up; HQ still gets the WhatsApp-ready text).
+  const m = tpl.welcome(name, email, password, PLANS[plan].name);
+  const mail = b.sendEmail === false ? { ok: false, error: "not requested" } : await sendEmail({ to: email, subject: m.subject, html: m.html, clientId: client.id, kind: "welcome" });
+  return Response.json({ ok: true, client: { id: client.id, name }, owner: { email, password }, emailed: mail.ok, emailError: mail.ok ? null : mail.error, loginUrl: "https://rana-ai-roan.vercel.app/login" }, { status: 201 });
 }
