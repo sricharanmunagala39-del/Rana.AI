@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
+import SetupChecklist from "@/components/SetupChecklist";
 import StatusPill from "@/components/StatusPill";
 import CallDrawer from "@/components/CallDrawer";
 import type { CallRow, LeadStatus } from "@/lib/calls";
@@ -250,6 +251,7 @@ export default function DashboardPage() {
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="overview" />
       <main className="flex-1 min-w-0 box-border px-6 py-8 lg:px-10 flex flex-col gap-5">
+        <SetupChecklist />
         {/* Header + filters */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
