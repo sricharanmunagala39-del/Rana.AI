@@ -163,10 +163,14 @@ Rules:
 - Put every objection and its answer you can find (or clearly implied) into "objections". Common Indian sales objections (price, time, "I'll think about it", "send details on WhatsApp", "already joined elsewhere") should be included when the script answers them.
 - Keep each item short and spoken-style (one or two sentences). Keep the language of each item as in the script. Merge near-duplicates.
 - Find every URL or website mentioned and return it in "links" with a purpose (payment, website, booking, brochure, other).
-${baseLang(input.openingLanguage) !== "en" ? `- Write every ${lang} item the way people really speak on the phone — everyday ${lang}, not formal or bookish — keeping common English words (fees, batch, class, course, demo, online, payment, EMI, discount) as English words spelled in the native script.\n` : ""}@@ENDEDIT
-@@EDIT lib/playbook.ts
+${baseLang(input.openingLanguage) !== "en" ? `- Write every ${lang} item the way people really speak on the phone — everyday ${lang}, not formal or bookish — keeping common English words (fees, batch, class, course, demo, online, payment, EMI, discount) as English words spelled in the native script.\n
+  const style = speakingStyleRules(s.policy, open);
+  if (style) parts.push(style);
 
   if (p) {
+- Suggest a greeting in ${lang}
+@@WITH
+` : ""}- Suggest a greeting in ${lang}
 @@WITH
 
   const style = speakingStyleRules(s.policy, open);
@@ -367,6 +371,9 @@ Speak only ${openName}${SCRIPT_NOTE[open] ? `, written in ${SCRIPT_NOTE[open]}` 
 - Languages you may use: ${allowed.join(", ")}. If the caller uses any other language, continue in ${openName} and politely say you can speak ${allowed.join(", ")}.
 - Write each language in its own script so it is pronounced correctly: ${allowed.map((a) => { const code = Object.keys(LANG_NAMES).find((k) => LANG_NAMES[k] === a)!; return SCRIPT_NOTE[code] ? `${a} in ${SCRIPT_NOTE[code]}` : `${a} in Latin letters`; }).join("; ")}.
 - Mixing common English words (fees, batch, online, EMI, course names) into Telugu or Hindi is natural — do it the way the caller does.`);
+
+  const style = speakingStyleRules(s.policy, open);
+  if (style) parts.push(style);
 
   if (p) {
     const flow: string[] = [];
