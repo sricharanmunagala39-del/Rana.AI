@@ -39,8 +39,50 @@ export function sarvamMissing(): string[] {
   return ["RANA_SARVAM_AGENTS_API_KEY", "RANA_SARVAM_ORG_ID", "RANA_SARVAM_WORKSPACE_ID", "RANA_SARVAM_APP_ID"].filter((k) => !process.env[k]);
 }
 
-/** The voice set on the RANA Runtime agent in Sarvam (Settings → Voice). Shown in RANA and used for previews. */
+/** The voice set on the RANA Runtime agent in Sarvam (Settings → Voice). The default voice. */
 export const SARVAM_AGENT_VOICE = { name: "Priya", speaker: "priya", gender: "feminine" };
+
+/**
+ * Voices a customer can pick. Sarvam sets the voice on the agent, not per call, so each voice is a copy of the
+ * RANA Runtime agent (same instructions variable) with a different voice, committed as v1 in RANA's Sarvam workspace.
+ * appId null = the main RANA Runtime agent (RANA_SARVAM_APP_ID). Override ids with RANA_SARVAM_VOICE_APPS
+ * (JSON: {"kavya":"RANA-Runtim-…@1", …}) if an agent is re-created.
+ */
+export type SarvamVoice = { key: string; name: string; speaker: string; gender: "feminine" | "masculine"; tone: string; appId: string | null; appVersion: number };
+export const SARVAM_VOICES: SarvamVoice[] = [
+  { key: "priya", name: "Priya", speaker: "priya", gender: "feminine", tone: "Warm and friendly", appId: null, appVersion: 0 },
+  { key: "kavya", name: "Kavya", speaker: "kavya", gender: "feminine", tone: "Calm and caring", appId: "RANA-Runtim-f3aaa318-c225", appVersion: 1 },
+  { key: "shreya", name: "Shreya", speaker: "shreya", gender: "feminine", tone: "Bright and confident", appId: "RANA-Runtim-5c226d02-a4b2", appVersion: 1 },
+  { key: "aditya", name: "Aditya", speaker: "aditya", gender: "masculine", tone: "Clear and professional", appId: "RANA-Runtim-61c17dd3-0e02", appVersion: 1 },
+  { key: "rahul", name: "Rahul", speaker: "rahul", gender: "masculine", tone: "Friendly and upbeat", appId: "RANA-Runtim-aaae2662-4769", appVersion: 1 },
+  { key: "kabir", name: "Kabir", speaker: "kabir", gender: "masculine", tone: "Deep and assured", appId: "RANA-Runtim-1b592e11-7534", appVersion: 1 },
+];
+
+/** The picked voice for an employee (by name or key), defaulting to Priya. */
+export function voiceFor(nameOrKey: string | null | undefined): SarvamVoice {
+  const k = String(nameOrKey || "").trim().toLowerCase();
+  return SARVAM_VOICES.find((v) => v.key === k || v.name.toLowerCase() === k) || SARVAM_VOICES[0];
+}
+
+function voiceOverrides(): Record<string, { appId: string; appVersion: number }> {
+  try {
+    const raw = JSON.parse(process.env.RANA_SARVAM_VOICE_APPS || "{}");
+    const out: Record<string, { appId: string; appVersion: number }> = {};
+    for (const [k, v] of Object.entries(raw)) {
+      const [id, ver] = String(v).split("@");
+      if (id) out[k.toLowerCase()] = { appId: id, appVersion: Number(ver) || 1 };
+    }
+    return out;
+  } catch { return {}; }
+}
+
+/** Point this config at the Sarvam agent that speaks with the employee's chosen voice. */
+export function withVoice(cfg: SarvamConfig, nameOrKey: string | null | undefined): SarvamConfig {
+  const v = voiceFor(nameOrKey);
+  const o = voiceOverrides()[v.key];
+  if (o) return { ...cfg, appId: o.appId, appVersion: o.appVersion };
+  return v.appId ? { ...cfg, appId: v.appId, appVersion: v.appVersion } : cfg;
+}
 
 /** Sarvam names languages in full ("Telugu"); RANA stores codes ("te-IN"). */
 export function sarvamLanguageName(code: string | null | undefined): string {

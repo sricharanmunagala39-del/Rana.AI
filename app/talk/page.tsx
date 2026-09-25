@@ -104,7 +104,7 @@ function TalkInner() {
     if (callStatus !== "idle" && callStatus !== "error") return;
     if (!publishInfo?.agentId) {
       setCallStatus("error");
-      setCallError("This employee hasn't been published to Cartesia yet — open their page and hit Publish first.");
+      setCallError("This employee hasn't been published yet — open their page and hit Publish first.");
       return;
     }
     setCallError("");
@@ -353,7 +353,7 @@ function TalkInner() {
                   </span>
                 )}
                 <span className={`text-[10.5px] font-semibold px-2.5 py-1 rounded-full ${isPublished ? "bg-signal/20 text-signal" : "bg-amber-500/15 text-amber-300"}`}>
-                  {statusLoading ? "Checking status…" : isPublished ? (engine === "sarvam" ? "Live on Sarvam" : "Published on Cartesia") : "Not published — hit Publish on their page first"}
+                  {statusLoading ? "Checking status…" : isPublished ? (engine === "sarvam" ? "Live" : "Published") : "Not published — hit Publish on their page first"}
                 </span>
               </div>
 
@@ -362,7 +362,7 @@ function TalkInner() {
               {scriptId && engine === "sarvam" && isPublished && !isLive && (
                 <div className="mt-7 w-full max-w-[420px] rounded-2xl bg-white/5 border border-white/10 p-4 text-left" data-testid="call-my-phone">
                   <div className="text-[12.5px] font-semibold">Or take a real phone call</div>
-                  <div className="text-[11.5px] text-white/50 mt-0.5">{agentName} calls your mobile from the Sarvam Indian number — the real caller experience.</div>
+                  <div className="text-[11.5px] text-white/50 mt-0.5">{agentName} calls your mobile from your Indian business number — the real caller experience.</div>
                   <div className="flex gap-2 mt-3">
                     <input value={phoneTo} onChange={(e) => setPhoneTo(e.target.value)} placeholder="98765 43210" inputMode="tel"
                       className="flex-1 bg-white/10 border border-white/15 rounded-lg px-3 py-2 text-[13px] outline-none focus:border-white/40 placeholder:text-white/30" />

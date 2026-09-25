@@ -3,7 +3,7 @@ import { getSession } from "@/lib/session";
 import { forbidUnless } from "@/lib/auth";
 import { getScriptById, getClientById } from "@/lib/supabase";
 import { callingBlock } from "@/lib/plans";
-import { sarvamConfig, sarvamMissing, signedSessionUrl, sessionPayload, SARVAM_AGENT_VOICE } from "@/lib/sarvamAgent";
+import { sarvamConfig, sarvamMissing, signedSessionUrl, sessionPayload, voiceFor, withVoice } from "@/lib/sarvamAgent";
 
 /**
  * POST { scriptId } → a single-use Sarvam WebSocket URL for a browser test call, plus the start message
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   const planBlock = await callingBlock(await getClientById(session.clientId));
   if (planBlock) return Response.json({ error: planBlock, code: "plan_limit" }, { status: 402 });
   try {
-    const signed = await signedSessionUrl(cfg, `rana-test-${session.clientId.slice(0, 8)}-${Date.now()}`);
+    const signed = await signedSessionUrl(withVoice(cfg, script.voice_name), `rana-test-${session.clientId.slice(0, 8)}-${Date.now()}`);
     const p = sessionPayload(script);
     const hotwords = (Array.isArray(script.keyterms) ? script.keyterms : []).map((k: any) => String(k)).filter(Boolean).slice(0, 50);
     return Response.json({
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
         agent_variables: p.agent_variables, initial_bot_message: p.initial_bot_message, initial_language_name: p.initial_language_name,
         ...(hotwords.length ? { speech_hotwords: hotwords } : {}),
       },
-      voice: SARVAM_AGENT_VOICE.name, language: p.initial_language_name,
+      voice: voiceFor(script.voice_name).name, language: p.initial_language_name,
     });
   } catch (e: any) {
     return Response.json({ error: e?.message || "Couldn't start a Sarvam session." }, { status: 502 });

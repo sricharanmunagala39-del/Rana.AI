@@ -85,8 +85,8 @@ function DeployModal({ s, numbers, campaigns, onClose, onChanged }: { s: Script;
 
           {mode === "inbound" && s.engine !== "cartesia" && (
             <div className="flex flex-col gap-2 text-[12.5px] leading-relaxed" data-testid="sarvam-inbound">
-              <div className="text-[13px] font-semibold">Inbound on your Sarvam number</div>
-              <div className="text-ink-soft">{s.name} runs on Sarvam. Incoming calls to your Sarvam number (+91 80642 60065) are answered by the agent linked to that number in Sarvam, which RANA can't switch through Sarvam's API yet. To have {s.name} answer inbound calls, the RANA team links the number to {s.name}'s script in Sarvam — send us a message and it's done the same day.</div>
+              <div className="text-[13px] font-semibold">Answering your incoming calls</div>
+              <div className="text-ink-soft">Inbound calls need your own Indian number (Growth plan and above). Tell us which number {s.name} should answer and the RANA team connects it the same day — no setup on your side.</div>
               <div className="text-ink-soft">Outbound works fully from here: pick <b>Make outbound calls</b> above.</div>
             </div>
           )}
@@ -222,7 +222,7 @@ export default function EmployeesPage() {
                         {inbound.length > 0 && <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-signal-tint text-signal">Answering {inbound.map((n) => n.number).join(", ")}</span>}
                         {running > 0 && <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-hot-tint text-hot">Calling · {running} campaign{running > 1 ? "s" : ""} running</span>}
                       </div>
-                      <div className="text-[12.5px] text-ink-soft mt-0.5">{langLabel} · {s.engine === "cartesia" ? `Cartesia${s.voice_name ? ` · voice ${s.voice_name}` : ""}` : "Sarvam · voice Priya"}{s.playbook ? " · Studio script" : (s.steps || []).length ? ` · ${(s.steps || []).length} script steps` : " · no script yet"}</div>
+                      <div className="text-[12.5px] text-ink-soft mt-0.5">{langLabel} · {`Voice ${s.voice_name || "Priya"}`}{s.playbook ? " · Studio script" : (s.steps || []).length ? ` · ${(s.steps || []).length} script steps` : " · no script yet"}</div>
                     </div>
                     <div className="flex gap-2 shrink-0">
                       {!built ? (

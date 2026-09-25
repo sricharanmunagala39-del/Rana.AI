@@ -31,7 +31,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if ("pronunciations" in patch) patch.pronunciations = normalizePronunciations(patch.pronunciations);
   if ("language_policy" in patch) patch.language_policy = normalizePolicy(patch.language_policy, patch.starting_language || existing.starting_language);
   if ("keyterms" in patch) patch.keyterms = (Array.isArray(patch.keyterms) ? patch.keyterms : []).map((k: any) => String(k).slice(0, 60)).filter(Boolean).slice(0, 100);
-  if ("engine" in patch) patch.engine = patch.engine === "cartesia" ? "cartesia" : "sarvam";
+  if ("engine" in patch) patch.engine = "sarvam"; // Sarvam is the only engine offered
   if ("source_script" in patch) patch.source_script = String(patch.source_script || "").slice(0, 60000);
   // Anything other than test sign-off changes what the agent says → the published agent is now out of date.
   const testOnly = ["test_checklist", "test_notes", "tested_at"];

@@ -15,7 +15,7 @@ import { claimResource } from "@/lib/ownership";
 import { buildAgentPrompt, normalizePlaybook, normalizePolicy, normalizeLinks, normalizePronunciations } from "@/lib/playbook";
 import { listKnowledge } from "@/lib/knowledge";
 import { STRICTNESS_LABELS } from "@/lib/storage";
-import { sarvamConfig, sarvamMissing, SARVAM_AGENT_VOICE } from "@/lib/sarvamAgent";
+import { sarvamConfig, sarvamMissing, voiceFor, withVoice } from "@/lib/sarvamAgent";
 
 /** Same instructions for either engine: playbook, links, documents, pronunciation and language rules in one prompt. */
 async function compile(script: any) {
@@ -42,19 +42,23 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const first = await getScriptById(params.id);
   if (!first || first.client_id !== session.clientId) return Response.json({ error: "Not found" }, { status: 404 });
 
-  // Sarvam engine: nothing to create remotely. RANA's instructions travel with every call to the
-  // shared "RANA Runtime" agent, so publishing = compiling and saving them.
-  if ((first as any).engine !== "cartesia") {
-    const cfg = sarvamConfig();
+  // Sarvam engine (the only engine offered to customers): nothing to create remotely. RANA's instructions travel
+  // with every call to the RANA Runtime agent for the chosen voice, so publishing = compiling and saving them.
+  // Older Cartesia drafts are moved onto Sarvam when they are published.
+  const SARVAM_ONLY = true;
+  if (SARVAM_ONLY || (first as any).engine !== "cartesia") {
+    const voice = voiceFor((first as any).engine === "cartesia" ? null : first.voice_name);
+    const base = sarvamConfig();
+    const cfg = base ? withVoice(base, voice.key) : null;
     if (!cfg) return Response.json({ error: `Sarvam isn't configured: set ${sarvamMissing().join(", ")} in Vercel.` }, { status: 500 });
     try {
       const { instructions, keyterms } = await compile(first);
       const agentRef = `sarvam:${cfg.appId}`;
       await audit(session, "employee_published", { req, targetType: "employee", targetId: first.id, detail: { name: first.name, engine: "sarvam", agentId: cfg.appId } });
       const updated = await updateScript(params.id, {
-        cartesia_agent_id: agentRef, voice_name: SARVAM_AGENT_VOICE.name, published_at: new Date().toISOString(), instructions, keyterms,
+        cartesia_agent_id: agentRef, engine: "sarvam", voice_name: voice.name, published_at: new Date().toISOString(), instructions, keyterms,
       } as any);
-      return Response.json({ ok: true, script: updated, agentId: agentRef, engine: "sarvam", voice: SARVAM_AGENT_VOICE.name, chars: instructions.length });
+      return Response.json({ ok: true, script: updated, agentId: agentRef, engine: "sarvam", voice: voice.name, chars: instructions.length });
     } catch (err: any) {
       return Response.json({ error: err?.message || "Couldn't publish this employee." }, { status: 500 });
     }
