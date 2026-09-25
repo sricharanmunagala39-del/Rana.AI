@@ -32,7 +32,10 @@ export function sarvamConfig(): SarvamConfig | null {
 /** A client with its own number calls from it; everyone else uses RANA's shared Sarvam number. */
 export function withClientNumber(cfg: SarvamConfig, client: any): SarvamConfig {
   const own = String(client?.sarvam_agent_number || "").trim();
-  return own ? { ...cfg, agentNumber: own } : cfg;
+  if (!own) return cfg;
+  // A number bought through RANA may sit on its own Sarvam phone connection (RANA's Vobiz account).
+  const conn = String(client?.sarvam_connection_id || "").trim();
+  return { ...cfg, agentNumber: own, ...(conn ? { connectionId: conn } : {}) };
 }
 
 export function sarvamMissing(): string[] {

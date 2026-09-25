@@ -240,6 +240,8 @@ export async function markPaid(invoiceId: string, p: { via: string; paymentId?: 
     if (!stillOverdue.length) Object.assign(patch, { status: "active", suspended_reason: null });
   }
   if (c && Object.keys(patch).length) await sb(`/clients?id=eq.${c.id}`, { method: "PATCH", body: JSON.stringify(patch) });
+  // A business phone number was paid for: buy / renew it.
+  if (inv.phone_number_id) await import("./numbers").then((m) => m.onNumberInvoicePaid(inv)).catch((e) => console.error("[numbers] after payment", e?.message));
   if (c) {
     // Receipt email (quietly skipped until email is set up).
     import("./notify").then(async (n) => {
@@ -341,7 +343,8 @@ export async function runBilling(now = new Date()) {
       for (const i of fresh.filter((i) => i.kind === "recharge" && i.status === "issued" && daysBetween(String(i.created_at).slice(0, 10), today) > 10)) {
         await voidInvoice(i).catch(() => {}); log.push({ client: c.name, did: "void-stale-recharge", number: i.number });
       }
-      const late = fresh.filter((i) => i.kind !== "recharge" && i.status === "issued" && i.due_date && daysBetween(i.due_date, today) > GRACE_DAYS);
+      // Unpaid number rent doesn't pause calling — that number lapses on its own (lib/numbers.ts).
+      const late = fresh.filter((i) => i.kind !== "recharge" && !i.phone_number_id && i.status === "issued" && i.due_date && daysBetween(i.due_date, today) > GRACE_DAYS);
       const lapsed = SELF_SERVE.includes(plan) && daysBetween(c.plan_paid_until, today) > GRACE_DAYS;
       if ((late.length || lapsed) && c.status !== "suspended") {
         await sb(`/clients?id=eq.${c.id}`, { method: "PATCH", body: JSON.stringify({ status: "suspended", suspended_reason: "billing" }) });

@@ -113,6 +113,12 @@ export async function hqOverview(now = new Date()) {
   }
   const rzpErr = (rzpEvents || []).filter((e) => String(e.result || "").startsWith("error") || e.result === "underpaid" || e.result === "link mismatch");
   if (rzpErr.length) alerts.push({ level: "red", kind: "payments", text: `${rzpErr.length} Razorpay payment notice${rzpErr.length === 1 ? "" : "s"} couldn't be matched — check the Money page.` });
+  // Business numbers waiting on HQ (find one / attach in Sarvam / fix a failed purchase / unpaid rent).
+  const numTasks = (await sb<any[]>(`/phone_numbers?status=in.(requested,provisioning,failed,lapsed)&select=status,client_id`).catch(() => [])) || [];
+  const nt = (s: string) => numTasks.filter((x) => x.status === s).length;
+  if (nt("requested")) alerts.push({ level: "orange", kind: "numbers", text: `${nt("requested")} client${nt("requested") === 1 ? " wants" : "s want"} a business number — find one and offer it.`, action: { label: "Phone numbers", href: "/hq/numbers" } });
+  if (nt("provisioning") || nt("failed")) alerts.push({ level: nt("failed") ? "red" : "orange", kind: "numbers", text: `${nt("provisioning") + nt("failed")} paid number${nt("provisioning") + nt("failed") === 1 ? "" : "s"} to switch on (attach in Sarvam → Mark live)${nt("failed") ? ` — ${nt("failed")} failed to buy automatically` : ""}.`, action: { label: "Phone numbers", href: "/hq/numbers" } });
+  if (nt("lapsed")) alerts.push({ level: "orange", kind: "numbers", text: `${nt("lapsed")} number${nt("lapsed") === 1 ? "" : "s"} with unpaid rent — chase or release.`, action: { label: "Phone numbers", href: "/hq/numbers" } });
   const stuck = (campaigns || []).filter((k) => k.last_error);
   for (const k of stuck.slice(0, 5)) alerts.push({ level: "orange", kind: "campaign", clientId: k.client_id, client: rows.find((r) => r.id === k.client_id)?.name, text: `Campaign "${k.name}" reports: ${String(k.last_error).slice(0, 120)}` });
 
