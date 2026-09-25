@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
+import { qrSvg } from "@/lib/qr";
 
 const field = "mt-1 w-full border border-line rounded-lg px-3 py-2 text-[13px] font-normal";
 const ago = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "never");
@@ -64,7 +65,9 @@ export default function HqTeamPage() {
             </div>
             {tf?.secret && (
               <div className="bg-paper rounded-lg p-4 flex flex-col gap-2 text-[13px]" data-testid="twostep-setup">
-                <div>1. In your authenticator app, choose <b>Add account → Enter a setup key</b>. Account: <b>RANA AI</b>. Key:</div>
+                <div>1. In Google Authenticator tap <b>+ → Scan a QR code</b> and scan this:</div>
+                {tf.url && <div className="bg-white rounded-lg p-2 w-fit" data-testid="twostep-qr" dangerouslySetInnerHTML={{ __html: qrSvg(tf.url, 184) }} />}
+                <div className="text-[12px] text-ink-soft">Can't scan? Choose <b>Enter a setup key</b> instead. Account: <b>RANA AI</b>. Key:</div>
                 <div className="font-mono text-[15px] font-semibold select-all bg-raised border border-line rounded-lg px-3 py-2 w-fit" data-testid="twostep-secret">{tf.secret}</div>
                 <div className="text-[12px] text-ink-soft">On your phone? <a href={tf.url} className="text-signal font-semibold">Tap here to add it to your app</a>.</div>
                 <div>2. Type the 6-digit code the app shows:</div>
