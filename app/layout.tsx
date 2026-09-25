@@ -2,9 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "RANA AI — AI employees that call your leads", template: "%s · RANA AI" },
+  metadataBase: new URL("https://ranaai.in"),
+  title: { default: "RANA AI — AI Voice Agents for Indian Businesses", template: "%s · RANA AI" },
   description: "RANA AI answers and places your business calls in 11 Indian languages, qualifies every lead and hands the hot ones to your team.",
-  icons: { icon: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2DE1C2"/><stop offset="1" stop-color="#9284FF"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="#090C13"/><circle cx="16" cy="16" r="7" fill="none" stroke="url(#g)" stroke-width="3"/><circle cx="16" cy="16" r="2.4" fill="#2DE1C2"/></svg>') },
+  applicationName: "RANA AI",
+  openGraph: { type: "website", siteName: "RANA AI", locale: "en_IN" },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {
