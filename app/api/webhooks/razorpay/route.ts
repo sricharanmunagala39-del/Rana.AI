@@ -1,8 +1,21 @@
 export const runtime = "nodejs";
+import crypto from "crypto";
 import { sb } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { getInvoice, markPaid } from "@/lib/billing";
-import { verifyWebhookSignature, razorpayWebhookConfigured } from "@/lib/razorpay";
+import { verifyWebhookSignature, razorpayWebhookConfigured, razorpayConfigured, razorpayMode, listPaymentLinks } from "@/lib/razorpay";
+
+/** GET ?key=… — ops check: are the Razorpay keys accepted? Read-only (lists 1 payment link). Same key as /api/sarvam/diagnose. */
+export async function GET(req: Request) {
+  const secret = process.env.SESSION_SECRET || "";
+  const want = crypto.createHmac("sha256", secret).update("sarvam-diagnose").digest("hex");
+  const got = new URL(req.url).searchParams.get("key") || "";
+  if (!secret || got.length !== want.length || !crypto.timingSafeEqual(Buffer.from(got), Buffer.from(want))) return Response.json({ error: "Forbidden" }, { status: 403 });
+  const out: any = { keys: razorpayConfigured(), mode: razorpayMode(), webhookSecret: razorpayWebhookConfigured() };
+  try { const r = await listPaymentLinks(1); out.apiOk = true; out.linksSeen = r.count ?? r.payment_links?.length ?? 0; }
+  catch (e: any) { out.apiOk = false; out.error = String(e?.message || e).slice(0, 200); }
+  return Response.json(out);
+}
 
 /**
  * Razorpay → RANA. Set up in Razorpay Dashboard → Settings → Webhooks:

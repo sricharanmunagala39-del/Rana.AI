@@ -54,6 +54,10 @@ export async function createPaymentLink(o: {
   return rzp<PaymentLink>("/payment_links", { method: "POST", body: JSON.stringify(body) });
 }
 
+export async function listPaymentLinks(count = 1): Promise<any> {
+  return rzp(`/payment_links?count=${count}`);
+}
+
 export async function fetchPaymentLink(id: string): Promise<PaymentLink> {
   return rzp<PaymentLink>(`/payment_links/${encodeURIComponent(id)}`);
 }
