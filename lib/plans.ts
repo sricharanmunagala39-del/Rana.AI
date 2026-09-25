@@ -84,10 +84,18 @@ export async function callingBlock(client: any, opts: { contacts?: number } = {}
   const u = await usageOf(client);
   if (u.plan.key === "trial" && u.trialEndsAt && Date.parse(u.trialEndsAt) < Date.now())
     return `Your free trial ended on ${new Date(u.trialEndsAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}. Pick a plan on the Billing page to keep calling.`;
-  if (u.minutesUsed >= u.minutesIncluded && !u.limits.allowOverage)
-    return u.plan.key === "trial"
-      ? `You've used all ${u.minutesIncluded} trial minutes. Pick a plan on the Billing page to keep calling.`
-      : `You've used all ${u.minutesIncluded} minutes in this billing period. Ask RANA to add minutes or turn on overage.`;
+  if (client.status === "pending") return "Your workspace is waiting for RANA to approve it. We'll email you as soon as it's switched on.";
+  if (u.minutesUsed >= u.minutesIncluded && !u.limits.allowOverage) {
+    if (u.plan.key === "trial") return `You've used all ${u.minutesIncluded} trial minutes. Pick a plan on the Billing page to keep calling.`;
+    if (client.wallet_enabled) {
+      const { walletOf } = await import("./wallet");
+      const w = await walletOf(client, u);
+      import("./autoRecharge").then((m) => m.maybeAutoRecharge(client, w)).catch(() => {});
+      if (w.balance > 0) return null;
+      return `You've used this period's ${u.minutesIncluded} plan minutes and your prepaid balance. Recharge on the Billing page to keep calling.`;
+    }
+    return `You've used all ${u.minutesIncluded} minutes in this billing period. Ask RANA to add minutes or turn on overage.`;
+  }
   if (opts.contacts && opts.contacts > u.limits.campaignSize)
     return `Your plan allows up to ${u.limits.campaignSize.toLocaleString("en-IN")} numbers per campaign (this list has ${opts.contacts.toLocaleString("en-IN")}). Split the list or upgrade.`;
   return null;
