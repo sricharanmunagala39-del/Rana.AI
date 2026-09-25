@@ -106,7 +106,10 @@ export default function HqPage() {
               <div className="text-[22px] font-display font-semibold">Client workspaces</div>
               <div className="text-[13px] text-ink-soft mt-0.5">Create a workspace for each company, give the owner a login, run their trial, and set their plan. Only RANA staff see this page.</div>
             </div>
-            <button onClick={() => setShowNew(true)} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="hq-new">+ New client</button>
+            <div className="flex gap-2">
+              <a href="/hq/money" className="border border-line bg-white rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="hq-money-link">₹ Money</a>
+              <button onClick={() => setShowNew(true)} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="hq-new">+ New client</button>
+            </div>
           </div>
           {err && <div className="text-[13px] text-miss">{err}</div>}
           {msg && <div className="text-[12.5px] text-ink-soft" data-testid="hq-msg">{msg}</div>}
