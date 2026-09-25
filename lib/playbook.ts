@@ -21,7 +21,9 @@ export type Playbook = {
 };
 export type AgentLink = { label: string; url: string; purpose: "payment" | "website" | "booking" | "brochure" | "other"; say?: string };
 export type Pronunciation = { word: string; sayAs: string; note?: string };
-export type LanguagePolicy = { mode: "match_caller" | "fixed"; allowed: string[] };
+export type WordSwap = { avoid: string; say: string };
+/** style: "everyday" = how people really talk (common English words kept, e.g. fees, batch); "pure" = standard native words. */
+export type LanguagePolicy = { mode: "match_caller" | "fixed"; allowed: string[]; style?: "everyday" | "pure"; swaps?: WordSwap[] };
 export type KnowledgeItem = { title: string; kind: string; summary: string | null; content: string };
 
 export const LANG_NAMES: Record<string, string> = {
@@ -73,7 +75,47 @@ export function normalizePronunciations(v: any): Pronunciation[] {
 
 export function normalizePolicy(v: any, opening: string): LanguagePolicy {
   const allowed = Array.from(new Set([baseLang(opening), ...(Array.isArray(v?.allowed) ? v.allowed.map(baseLang) : [])])).filter((l) => LANG_NAMES[l]).slice(0, 8);
-  return { mode: v?.mode === "fixed" ? "fixed" : "match_caller", allowed };
+  const swaps: WordSwap[] = (Array.isArray(v?.swaps) ? v.swaps : [])
+    .map((w: any) => ({ avoid: str(w?.avoid, 80), say: str(w?.say, 80) }))
+    .filter((w: WordSwap) => w.avoid && w.say && w.avoid !== w.say).slice(0, 60);
+  return { mode: v?.mode === "fixed" ? "fixed" : "match_caller", allowed, style: v?.style === "pure" ? "pure" : "everyday", swaps };
+}
+
+/** Everyday English words people in India keep in English, spelled the way a native voice says them. */
+export const EVERYDAY_WORDS: Record<string, string> = {
+  te: "ఫీజు (fees), బ్యాచ్ (batch), క్లాస్ (class), కోర్సు (course), డెమో (demo), ఆన్‌లైన్ (online), అడ్మిషన్ (admission), సీటు (seat), బుకింగ్ (booking), పేమెంట్ (payment), ఈఎంఐ (EMI), డిస్కౌంట్ (discount), ఆఫర్ (offer), డేట్ (date), టైమ్ (time), వాట్సాప్ (WhatsApp), లింక్ (link), నంబర్ (number), ఎగ్జామ్ (exam), టెస్ట్ (test), సర్టిఫికెట్ (certificate), కాల్ (call), ఓకే (okay), సార్/మేడమ్ (sir/madam)",
+  hi: "फीस (fees), बैच (batch), क्लास (class), कोर्स (course), डेमो (demo), ऑनलाइन (online), एडमिशन (admission), सीट (seat), बुकिंग (booking), पेमेंट (payment), ईएमआई (EMI), डिस्काउंट (discount), ऑफर (offer), डेट (date), टाइम (time), व्हाट्सएप (WhatsApp), लिंक (link), नंबर (number), एग्जाम (exam), टेस्ट (test), सर्टिफिकेट (certificate), ओके (okay), सर/मैडम (sir/madam)",
+  ta: "ஃபீஸ் (fees), பேட்ச் (batch), க்ளாஸ் (class), கோர்ஸ் (course), டெமோ (demo), ஆன்லைன் (online), அட்மிஷன் (admission), சீட் (seat), பேமெண்ட் (payment), டிஸ்கவுண்ட் (discount), வாட்ஸ்அப் (WhatsApp), லிங்க் (link)",
+  kn: "ಫೀಸ್ (fees), ಬ್ಯಾಚ್ (batch), ಕ್ಲಾಸ್ (class), ಕೋರ್ಸ್ (course), ಡೆಮೊ (demo), ಆನ್‌ಲೈನ್ (online), ಅಡ್ಮಿಷನ್ (admission), ಸೀಟ್ (seat), ಪೇಮೆಂಟ್ (payment), ಡಿಸ್ಕೌಂಟ್ (discount), ವಾಟ್ಸಾಪ್ (WhatsApp), ಲಿಂಕ್ (link)",
+};
+
+/** The "how you speak" rules for the agent: everyday vs pure style, plus the client's own word swaps. */
+export function speakingStyleRules(policy: LanguagePolicy, openCode: string): string {
+  const langs = Array.from(new Set([openCode, ...policy.allowed])).filter((l) => l !== "en" && LANG_NAMES[l]);
+  const out: string[] = [];
+  if (langs.length) {
+    const names = langs.map((l) => LANG_NAMES[l]).join(" / ");
+    if (policy.style === "pure") {
+      out.push(`# How you speak
+- Speak clear, standard ${names}. Where a common native word exists, prefer it over the English word.
+- Keep brand names, course names, exam names and technical terms exactly as they are — never translate them.`);
+    } else {
+      const examples = langs.map((l) => EVERYDAY_WORDS[l] ? `  - ${LANG_NAMES[l]}: ${EVERYDAY_WORDS[l]}` : "").filter(Boolean).join("\n");
+      out.push(`# How you speak
+- Speak everyday spoken ${names} — the way people really talk on the phone in their city, NOT formal, bookish or news-reader language.
+- Keep common English words in English, exactly as local callers do: fees, batch, class, course, demo, online, admission, seat, booking, payment, EMI, discount, offer, date, time, WhatsApp, link, number, exam, test, doctor, appointment, service, sir, madam. Never replace these with pure native words (for example, in Telugu never say రుసుము for fees or బృందం for batch).
+- Write those English words in the language's own script, spelled the way they sound, so the voice says them naturally${examples ? `:\n${examples}` : "."}
+- Say numbers, prices and dates the way people say them in daily life. Keep sentences short, warm and friendly.
+- Brand names, course names and exam names stay as they are — never translate them.`);
+    }
+  }
+  const swaps = policy.swaps || [];
+  if (swaps.length) {
+    out.push(`# Words to use
+Whenever you would say the word on the left, say the word on the right instead — every time, in every language:
+${swaps.map((w) => `- "${w.avoid}" → say "${w.say}"`).join("\n")}`);
+  }
+  return out.join("\n\n");
 }
 
 /** "https://www.rana.ai/pay?x=1" → "rana dot ai slash pay" — how a person would say it on the phone. */
@@ -121,7 +163,7 @@ Rules:
 - Put every objection and its answer you can find (or clearly implied) into "objections". Common Indian sales objections (price, time, "I'll think about it", "send details on WhatsApp", "already joined elsewhere") should be included when the script answers them.
 - Keep each item short and spoken-style (one or two sentences). Keep the language of each item as in the script. Merge near-duplicates.
 - Find every URL or website mentioned and return it in "links" with a purpose (payment, website, booking, brochure, other).
-- Suggest a greeting in ${lang}: the first sentence the agent says when the call connects (say who is calling and from where, in ${lang}${baseLang(input.openingLanguage) !== "en" ? `, written in ${SCRIPT_NOTE[baseLang(input.openingLanguage)] || "its native script"}` : ""}).
+${baseLang(input.openingLanguage) !== "en" ? `- Write every ${lang} item the way people really speak on the phone — everyday ${lang}, not formal or bookish — keeping common English words (fees, batch, class, course, demo, online, payment, EMI, discount) as English words spelled in the native script.\n` : ""}- Suggest a greeting in ${lang}: the first sentence the agent says when the call connects (say who is calling and from where, in ${lang}${baseLang(input.openingLanguage) !== "en" ? `, written in ${SCRIPT_NOTE[baseLang(input.openingLanguage)] || "its native script"}` : ""}).
 - List brand names, course names, place names and acronyms the speech system might mishear in "keyterms", and ones a voice might mispronounce in "pronunciations" with a sounds-like spelling${baseLang(input.openingLanguage) !== "en" ? ` written in ${SCRIPT_NOTE[baseLang(input.openingLanguage)] || "the native script"} so a ${lang} voice says it the local way (e.g. {"word":"DBMCI","sayAs":"${baseLang(input.openingLanguage) === "te" ? "డి బి ఎం సి ఐ" : baseLang(input.openingLanguage) === "hi" ? "डी बी एम सी आई" : "D B M C I"}"})` : ` (e.g. {"word":"DBMCI","sayAs":"D B M C I"})`}.
 Return ONLY JSON of this shape:
 {"playbook": ${PLAYBOOK_SHAPE},
@@ -315,6 +357,9 @@ Speak only ${openName}${SCRIPT_NOTE[open] ? `, written in ${SCRIPT_NOTE[open]}` 
 - Languages you may use: ${allowed.join(", ")}. If the caller uses any other language, continue in ${openName} and politely say you can speak ${allowed.join(", ")}.
 - Write each language in its own script so it is pronounced correctly: ${allowed.map((a) => { const code = Object.keys(LANG_NAMES).find((k) => LANG_NAMES[k] === a)!; return SCRIPT_NOTE[code] ? `${a} in ${SCRIPT_NOTE[code]}` : `${a} in Latin letters`; }).join("; ")}.
 - Mixing common English words (fees, batch, online, EMI, course names) into Telugu or Hindi is natural — do it the way the caller does.`);
+
+  const style = speakingStyleRules(s.policy, open);
+  if (style) parts.push(style);
 
   if (p) {
     const flow: string[] = [];

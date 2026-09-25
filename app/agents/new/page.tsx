@@ -36,7 +36,7 @@ function WizardInner() {
   // ── form state ──
   const [name, setName] = useState("");
   const [startingLanguage, setStartingLanguage] = useState("en-IN");
-  const [policy, setPolicy] = useState<{ mode: "match_caller" | "fixed"; allowed: string[] }>({ mode: "match_caller", allowed: ["en", "te", "hi"] });
+  const [policy, setPolicy] = useState<{ mode: "match_caller" | "fixed"; allowed: string[]; style?: "everyday" | "pure"; swaps?: { avoid: string; say: string }[] }>({ mode: "match_caller", allowed: ["en", "te", "hi"], style: "everyday", swaps: [] });
   // Voice engine: always Sarvam for customers (the Cartesia code path stays only for old drafts).
   const [engine, setEngine] = useState<"sarvam" | "cartesia">("sarvam");
   const [sarvamStatus, setSarvamStatus] = useState<any>(null);
@@ -113,7 +113,7 @@ function WizardInner() {
         setName(s.name || "");
         setStartingLanguage(s.starting_language || "en-IN");
         setEngine("sarvam"); // Sarvam is the only engine offered
-        if (s.language_policy) setPolicy({ mode: s.language_policy.mode === "fixed" ? "fixed" : "match_caller", allowed: s.language_policy.allowed?.length ? s.language_policy.allowed : [baseLang(s.starting_language)] });
+        if (s.language_policy) setPolicy({ mode: s.language_policy.mode === "fixed" ? "fixed" : "match_caller", allowed: s.language_policy.allowed?.length ? s.language_policy.allowed : [baseLang(s.starting_language)], style: s.language_policy.style === "pure" ? "pure" : "everyday", swaps: Array.isArray(s.language_policy.swaps) ? s.language_policy.swaps : [] });
         setVoiceId(s.speaker || "");
         setVoiceName(s.voice_name || "");
         setModelId(s.model_id || "");
@@ -343,6 +343,43 @@ function WizardInner() {
                       </div>
                     )}
                   </div>
+                  {(openBase !== "en" || policy.allowed.some((l) => l !== "en")) && (
+                    <div data-testid="speaking-style">
+                      <label className="text-[13px] font-semibold block mb-2">How it speaks</label>
+                      <div className="flex flex-col gap-2">
+                        {[
+                          ["everyday", "Everyday — the way people really talk", `Keeps common English words like fees, batch, demo, online, payment${openBase === "hi" ? ` — e.g. "फीस कितनी है?" not "शुल्क कितना है?"` : openBase === "te" ? ` — e.g. "ఫీజు ఎంత?" not "రుసుము ఎంత?"` : ""}.`],
+                          ["pure", "Pure — standard native words", "Uses native words where they exist. Brand and course names stay as they are."],
+                        ].map(([k, t, d]) => (
+                          <label key={k} className={`flex items-start gap-3 border rounded-xl px-3.5 py-3 cursor-pointer ${(policy.style || "everyday") === k ? "border-signal bg-signal-tint/50" : "border-line bg-raised"}`} data-testid={`style-${k}`}>
+                            <input type="radio" name="style" checked={(policy.style || "everyday") === k} onChange={() => setPolicy((p) => ({ ...p, style: k as any }))} className="mt-1 accent-signal" />
+                            <span>
+                              <span className="text-[13.5px] font-semibold block">{t}{k === "everyday" && <span className="ml-2 text-[10.5px] font-semibold text-signal bg-raised border border-signal/30 rounded-full px-1.5 py-0.5">Recommended</span>}</span>
+                              <span className="text-[12px] text-ink-soft">{d}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="mt-4" data-testid="word-swaps">
+                        <div className="text-[13px] font-semibold">Words to change</div>
+                        <div className="text-[12px] text-ink-soft mb-2">Heard a word you don't like? Add it here and your employee will always say your word instead.</div>
+                        <div className="flex flex-col gap-2">
+                          {(policy.swaps || []).map((w, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <input value={w.avoid} onChange={(e) => setPolicy((p) => ({ ...p, swaps: (p.swaps || []).map((x, j) => (j === i ? { ...x, avoid: e.target.value } : x)) }))} placeholder="Instead of (e.g. రుసుము)" data-testid={`swap-avoid-${i}`}
+                                className="flex-1 min-w-0 border border-line rounded-lg px-3 py-2 text-[13.5px] bg-raised outline-none focus:border-signal" />
+                              <span className="text-ink-soft text-[13px]">→</span>
+                              <input value={w.say} onChange={(e) => setPolicy((p) => ({ ...p, swaps: (p.swaps || []).map((x, j) => (j === i ? { ...x, say: e.target.value } : x)) }))} placeholder="Say (e.g. ఫీజు)" data-testid={`swap-say-${i}`}
+                                className="flex-1 min-w-0 border border-line rounded-lg px-3 py-2 text-[13.5px] bg-raised outline-none focus:border-signal" />
+                              <button type="button" onClick={() => setPolicy((p) => ({ ...p, swaps: (p.swaps || []).filter((_, j) => j !== i) }))} className="text-ink-soft hover:text-miss text-[14px] px-1" aria-label="Remove">✕</button>
+                            </div>
+                          ))}
+                          <button type="button" onClick={() => setPolicy((p) => ({ ...p, swaps: [...(p.swaps || []), { avoid: "", say: "" }] }))} data-testid="swap-add"
+                            className="self-start text-[12.5px] font-semibold text-signal">+ Add a word</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
