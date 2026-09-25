@@ -47,6 +47,10 @@ export async function POST(req: Request) {
   try { body = await req.json(); } catch { return Response.json({ error: "Invalid body." }, { status: 400 }); }
   const name = (body.name || "").trim();
   if (!name) return Response.json({ error: "Give the campaign a name." }, { status: 400 });
+  // Normal numbers may only call people who enquired or are customers (TRAI) — the client confirms which, and we keep it.
+  const basis = (body as any).consent?.basis;
+  if (!["enquiries", "customers"].includes(basis)) return Response.json({ error: "Confirm who you're calling: people who enquired, or your existing customers." }, { status: 400 });
+  const consent = { basis, by: session.email, at: new Date().toISOString() };
 
   const script = body.scriptId ? await getScriptById(body.scriptId) : null;
   if (!script || script.client_id !== session.clientId) return Response.json({ error: "Pick which employee should make the calls." }, { status: 400 });
@@ -103,7 +107,7 @@ export async function POST(req: Request) {
     const campaign = await createCampaignRow({
       client_id: session.clientId, name, script_id: script.id, cartesia_agent_id: script.cartesia_agent_id, engine: "sarvam",
       status: "draft", total_contacts: contacts.length, from_number_id: "sarvam", from_number: cfg.agentNumber,
-      scheduled_at: scheduledAt, concurrency, skipped_dnc: skippedDnc.length, created_by: session.email,
+      scheduled_at: scheduledAt, concurrency, skipped_dnc: skippedDnc.length, created_by: session.email, consent,
     } as any);
     await insertContacts(campaign.id, session.clientId, contacts);
     try {

@@ -1,280 +1,241 @@
 // @ts-nocheck
 "use client";
+// Phone Numbers: the number your AI employees call from, your own business numbers, and Get a number
+// (pick from the live list, or ask RANA for one — including fancy numbers like …7777 or ending in 786).
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 
-type PhoneNumber = {
-  id: string;
-  number: string;
-  label: string | null;
-  agentId: string | null;
-  agentName: string | null;
-  provider: string;
+const inr = (n: number) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
+const TIER = {
+  platinum: { label: "Platinum", cls: "bg-violet-tint text-violet border-violet/30" },
+  gold: { label: "Gold", cls: "bg-warm-tint text-warm border-warm/30" },
+  standard: { label: "Standard", cls: "bg-sunken text-ink-soft border-line" },
+};
+const STATUS = {
+  requested: ["RANA is finding your number", "bg-sunken text-ink-soft"],
+  awaiting_payment: ["Pay to reserve", "bg-warm-tint text-warm"],
+  provisioning: ["Setting up · usually within a working day", "bg-signal-tint text-signal"],
+  failed: ["Setting up · RANA is on it", "bg-warm-tint text-warm"],
+  active: ["Live", "bg-signal-tint text-signal"],
+  lapsed: ["Rent unpaid", "bg-miss-tint text-miss"],
+  released: ["Released", "bg-sunken text-ink-soft"],
 };
 
-// Customers only use RANA's Indian numbers now; the old imported/US number tools stay hidden.
-const SHOW_LEGACY_NUMBERS = false;
-
 export default function PhoneNumbersPage() {
-  const [numbers, setNumbers] = useState<PhoneNumber[]>([]);
   const [sarvam, setSarvam] = useState<any>(null);
-  useEffect(() => { fetch("/api/sarvam/status").then((r) => r.json()).then((d) => setSarvam(d?.sarvam || null)).catch(() => {}); }, []);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-
-  const [label, setLabel] = useState("");
-  const [assignToAgent, setAssignToAgent] = useState(true);
-  const [buying, setBuying] = useState(false);
-  const [buyError, setBuyError] = useState("");
-
-  const [deletingId, setDeletingId] = useState("");
-
-  // Twilio import (the India route)
-  const [tw, setTw] = useState({ accountSid: "", apiKeySid: "", apiKeySecret: "", region: "us1", number: "", label: "" });
-  const [twAssign, setTwAssign] = useState(true);
-  const [twAlreadyConnected, setTwAlreadyConnected] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [twError, setTwError] = useState("");
-  const [twOk, setTwOk] = useState("");
-
-  // Test call per number
-  const [testFor, setTestFor] = useState("");
-  const [testTo, setTestTo] = useState("");
-  const [testing, setTesting] = useState(false);
-  const [testMsg, setTestMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [data, setData] = useState<any>(null);
+  const [err, setErr] = useState("");
+  const [city, setCity] = useState("hyderabad");
+  const [fancyOnly, setFancyOnly] = useState(false);
+  const [cat, setCat] = useState<any>({ loading: false, numbers: [], error: "" });
+  const [pick, setPick] = useState<any>(null); // { kind: "buy", n } | { kind: "request" }
+  const [req, setReq] = useState({ style: "any", digits: "", note: "" });
+  const [biz, setBiz] = useState({ legalName: "", gstin: "", pan: "", signatory: "" });
+  const [agree, setAgree] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function load() {
-    setLoading(true); setLoadError("");
     try {
-      const res = await fetch("/api/admin/cartesia-phone-numbers");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to load numbers.");
-      setNumbers(data.numbers || []);
-    } catch (err: any) {
-      setLoadError(err?.message || "Something went wrong.");
-    } finally { setLoading(false); }
+      const [s, d] = await Promise.all([
+        fetch("/api/sarvam/status").then((r) => r.json()).catch(() => null),
+        fetch("/api/numbers").then(async (r) => { const j = await r.json(); if (!r.ok) throw new Error(j.error || "Couldn't load numbers."); return j; }),
+      ]);
+      setSarvam(s?.sarvam || null); setData(d); setErr("");
+      setBiz((b) => ({ ...b, legalName: b.legalName || d.business?.legalName || "", gstin: b.gstin || d.business?.gstin || "" }));
+    } catch (e: any) { setErr(e.message); }
   }
-
   useEffect(() => { load(); }, []);
 
-  async function handleBuy() {
-    if (!label.trim() || buying) return;
-    setBuying(true); setBuyError("");
-    try {
-      const res = await fetch("/api/admin/cartesia-phone-numbers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: label.trim(), assignToAgent }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to provision this number.");
-      setLabel("");
-      await load();
-    } catch (err: any) {
-      setBuyError(err?.message || "Something went wrong.");
-    } finally { setBuying(false); }
+  useEffect(() => {
+    if (!data?.catalogLive || data?.blocked) return;
+    setCat((c) => ({ ...c, loading: true, error: "" }));
+    fetch(`/api/numbers/catalog?${new URLSearchParams({ city, fancy: fancyOnly ? "1" : "0" })}`)
+      .then((r) => r.json()).then((d) => setCat({ loading: false, numbers: d.numbers || [], error: d.error || "" }))
+      .catch(() => setCat({ loading: false, numbers: [], error: "Couldn't load numbers right now." }));
+  }, [data?.catalogLive, data?.blocked, city, fancyOnly]);
+
+  const cityName = useMemo(() => data?.cities?.find((c) => c.key === city)?.name || city, [data, city]);
+  const mine = (data?.numbers || []).filter((n) => n.status !== "released");
+  const released = (data?.numbers || []).filter((n) => n.status === "released");
+
+  async function act(id: string, action: string, confirmText?: string) {
+    if (confirmText && !confirm(confirmText)) return;
+    setMsg(null);
+    const r = await fetch(`/api/numbers/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) setMsg({ ok: false, text: j.error || "That didn't work." }); else load();
   }
 
-  async function handleImport() {
-    if (importing) return;
-    setImporting(true); setTwError(""); setTwOk("");
+  async function submit() {
+    setBusy(true); setMsg(null);
     try {
-      const res = await fetch("/api/admin/cartesia-phone-numbers/import-twilio", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountSid: tw.accountSid, region: tw.region, number: tw.number, label: tw.label, assignToAgent: twAssign,
-          ...(twAlreadyConnected ? {} : { apiKeySid: tw.apiKeySid, apiKeySecret: tw.apiKeySecret }),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Import failed.");
-      setTwOk(`${data.providerNote ? data.providerNote + " " : ""}Imported ${data.number?.number}.`);
-      setTw((t) => ({ ...t, apiKeySecret: "", number: "", label: "" }));
-      setTwAlreadyConnected(true);
-      await load();
-    } catch (err: any) {
-      setTwError(err?.message || "Something went wrong.");
-    } finally { setImporting(false); }
+      const body = pick.kind === "buy"
+        ? { action: "buy", number: pick.n.number, city, business: biz, consent: agree }
+        : { action: "request", city: cityName, ...req, business: biz, consent: agree };
+      const r = await fetch("/api/numbers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "That didn't work.");
+      if (j.payUrl) { window.location.href = j.payUrl; return; }
+      setPick(null); setAgree(false);
+      setMsg({ ok: true, text: pick.kind === "buy" ? "Reserved. Pay the invoice on Plan & usage to switch it on." : "Request sent. RANA will find your number and send you a link to reserve it — usually within a working day." });
+      load();
+    } catch (e: any) { setMsg({ ok: false, text: e.message }); }
+    finally { setBusy(false); }
   }
 
-  async function handleTestCall(id: string) {
-    if (!testTo.trim() || testing) return;
-    setTesting(true); setTestMsg(null);
-    try {
-      const res = await fetch(`/api/admin/cartesia-phone-numbers/${id}/test-call`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: testTo }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Call failed.");
-      setTestMsg({ ok: true, text: `Ringing ${data.to} now.` });
-    } catch (err: any) {
-      setTestMsg({ ok: false, text: err?.message || "Something went wrong." });
-    } finally { setTesting(false); }
-  }
-
-  async function handleDelete(id: string, provider?: string) {
-    const msg = provider === "twilio"
-      ? "Remove this number from Cartesia? It stays in your Twilio account and can be imported again."
-      : "Release this number? This can't be undone.";
-    if (!confirm(msg)) return;
-    setDeletingId(id);
-    try {
-      const res = await fetch(`/api/admin/cartesia-phone-numbers/${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to release this number.");
-      await load();
-    } catch (err: any) {
-      alert(err?.message || "Something went wrong.");
-    } finally { setDeletingId(""); }
-  }
+  const bizOk = biz.legalName.trim().length >= 2 && (/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(biz.gstin.trim().toUpperCase()) || /^[A-Z]{5}\d{4}[A-Z]$/.test(biz.pan.trim().toUpperCase()));
+  const input = "border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal";
 
   return (
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="phone-numbers" />
-      <div className="flex-1 p-10">
-        <div className="max-w-[760px] flex flex-col gap-6">
+      <div className="flex-1 min-w-0 px-6 py-8 lg:px-10">
+        <div className="max-w-[900px] flex flex-col gap-6">
           <div>
             <div className="text-[20px] font-display font-semibold">Phone Numbers</div>
-            <div className="text-[13px] text-ink-soft mt-0.5">The numbers your employees call from and answer.</div>
+            <div className="text-[13px] text-ink-soft mt-0.5">The number your AI employees call from and answer — and your own business numbers.</div>
           </div>
 
           <div className="border border-signal/30 rounded-xl bg-raised p-5 flex items-center gap-4" data-testid="sarvam-number">
-            <div className="w-10 h-10 rounded-full bg-signal-tint text-signal flex items-center justify-center font-bold">₹</div>
+            <div className="w-10 h-10 rounded-full bg-signal-tint text-signal flex items-center justify-center font-bold">☎</div>
             <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-semibold">{sarvam?.number || "Your Indian number"} <span className="text-[11px] font-semibold text-signal bg-signal-tint rounded-full px-2 py-0.5 ml-1">{sarvam?.ownNumber ? "Your number · India" : "Shared number · India"}</span></div>
+              <div className="text-[14px] font-semibold">{sarvam?.number || "Your Indian number"} <span className="text-[11px] font-semibold text-signal bg-signal-tint rounded-full px-2 py-0.5 ml-1">{sarvam?.ownNumber ? "Your number" : "RANA shared number"}</span></div>
               <div className="text-[12px] text-ink-soft mt-0.5 leading-relaxed">
                 {sarvam?.ready && sarvam?.calling
-                  ? (sarvam?.ownNumber ? "Your AI employees call from and answer on this number — campaigns and \"Call me\" test calls. Nothing to set up." : "Trial and Starter workspaces call from RANA's shared Indian number. Growth and above get their own Indian number — ask us to set it up.")
+                  ? (sarvam?.ownNumber ? "Your AI employees call from and answer on this number." : "Your AI employees call from RANA's shared number until you get your own below.")
                   : sarvam ? "Calling isn't fully connected yet — RANA support has been notified." : "Checking…"}
               </div>
             </div>
             <span className={`text-[11.5px] font-semibold rounded-full px-2.5 py-1 ${sarvam?.ready && sarvam?.calling ? "bg-signal-tint text-signal" : "bg-paper text-ink-soft"}`}>{sarvam?.ready && sarvam?.calling ? "Ready" : "—"}</span>
           </div>
 
-          {SHOW_LEGACY_NUMBERS && (<>
-          <div className="text-[12px] font-semibold text-ink-soft uppercase tracking-wide mt-2">Cartesia numbers (for employees on the Cartesia engine)</div>
+          {err && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">{err}</div>}
+          {msg && <div className={`text-[12.5px] rounded-lg px-3 py-2.5 border ${msg.ok ? "text-signal bg-signal-tint border-signal/20" : "text-miss bg-miss-tint border-miss/20"}`}>{msg.text}</div>}
 
-          <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-3">
-            <div>
-              <div className="text-[14px] font-semibold">Import an Indian number from Twilio</div>
-              <div className="text-[12px] text-ink-soft mt-1 leading-relaxed">
-                Cartesia's own numbers are US-only, so DBMCI's Indian line has to come from Twilio. Buy the number in Twilio
-                first (India needs the regulatory bundle approved), then create a <span className="font-semibold">Standard API key</span> in
-                Twilio → Account → API keys. The secret goes straight to Cartesia; this dashboard doesn't store it.
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <input value={tw.accountSid} onChange={(e) => setTw({ ...tw, accountSid: e.target.value })} placeholder="Account SID (AC…)"
-                className="border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal font-mono" />
-              <select value={tw.region} onChange={(e) => setTw({ ...tw, region: e.target.value })}
-                className="border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal">
-                <option value="us1">Region: us1 (default)</option>
-                <option value="ie1">Region: ie1 (Ireland)</option>
-                <option value="au1">Region: au1 (Australia)</option>
-              </select>
-              {!twAlreadyConnected && (<>
-                <input value={tw.apiKeySid} onChange={(e) => setTw({ ...tw, apiKeySid: e.target.value })} placeholder="API Key SID (SK…)"
-                  className="border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal font-mono" />
-                <input type="password" value={tw.apiKeySecret} onChange={(e) => setTw({ ...tw, apiKeySecret: e.target.value })} placeholder="API Key Secret"
-                  className="border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal font-mono" />
-              </>)}
-              <input value={tw.number} onChange={(e) => setTw({ ...tw, number: e.target.value })} placeholder="Twilio number, e.g. +91 40 1234 5678"
-                className="border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal" />
-              <input value={tw.label} onChange={(e) => setTw({ ...tw, label: e.target.value })} placeholder={`Label, e.g. "DBMCI Hyderabad"`}
-                className="border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal" />
-            </div>
-            <label className="flex items-center gap-2 text-[12.5px] text-ink-soft">
-              <input type="checkbox" checked={twAlreadyConnected} onChange={(e) => setTwAlreadyConnected(e.target.checked)} className="accent-signal" />
-              This Twilio account is already connected (skip the API key)
-            </label>
-            <label className="flex items-center gap-2 text-[12.5px] text-ink-soft">
-              <input type="checkbox" checked={twAssign} onChange={(e) => setTwAssign(e.target.checked)} className="accent-signal" />
-              Route inbound calls on this number to your published DBMCI agent
-            </label>
-            <div>
-              <button onClick={handleImport}
-                disabled={importing || !tw.accountSid.trim() || !tw.number.trim() || !tw.label.trim() || (!twAlreadyConnected && (!tw.apiKeySid.trim() || !tw.apiKeySecret.trim()))}
-                className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-40">
-                {importing ? "Importing…" : "Import number"}
-              </button>
-            </div>
-            {twError && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">{twError}</div>}
-            {twOk && <div className="text-[12.5px] text-signal bg-signal-tint border border-signal/20 rounded-lg px-3 py-2.5">{twOk}</div>}
-          </div>
-
-          <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-3">
-            <div className="text-[14px] font-semibold">Buy a Cartesia number (US only — for testing)</div>
-            <div className="flex gap-2">
-              <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={`Label, e.g. "DBMCI US test line"`}
-                className="flex-1 border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal" />
-              <button onClick={handleBuy} disabled={buying || !label.trim()}
-                className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-40 whitespace-nowrap">
-                {buying ? "Buying…" : "Buy number"}
-              </button>
-            </div>
-            <label className="flex items-center gap-2 text-[12.5px] text-ink-soft">
-              <input type="checkbox" checked={assignToAgent} onChange={(e) => setAssignToAgent(e.target.checked)} className="accent-signal" />
-              Route inbound calls on this number to your published DBMCI agent
-            </label>
-            {buyError && (
-              <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">{buyError}</div>
-            )}
-          </div>
-
-          <div className="border border-line rounded-xl bg-raised overflow-hidden">
-            <div className="px-4 py-3 border-b border-line text-[13px] font-semibold flex items-center justify-between">
-              <span>Your numbers</span>
-              <button onClick={load} disabled={loading} className="text-[11.5px] font-semibold text-signal disabled:opacity-40">
-                {loading ? "Loading…" : "↻ Refresh"}
-              </button>
-            </div>
-            {loadError && (
-              <div className="p-4 text-[12.5px] text-miss">{loadError}</div>
-            )}
-            {!loading && !loadError && numbers.length === 0 && (
-              <div className="p-6 text-center text-[12.5px] text-ink-soft">No numbers yet — import your Twilio number above.</div>
-            )}
-            {numbers.map((n) => (
-              <div key={n.id} className="px-4 py-3 border-b border-line last:border-b-0">
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13.5px] font-semibold">{n.number}</div>
+          {mine.length > 0 && (
+            <div className="border border-line rounded-xl bg-raised overflow-hidden" data-testid="my-numbers">
+              <div className="px-4 py-3 border-b border-line text-[13px] font-semibold">Your numbers</div>
+              {mine.map((n) => (
+                <div key={n.id} className="px-4 py-3 border-b border-line last:border-b-0 flex items-center gap-3 flex-wrap">
+                  <div className="flex-1 min-w-[220px]">
+                    <div className="text-[14.5px] font-semibold font-mono tracking-tight">
+                      {n.pretty || (n.request?.style === "series140" ? "140-series number" : `A number in ${n.city || n.request?.city || "your city"}`)}
+                      {n.tier && n.tier !== "standard" && <span className={`ml-2 text-[10.5px] font-sans font-semibold border rounded-full px-1.5 py-0.5 ${TIER[n.tier].cls}`}>{TIER[n.tier].label}</span>}
+                      {n.isDefault && <span className="ml-2 text-[10.5px] font-sans font-semibold text-signal">✓ used for calls</span>}
+                    </div>
                     <div className="text-[12px] text-ink-soft mt-0.5">
-                      {n.label || "Unlabelled"} · {n.provider === "twilio" ? "Twilio" : "Cartesia"}
-                      {n.agentName ? ` · routes to ${n.agentName}` : " · not routed to an agent"}
+                      {[n.city, n.pattern, n.number ? `${inr(n.monthlyPrice)}/month${n.fancyFee ? ` + ${inr(n.fancyFee)} one-time` : ""} (+GST)` : n.request?.style === "fancy" ? "Fancy number" : n.request?.digits ? `Ending in ${n.request.digits}` : null, n.paidUntil && n.status === "active" ? `paid until ${new Date(n.paidUntil).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : null].filter(Boolean).join(" · ")}
                     </div>
                   </div>
-                  <button onClick={() => { setTestFor(testFor === n.id ? "" : n.id); setTestMsg(null); }}
-                    className="text-[12px] font-semibold text-signal border border-signal/20 rounded-lg px-3 py-1.5 hover:bg-signal-tint">
-                    Test call
-                  </button>
-                  <button onClick={() => handleDelete(n.id, n.provider)} disabled={deletingId === n.id}
-                    className="text-[12px] font-semibold text-miss border border-miss/20 rounded-lg px-3 py-1.5 hover:bg-miss-tint disabled:opacity-40">
-                    {deletingId === n.id ? "Removing…" : n.provider === "twilio" ? "Remove" : "Release"}
-                  </button>
+                  <span className={`text-[11px] font-semibold rounded-full px-2.5 py-1 ${STATUS[n.status]?.[1] || ""}`}>{STATUS[n.status]?.[0] || n.status}</span>
+                  {n.payUrl && <a href={n.payUrl} className="bg-signal text-on-accent rounded-lg px-3 py-1.5 text-[12px] font-semibold">Pay {n.invoiceTotal ? inr(n.invoiceTotal) : ""}</a>}
+                  {n.status === "active" && !n.isDefault && <button onClick={() => act(n.id, "default")} className="text-[12px] font-semibold text-signal border border-signal/30 rounded-lg px-3 py-1.5">Use for calls</button>}
+                  {["requested", "awaiting_payment"].includes(n.status) && <button onClick={() => act(n.id, "cancel", "Cancel this number?")} className="text-[12px] font-semibold text-ink-soft border border-line rounded-lg px-3 py-1.5">Cancel</button>}
+                  {["active", "lapsed"].includes(n.status) && <button onClick={() => act(n.id, "release", `Release ${n.pretty}? Your employees stop using it and it goes back to the provider. This can't be undone.`)} className="text-[12px] font-semibold text-miss border border-miss/20 rounded-lg px-3 py-1.5">Release</button>}
                 </div>
-                {testFor === n.id && (
-                  <div className="mt-3 flex flex-col gap-2">
-                    <div className="flex gap-2">
-                      <input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="Your mobile, e.g. 98765 43210"
-                        className="flex-1 border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal" />
-                      <button onClick={() => handleTestCall(n.id)} disabled={testing || !testTo.trim()}
-                        className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-40 whitespace-nowrap">
-                        {testing ? "Calling…" : "Call me"}
-                      </button>
-                    </div>
-                    <div className="text-[11.5px] text-ink-soft">Uses your published DBMCI Cartesia agent. 10-digit numbers are treated as +91.</div>
-                    {testMsg && <div className={`text-[12.5px] ${testMsg.ok ? "text-signal" : "text-miss"}`}>{testMsg.text}</div>}
-                  </div>
-                )}
+              ))}
+            </div>
+          )}
+
+          <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-4" data-testid="get-number">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <div className="text-[15px] font-semibold">Get a business number</div>
+                <div className="text-[12.5px] text-ink-soft mt-0.5">A local city number in your business name — your callers see it, and your AI employees answer and call from it.</div>
               </div>
-            ))}
+              {data && <div className="text-[12px] text-ink-soft text-right">From <b className="text-ink">{inr(data.pricing.monthlyFrom)}/month</b> (+GST)<br />Fancy numbers: one-time {inr(data.pricing.goldFee)} (Gold) · {inr(data.pricing.platinumFee)} (Platinum)</div>}
+            </div>
+
+            {data?.blocked ? (
+              <div className="text-[13px] bg-sunken border border-line rounded-lg px-4 py-3">{data.blocked} <a href="/billing" className="font-semibold text-signal">See plans →</a></div>
+            ) : data && (<>
+              <div className="flex flex-wrap gap-1.5" data-testid="cities">
+                {data.cities.map((c) => (
+                  <button key={c.key} type="button" onClick={() => setCity(c.key)} aria-pressed={city === c.key}
+                    className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-full border ${city === c.key ? "bg-ink text-paper border-ink" : "border-line text-ink-soft hover:text-ink"}`}>
+                    {c.name} <span className="opacity-60 font-mono">{c.code}</span>
+                  </button>
+                ))}
+              </div>
+
+              {data.catalogLive ? (<>
+                <label className="flex items-center gap-2 text-[12.5px]"><input type="checkbox" checked={fancyOnly} onChange={(e) => setFancyOnly(e.target.checked)} className="accent-signal" /> Show fancy numbers only</label>
+                {cat.loading ? <div className="text-[12.5px] text-ink-soft">Loading numbers in {cityName}…</div>
+                  : cat.error ? <div className="text-[12.5px] text-miss">{cat.error}</div>
+                  : !cat.numbers.length ? <div className="text-[12.5px] text-ink-soft">No {fancyOnly ? "fancy " : ""}numbers free in {cityName} right now. <button className="text-signal font-semibold" onClick={() => setPick({ kind: "request" })}>Ask RANA to find one →</button></div>
+                  : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5" data-testid="catalog">
+                      {cat.numbers.map((n) => (
+                        <button key={n.number} type="button" onClick={() => { setPick({ kind: "buy", n }); setMsg(null); }}
+                          className={`text-left border rounded-xl px-3.5 py-3 bg-paper hover:border-signal/60 ${pick?.n?.number === n.number ? "border-signal ring-1 ring-signal" : "border-line"}`}>
+                          <div className="font-mono text-[15px] font-semibold tracking-tight">{n.pretty}</div>
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <span className={`text-[10.5px] font-semibold border rounded-full px-1.5 py-0.5 ${TIER[n.tier].cls}`}>{TIER[n.tier].label}</span>
+                            {n.pattern && <span className="text-[11px] text-ink-soft truncate">{n.pattern}</span>}
+                          </div>
+                          <div className="text-[12px] mt-1.5"><b>{inr(n.monthly)}</b>/mo{n.fancyFee ? <span className="text-ink-soft"> + {inr(n.fancyFee)} once</span> : null}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                <button type="button" className="self-start text-[12.5px] font-semibold text-signal" onClick={() => { setPick({ kind: "request" }); setMsg(null); }}>Want a specific ending (like 786 or 1234)? Ask RANA →</button>
+              </>) : (
+                <div className="flex flex-col gap-3" data-testid="request-form">
+                  <div className="text-[12.5px] text-ink-soft">Tell us what you'd like in <b className="text-ink">{cityName}</b> — RANA finds it and sends you a link to reserve it, usually within a working day.</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[
+                      ["any", "Any good number", `A clean local ${cityName} number · ${inr(data.pricing.monthlyFrom)}/month`],
+                      ["fancy", "A fancy number", "Easy to remember — repeating digits, sequences, …000 · one-time fee"],
+                      ["digits", "Ending in digits I choose", "e.g. …786, …1234 or your year · one-time fee"],
+                      ["series140", "140-series (cold campaigns)", "For promotional calls to people who never enquired — needs company documents"],
+                    ].map(([k, t, d]) => (
+                      <label key={k} className={`flex items-start gap-2.5 border rounded-xl px-3.5 py-3 cursor-pointer ${req.style === k ? "border-signal bg-signal-tint/40" : "border-line bg-paper"}`}>
+                        <input type="radio" name="style" checked={req.style === k} onChange={() => setReq({ ...req, style: k })} className="mt-1 accent-signal" data-testid={`style-${k}`} />
+                        <span><span className="text-[13px] font-semibold block">{t}</span><span className="text-[11.5px] text-ink-soft">{d}</span></span>
+                      </label>
+                    ))}
+                  </div>
+                  {req.style === "digits" && <input className={`${input} max-w-[260px] font-mono`} placeholder="Ending in, e.g. 786" value={req.digits} onChange={(e) => setReq({ ...req, digits: e.target.value.replace(/\D/g, "").slice(0, 6) })} data-testid="digits" />}
+                  <input className={input} placeholder="Anything else? (optional)" value={req.note} onChange={(e) => setReq({ ...req, note: e.target.value })} />
+                  <button type="button" onClick={() => { setPick({ kind: "request" }); setMsg(null); }} className="self-start bg-ink text-paper rounded-lg px-4 py-2 text-[12.5px] font-semibold" data-testid="request-continue">Continue</button>
+                </div>
+              )}
+
+              {pick && (
+                <div className="border border-signal/40 rounded-xl bg-paper p-4 flex flex-col gap-3" data-testid="checkout">
+                  <div className="text-[14px] font-semibold">
+                    {pick.kind === "buy" ? <>Reserve <span className="font-mono">{pick.n.pretty}</span> · {inr(pick.n.monthly)}/month{pick.n.fancyFee ? ` + ${inr(pick.n.fancyFee)} one-time` : ""} <span className="text-ink-soft font-normal">(+GST)</span></> : "Your business details"}
+                  </div>
+                  <div className="text-[12px] text-ink-soft">Indian telecom rules register every business number to a verified business, so we need these once.</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input className={input} placeholder="Legal business name" value={biz.legalName} onChange={(e) => setBiz({ ...biz, legalName: e.target.value })} data-testid="biz-name" />
+                    <input className={`${input} font-mono uppercase`} placeholder="GSTIN" value={biz.gstin} onChange={(e) => setBiz({ ...biz, gstin: e.target.value.toUpperCase() })} data-testid="biz-gstin" />
+                    <input className={`${input} font-mono uppercase`} placeholder="PAN (if no GST)" value={biz.pan} onChange={(e) => setBiz({ ...biz, pan: e.target.value.toUpperCase() })} />
+                    <input className={input} placeholder="Authorised person's name" value={biz.signatory} onChange={(e) => setBiz({ ...biz, signatory: e.target.value })} />
+                  </div>
+                  <label className="flex items-start gap-2 text-[12.5px] cursor-pointer">
+                    <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 accent-signal" data-testid="agree" />
+                    <span>I'll use this number to answer calls and to call people who enquired with us or are our customers — not for cold promotional calls (TRAI requires a 140-series number for those).</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={submit} disabled={busy || !agree || !bizOk} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-40" data-testid="checkout-submit">
+                      {busy ? "Working…" : pick.kind === "buy" ? "Continue to payment" : "Send request"}
+                    </button>
+                    <button type="button" onClick={() => setPick(null)} className="text-[12.5px] text-ink-soft px-3">Cancel</button>
+                  </div>
+                  {!bizOk && (biz.gstin || biz.pan) && <div className="text-[11.5px] text-miss">Check the GSTIN (15 characters) or PAN (10 characters).</div>}
+                </div>
+              )}
+            </>)}
           </div>
-          </>)}
+
+          <div className="text-[12px] text-ink-soft leading-relaxed border border-line rounded-xl px-4 py-3">
+            <b className="text-ink">How numbers work.</b> Your own number is billed monthly with GST and can be released any time. Use it for incoming calls and for calling people who enquired or are your customers.
+            Promotional calls to people who never enquired need a 140-series number and DLT registration — choose "140-series" above and RANA will guide you.
+            {released.length > 0 && <> Released: {released.map((n) => n.pretty).filter(Boolean).join(", ")}.</>}
+          </div>
         </div>
       </div>
     </div>

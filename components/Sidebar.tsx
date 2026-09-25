@@ -99,6 +99,9 @@ export default function Sidebar({ active, client: clientProp }: { active: string
           <Link href="/hq/money" className="flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium text-ink-soft hover:bg-raised hover:text-ink" data-testid="hq-money-nav">
             <span className="w-2 text-center text-[11px]">₹</span> Money &amp; Sarvam credits
           </Link>
+          <Link href="/hq/numbers" className="flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium text-ink-soft hover:bg-raised hover:text-ink" data-testid="hq-numbers-nav">
+            <span className="w-2 text-center text-[11px]">☎</span> Phone numbers
+          </Link>
           <Link href="/hq/team" className="flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium text-ink-soft hover:bg-raised hover:text-ink" data-testid="hq-team-nav">
             <span className="w-2 text-center text-[11px]">◆</span> Team &amp; security
           </Link>

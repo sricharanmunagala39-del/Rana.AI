@@ -87,6 +87,7 @@ export default function NewCampaignPage() {
   const [fromId, setFromId] = useState("");
   const [raw, setRaw] = useState("");
   const [when, setWhen] = useState<"now" | "later">("now");
+  const [consent, setConsent] = useState<string>("");
   const [at, setAt] = useState("");
   const [concurrency, setConcurrency] = useState(5);
   const [launching, setLaunching] = useState(false);
@@ -127,6 +128,7 @@ export default function NewCampaignPage() {
   const from = numbers.find((n) => n.id === fromId);
   const scheduledIso = when === "later" && at ? new Date(`${at}:00+05:30`).toISOString() : null;
   const problems = [
+    !consent && "Choose who you're calling (below)",
     !name.trim() && "Name the campaign",
     !script && "Choose an employee",
     script && !script.tested_at && `${script.name} hasn't been signed off on the Talk page yet`,
@@ -147,7 +149,7 @@ export default function NewCampaignPage() {
     try {
       const res = await fetch("/api/campaigns", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), scriptId, fromNumberId: fromId, scheduledAt: scheduledIso, concurrency,
+        body: JSON.stringify({ name: name.trim(), scriptId, fromNumberId: fromId, scheduledAt: scheduledIso, concurrency, consent: { basis: consent },
           contacts: ok.map((c) => ({ name: c.name, phone: c.phone, variables: c.variables })) }),
       });
       const data = await res.json();
@@ -247,6 +249,19 @@ export default function NewCampaignPage() {
               <span className="font-semibold">{script?.name || "—"}</span> will call <span className="font-semibold">{ok.length.toLocaleString("en-IN")}</span> people
               from <span className="font-semibold">{from?.number || "—"}</span>, {when === "now" ? "starting now" : scheduledIso ? `starting ${new Date(scheduledIso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" })}` : "at the time you pick"},
               up to {concurrency} at a time.
+            </div>
+            <div className="flex flex-col gap-2 border border-line rounded-lg p-3 bg-paper" data-testid="campaign-consent">
+              <div className="text-[12.5px] font-semibold">Who are you calling?</div>
+              {[
+                ["enquiries", "People who enquired with us (form, ad, missed call, walk-in) and expect a call"],
+                ["customers", "Our existing students / customers (reminders, fee dues, follow-ups)"],
+              ].map(([k, t]) => (
+                <label key={k} className="flex items-start gap-2 text-[12.5px] cursor-pointer">
+                  <input type="radio" name="consent" checked={consent === k} onChange={() => setConsent(k)} className="mt-0.5 accent-signal" data-testid={`consent-${k}`} />
+                  <span>{t}</span>
+                </label>
+              ))}
+              <div className="text-[11.5px] text-ink-soft">Cold lists of people who never enquired can't be called from a normal number — TRAI requires a 140-series number for that. Ask RANA if you need one.</div>
             </div>
             {problems.length > 0 && <ul className="text-[12.5px] text-ink-soft list-disc pl-5">{problems.map((p) => <li key={p}>{p}</li>)}</ul>}
             {error && (
