@@ -163,21 +163,7 @@ Rules:
 - Put every objection and its answer you can find (or clearly implied) into "objections". Common Indian sales objections (price, time, "I'll think about it", "send details on WhatsApp", "already joined elsewhere") should be included when the script answers them.
 - Keep each item short and spoken-style (one or two sentences). Keep the language of each item as in the script. Merge near-duplicates.
 - Find every URL or website mentioned and return it in "links" with a purpose (payment, website, booking, brochure, other).
-${baseLang(input.openingLanguage) !== "en" ? `- Write every ${lang} item the way people really speak on the phone — everyday ${lang}, not formal or bookish — keeping common English words (fees, batch, class, course, demo, online, payment, EMI, discount) as English words spelled in the native script.\n
-  const style = speakingStyleRules(s.policy, open);
-  if (style) parts.push(style);
-
-  if (p) {
-- Suggest a greeting in ${lang}
-@@WITH
-` : ""}- Suggest a greeting in ${lang}
-@@WITH
-
-  const style = speakingStyleRules(s.policy, open);
-  if (style) parts.push(style);
-
-  if (p) {
-- Suggest a greeting in ${lang}: the first sentence the agent says when the call connects (say who is calling and from where, in ${lang}${baseLang(input.openingLanguage) !== "en" ? `, written in ${SCRIPT_NOTE[baseLang(input.openingLanguage)] || "its native script"}` : ""}).
+${baseLang(input.openingLanguage) !== "en" ? `- Write every ${lang} item the way people really speak on the phone — everyday ${lang}, not formal or bookish — keeping common English words (fees, batch, class, course, demo, online, payment, EMI, discount) as English words spelled in the native script.\n` : ""}- Suggest a greeting in ${lang}: the first sentence the agent says when the call connects (say who is calling and from where, in ${lang}${baseLang(input.openingLanguage) !== "en" ? `, written in ${SCRIPT_NOTE[baseLang(input.openingLanguage)] || "its native script"}` : ""}).
 - List brand names, course names, place names and acronyms the speech system might mishear in "keyterms", and ones a voice might mispronounce in "pronunciations" with a sounds-like spelling${baseLang(input.openingLanguage) !== "en" ? ` written in ${SCRIPT_NOTE[baseLang(input.openingLanguage)] || "the native script"} so a ${lang} voice says it the local way (e.g. {"word":"DBMCI","sayAs":"${baseLang(input.openingLanguage) === "te" ? "డి బి ఎం సి ఐ" : baseLang(input.openingLanguage) === "hi" ? "डी बी एम सी आई" : "D B M C I"}"})` : ` (e.g. {"word":"DBMCI","sayAs":"D B M C I"})`}.
 Return ONLY JSON of this shape:
 {"playbook": ${PLAYBOOK_SHAPE},
