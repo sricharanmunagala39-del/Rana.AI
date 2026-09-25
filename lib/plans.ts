@@ -42,21 +42,22 @@ export function cycleStart(client: any, now = new Date()): Date {
   return d;
 }
 
-/** Connected minutes, billed per call rounded up to the next 30 seconds. Test calls count: they cost the same. */
+/** Connected minutes, billed per call rounded up to the next 30 seconds. Talk-page practice (source "manual") is free and never counted here. */
 export function billedMinutes(durations: number[]): number {
   return durations.reduce((m, d) => (d > 0 ? m + Math.ceil(d / 30) / 2 : m), 0);
 }
 
 /** Billed minutes in [from, to) — used for overage invoices. */
 export async function minutesBetween(clientId: string, from: Date, to: Date): Promise<number> {
-  const rows = await sb<any[]>(`/calls?client_id=eq.${clientId}&created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=duration_seconds&limit=100000`);
-  return billedMinutes((rows || []).map((r) => Number(r.duration_seconds) || 0));
+  const rows = await sb<any[]>(`/calls?client_id=eq.${clientId}&created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=duration_seconds,source&limit=100000`);
+  return billedMinutes((rows || []).filter((r) => r.source !== "manual").map((r) => Number(r.duration_seconds) || 0));
 }
 
 export async function usageOf(client: any, now = new Date()) {
   const from = cycleStart(client, now);
   const rows = await sb<any[]>(`/calls?client_id=eq.${client.id}&created_at=gte.${encodeURIComponent(from.toISOString())}&duration_seconds=gt.0&select=duration_seconds,source&limit=50000`).catch(() => []);
-  const all = (rows || []).map((r) => Number(r.duration_seconds) || 0);
+  // Practice on the Talk page (browser sessions, source "manual") is free: Sarvam doesn't charge for it, so we don't either.
+  const all = (rows || []).filter((r) => r.source !== "manual").map((r) => Number(r.duration_seconds) || 0);
   const tests = (rows || []).filter((r) => r.source === "manual").map((r) => Number(r.duration_seconds) || 0);
   const lim = limitsOf(client);
   const used = billedMinutes(all);
@@ -74,8 +75,11 @@ export async function usageOf(client: any, now = new Date()) {
   };
 }
 
+/** Free practice minutes per billing period on the Talk page (fair-use guard). Override with RANA_FREE_PRACTICE_MIN. */
+export const FREE_PRACTICE_MIN = Number(process.env.RANA_FREE_PRACTICE_MIN) || 300;
+
 /** Why this workspace can't place calls right now, or null. `extraMinutes` = minutes a new campaign may use. */
-export async function callingBlock(client: any, opts: { contacts?: number } = {}): Promise<string | null> {
+export async function callingBlock(client: any, opts: { contacts?: number; practice?: boolean } = {}): Promise<string | null> {
   if (!client) return "Workspace not found.";
   if (client.status === "suspended")
     return client.suspended_reason === "billing"
@@ -85,6 +89,12 @@ export async function callingBlock(client: any, opts: { contacts?: number } = {}
   if (u.plan.key === "trial" && u.trialEndsAt && Date.parse(u.trialEndsAt) < Date.now())
     return `Your free trial ended on ${new Date(u.trialEndsAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}. Pick a plan on the Billing page to keep calling.`;
   if (client.status === "pending") return "Your workspace is waiting for RANA to approve it. We'll email you as soon as it's switched on.";
+  // Practice in the browser is free and doesn't need plan minutes — only a generous fair-use cap.
+  if (opts.practice) {
+    return u.testMinutes >= FREE_PRACTICE_MIN
+      ? `You've used this period's ${FREE_PRACTICE_MIN} free practice minutes. Use "Call me" to test by phone, or ask RANA for more practice time.`
+      : null;
+  }
   if (u.minutesUsed >= u.minutesIncluded && !u.limits.allowOverage) {
     if (u.plan.key === "trial") return `You've used all ${u.minutesIncluded} trial minutes. Pick a plan on the Billing page to keep calling.`;
     if (client.wallet_enabled) {

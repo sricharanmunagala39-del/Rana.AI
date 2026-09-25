@@ -36,7 +36,9 @@ async function feeOf(inv: any): Promise<{ fee: number; tax: number; estimated: b
 }
 
 async function callsBetween(from: Date, to: Date) {
-  return (await sb<any[]>(`/calls?created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=client_id,duration_seconds,created_at&limit=200000`).catch(() => [])) || [];
+  // Talk-page practice (source "manual") isn't charged by Sarvam, so it's left out of cost estimates.
+  const rows = (await sb<any[]>(`/calls?created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=client_id,duration_seconds,created_at,source&limit=200000`).catch(() => [])) || [];
+  return rows.filter((r) => r.source !== "manual");
 }
 
 /** Estimated Sarvam credit balance from the ledger + recorded minutes. */
