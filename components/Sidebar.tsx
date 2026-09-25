@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 type Client = {
   id: string; name: string; industry: string; sarvam_app_id: string | null;
-  hq?: boolean; actingAsHq?: boolean;
+  hq?: boolean; actingAsHq?: boolean; pending?: boolean; hqSession?: { readOnly: boolean; expiresAt: number | null; reason: string | null } | null;
   plan?: { key: string; name: string; status: string; trialDaysLeft: number | null; minutesUsed: number; minutesIncluded: number } | null;
 } | null;
 
@@ -88,7 +88,7 @@ export default function Sidebar({ active, client: clientProp }: { active: string
       {client?.actingAsHq && (
         <div className="rounded-lg bg-hot-tint border border-hot/30 px-3 py-2 text-[11.5px] leading-snug" data-testid="hq-acting">
           <div className="font-semibold text-hot">RANA HQ inside this workspace</div>
-          <div className="text-ink-soft">Changes you make are logged in their activity.</div>
+          <div className="text-ink-soft">{client.hqSession?.readOnly ? "Read-only visit — nothing can be changed." : "Changes you make are logged in their activity."}{client.hqSession?.expiresAt ? ` Ends ${new Date(client.hqSession.expiresAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}.` : ""}</div>
           <button onClick={backToHq} className="mt-1 font-semibold text-signal">← Back to HQ</button>
         </div>
       )}
@@ -101,6 +101,17 @@ export default function Sidebar({ active, client: clientProp }: { active: string
         <Link href="/hq/money" className="flex items-center gap-2 px-3 py-[7px] -mt-3 rounded-lg text-[13px] font-medium text-ink-soft hover:bg-paper" data-testid="hq-money-nav">
           <span className="w-2 h-2" /> ₹ Money &amp; Sarvam credits
         </Link>
+      )}
+      {client?.hq && (
+        <Link href="/hq/team" className="flex items-center gap-2 px-3 py-[7px] -mt-4 rounded-lg text-[13px] font-medium text-ink-soft hover:bg-paper" data-testid="hq-team-nav">
+          <span className="w-2 h-2" /> Team &amp; security
+        </Link>
+      )}
+      {client?.pending && (
+        <div className="rounded-lg bg-hot-tint border border-hot/30 px-3 py-2 text-[11.5px] leading-snug" data-testid="pending-banner">
+          <div className="font-semibold text-hot">Waiting for approval</div>
+          <div className="text-ink-soft">Build your AI employee now — calling switches on when RANA starts your trial.</div>
+        </div>
       )}
 
       <nav className="flex flex-col gap-5">
