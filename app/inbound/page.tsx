@@ -30,7 +30,7 @@ export default function InboundPage() {
       const res = await fetch("/api/calls/sync", { method: "POST" });
       const j = await res.json();
       if (!res.ok && !j.saved) throw new Error(j.errors?.[0] || j.error || "Sync failed");
-      setSyncMsg(j.agents === 0 ? "No published Cartesia agent yet — publish a script first." : `Synced — ${j.saved} new or updated call${j.saved === 1 ? "" : "s"}.`);
+      setSyncMsg(j.agents === 0 ? "No published employee yet — publish one first." : `Synced — ${j.saved} new or updated call${j.saved === 1 ? "" : "s"}.`);
       await load();
     } catch (e: any) { setSyncMsg(e.message); }
     finally { setSyncing(false); }

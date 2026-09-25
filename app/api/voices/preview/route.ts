@@ -3,7 +3,7 @@ import { getSession } from "@/lib/session";
 import { unauthorized } from "@/lib/auth";
 import { previewLanguage, sampleLine, synthesizePreview, carrierLine } from "@/lib/voicePreview";
 import { isForeignVoice } from "@/lib/voiceClone";
-import { sarvamTts, SARVAM_AGENT_VOICE } from "@/lib/sarvamAgent";
+import { sarvamTts, voiceFor } from "@/lib/sarvamAgent";
 
 const sarvamCache = new Map<string, ArrayBuffer>();
 
@@ -20,20 +20,21 @@ export async function GET(req: Request) {
     const lang = previewLanguage(sp.get("lang"));
     const say = (sp.get("say") || "").replace(/\s+/g, " ").trim().slice(0, 80);
     const custom = (sp.get("text") || "").replace(/\s+/g, " ").trim().slice(0, 240);
-    const text = say ? carrierLine(lang, say) : custom || sampleLine(lang, SARVAM_AGENT_VOICE.name, SARVAM_AGENT_VOICE.gender);
+    const v = voiceFor(sp.get("voice"));
+    const text = say ? carrierLine(lang, say) : custom || sampleLine(lang, v.name, v.gender);
     const pace = Number(sp.get("speed")) || 1;
-    const key = `${lang}|${pace}|${text}`;
+    const key = `${v.speaker}|${lang}|${pace}|${text}`;
     try {
       let audio = sarvamCache.get(key);
       if (!audio) {
-        audio = await sarvamTts({ text, language: lang, speaker: SARVAM_AGENT_VOICE.speaker, pace });
+        audio = await sarvamTts({ text, language: lang, speaker: v.speaker, pace });
         if (sarvamCache.size > 150) sarvamCache.delete(sarvamCache.keys().next().value as string);
         sarvamCache.set(key, audio);
       }
       return new Response(audio, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "private, max-age=86400", "Content-Length": String(audio.byteLength) } });
     } catch (e: any) {
       console.error("[voice preview sarvam]", e?.message);
-      return Response.json({ error: "Couldn't generate a Sarvam preview." }, { status: 502 });
+      return Response.json({ error: "Couldn't generate a voice preview." }, { status: 502 });
     }
   }
   const voiceId = sp.get("voiceId") || "";

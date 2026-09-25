@@ -13,6 +13,9 @@ type PhoneNumber = {
   provider: string;
 };
 
+// Customers only use RANA's Indian numbers now; the old imported/US number tools stay hidden.
+const SHOW_LEGACY_NUMBERS = false;
+
 export default function PhoneNumbersPage() {
   const [numbers, setNumbers] = useState<PhoneNumber[]>([]);
   const [sarvam, setSarvam] = useState<any>(null);
@@ -142,16 +145,17 @@ export default function PhoneNumbersPage() {
           <div className="border border-signal/30 rounded-xl bg-raised p-5 flex items-center gap-4" data-testid="sarvam-number">
             <div className="w-10 h-10 rounded-full bg-signal-tint text-signal flex items-center justify-center font-bold">₹</div>
             <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-semibold">{sarvam?.number || "Sarvam Indian number"} <span className="text-[11px] font-semibold text-signal bg-signal-tint rounded-full px-2 py-0.5 ml-1">Sarvam · India</span></div>
+              <div className="text-[14px] font-semibold">{sarvam?.number || "Your Indian number"} <span className="text-[11px] font-semibold text-signal bg-signal-tint rounded-full px-2 py-0.5 ml-1">{sarvam?.ownNumber ? "Your number · India" : "Shared number · India"}</span></div>
               <div className="text-[12px] text-ink-soft mt-0.5 leading-relaxed">
                 {sarvam?.ready && sarvam?.calling
-                  ? "Every employee on the Sarvam engine calls from this number — campaigns and \"Call me\" test calls. Nothing to set up."
-                  : sarvam ? "Sarvam calling isn't fully connected yet." : "Checking…"}
+                  ? (sarvam?.ownNumber ? "Your AI employees call from and answer on this number — campaigns and \"Call me\" test calls. Nothing to set up." : "Trial and Starter workspaces call from RANA's shared Indian number. Growth and above get their own Indian number — ask us to set it up.")
+                  : sarvam ? "Calling isn't fully connected yet — RANA support has been notified." : "Checking…"}
               </div>
             </div>
             <span className={`text-[11.5px] font-semibold rounded-full px-2.5 py-1 ${sarvam?.ready && sarvam?.calling ? "bg-signal-tint text-signal" : "bg-paper text-ink-soft"}`}>{sarvam?.ready && sarvam?.calling ? "Ready" : "—"}</span>
           </div>
 
+          {SHOW_LEGACY_NUMBERS && (<>
           <div className="text-[12px] font-semibold text-ink-soft uppercase tracking-wide mt-2">Cartesia numbers (for employees on the Cartesia engine)</div>
 
           <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-3">
@@ -270,6 +274,7 @@ export default function PhoneNumbersPage() {
               </div>
             ))}
           </div>
+          </>)}
         </div>
       </div>
     </div>
