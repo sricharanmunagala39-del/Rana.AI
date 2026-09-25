@@ -401,8 +401,7 @@ export default function Site() {
           <div className="flex items-center gap-2.5"><Logo size={24} /><span>RANA AI — Hyderabad, India</span></div>
           <nav className="flex flex-wrap gap-6 justify-center font-mono text-[12px]">
             {NAV.map(([l, h]) => <a key={h} href={h} className="hover:text-signal">{l}</a>)}
-            <Link href="/blog" className="hover:text-signal">Blog</Link>            <Link href="/blog" className="hover:text-signal">Blog</Link>
-
+            <Link href="/blog" className="hover:text-signal">Blog</Link>
             <Link href="/login" className="hover:text-signal">Sign in</Link>
           </nav>
           <div>© {new Date().getFullYear()} RANA AI</div>
