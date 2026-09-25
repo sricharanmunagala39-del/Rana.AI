@@ -78,7 +78,7 @@ export default function HqBilling({ clientId, onChanged }: { clientId: string; o
                 <span className="w-full grid grid-cols-[1fr_1fr_auto] gap-2 mt-1 items-end">
                   <label className="text-[11px] font-semibold">Received by<select id="hq-pay-via" value={pay.via} onChange={(e) => setPay({ ...pay, via: e.target.value })} className={field}>{["bank transfer", "upi", "cheque", "cash", "razorpay", "other"].map((v) => <option key={v}>{v}</option>)}</select></label>
                   <label className="text-[11px] font-semibold">UTR / reference<input id="hq-pay-ref" value={pay.ref} onChange={(e) => setPay({ ...pay, ref: e.target.value })} className={field} /></label>
-                  <button disabled={busy} onClick={() => act(i, { action: "mark_paid", ...pay })} className="bg-signal text-white rounded-lg px-3 py-1.5 text-[12px] font-semibold disabled:opacity-50" data-testid="hq-confirm-paid">Confirm</button>
+                  <button disabled={busy} onClick={() => act(i, { action: "mark_paid", ...pay })} className="bg-signal text-on-accent rounded-lg px-3 py-1.5 text-[12px] font-semibold disabled:opacity-50" data-testid="hq-confirm-paid">Confirm</button>
                 </span>
               )}
             </div>
@@ -118,7 +118,7 @@ export default function HqBilling({ clientId, onChanged }: { clientId: string; o
           )}
           <div className="flex justify-end gap-2">
             <button onClick={() => setMode("")} className="border border-line rounded-lg px-3 py-1.5 text-[12px] font-semibold">Back</button>
-            <button onClick={issue} disabled={busy} className="bg-ink text-white rounded-lg px-3 py-1.5 text-[12px] font-semibold disabled:opacity-50" data-testid="hq-issue">{busy ? "Issuing…" : "Issue invoice"}</button>
+            <button onClick={issue} disabled={busy} className="bg-ink text-paper rounded-lg px-3 py-1.5 text-[12px] font-semibold disabled:opacity-50" data-testid="hq-issue">{busy ? "Issuing…" : "Issue invoice"}</button>
           </div>
         </div>
       )}

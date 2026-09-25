@@ -129,9 +129,9 @@ export default function HqPage() {
               <div className="text-[13px] text-ink-soft mt-0.5">Everything across every client: what needs you, what's live, money, health — and the controls to act. Only RANA staff see this page.</div>
             </div>
             <div className="flex gap-2">
-              <a href="/hq/money" className="border border-line bg-white rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="hq-money-link">₹ Money</a>
-              <a href="/hq/team" className="border border-line bg-white rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="hq-team-link">Team &amp; security</a>
-              <button onClick={() => setShowNew(true)} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="hq-new">+ New client</button>
+              <a href="/hq/money" className="border border-line bg-raised rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="hq-money-link">₹ Money</a>
+              <a href="/hq/team" className="border border-line bg-raised rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="hq-team-link">Team &amp; security</a>
+              <button onClick={() => setShowNew(true)} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="hq-new">+ New client</button>
             </div>
           </div>
           {err && <div className="text-[13px] text-miss">{err}</div>}
@@ -140,7 +140,7 @@ export default function HqPage() {
           <HqOverview onData={setOv} onOpenClient={openById} onApprove={(id) => patch(id, { status: "active" })} />
 
           <div className="text-[15px] font-semibold -mb-3">All clients</div>
-          <div className="border border-line rounded-xl bg-white overflow-x-auto">
+          <div className="border border-line rounded-xl bg-raised overflow-x-auto">
             <table className="w-full text-[13px] min-w-[900px]" data-testid="hq-table">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wide text-ink-soft border-b border-line">
@@ -163,7 +163,7 @@ export default function HqPage() {
                     <td className="px-4 py-3 text-ink-soft">{c.number || "Shared"}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <button onClick={() => setEditing(c)} className="border border-line rounded-lg px-3 py-1.5 text-[12px] font-semibold mr-2" data-testid="hq-manage">Manage</button>
-                      <button onClick={() => setOpening({ c, reason: "support", readOnly: true, minutes: 60, note: "" })} disabled={!!busy} className="bg-ink text-white rounded-lg px-3 py-1.5 text-[12px] font-semibold disabled:opacity-40" data-testid="hq-open">Open workspace</button>
+                      <button onClick={() => setOpening({ c, reason: "support", readOnly: true, minutes: 60, note: "" })} disabled={!!busy} className="bg-ink text-paper rounded-lg px-3 py-1.5 text-[12px] font-semibold disabled:opacity-40" data-testid="hq-open">Open workspace</button>
                     </td>
                   </tr>
                 ))}
@@ -175,7 +175,7 @@ export default function HqPage() {
 
       {showNew && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50" onClick={() => setShowNew(false)}>
-          <div className="w-full max-w-[560px] bg-white rounded-2xl border border-line p-6 flex flex-col gap-3" onClick={(e) => e.stopPropagation()} data-testid="hq-new-form">
+          <div className="w-full max-w-[560px] bg-raised rounded-2xl border border-line p-6 flex flex-col gap-3" onClick={(e) => e.stopPropagation()} data-testid="hq-new-form">
             <div className="text-[18px] font-display font-semibold">New client workspace</div>
             <div className="text-[12.5px] text-ink-soft">RANA creates the workspace and a one-time password for the owner. Send it on WhatsApp or email.</div>
             <label className="text-[12px] font-semibold">Company name<input id="hq-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1 w-full border border-line rounded-lg px-3 py-2 text-[13px] font-normal" placeholder="Sri Chaitanya Hyderabad" /></label>
@@ -192,7 +192,7 @@ export default function HqPage() {
             {msg && <div className="text-[12.5px] text-miss">{msg}</div>}
             <div className="flex justify-end gap-2 mt-1">
               <button onClick={() => setShowNew(false)} className="border border-line rounded-lg px-4 py-2 text-[13px] font-semibold">Cancel</button>
-              <button onClick={create} disabled={busy === "create"} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50" data-testid="hq-create">{busy === "create" ? "Creating…" : "Create workspace"}</button>
+              <button onClick={create} disabled={busy === "create"} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50" data-testid="hq-create">{busy === "create" ? "Creating…" : "Create workspace"}</button>
             </div>
           </div>
         </div>
@@ -200,13 +200,13 @@ export default function HqPage() {
 
       {creds && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-[520px] bg-white rounded-2xl border border-line p-6 flex flex-col gap-3" data-testid="hq-creds">
+          <div className="w-full max-w-[520px] bg-raised rounded-2xl border border-line p-6 flex flex-col gap-3" data-testid="hq-creds">
             <div className="text-[18px] font-display font-semibold">Login for {creds.name}</div>
             <div className="text-[12.5px] text-ink-soft">This password is shown only once. The owner sets their own password when they first sign in.{(creds as any).emailed ? " We've also emailed it to them." : ""}</div>
             <pre className="bg-paper border border-line rounded-lg p-3 text-[12.5px] whitespace-pre-wrap select-all">{welcomeText(creds.name, creds.email, creds.password)}</pre>
             <div className="flex justify-end gap-2">
               <button onClick={() => copy(welcomeText(creds.name, creds.email, creds.password))} className="border border-line rounded-lg px-4 py-2 text-[13px] font-semibold">Copy message</button>
-              <button onClick={() => setCreds(null)} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold">Done</button>
+              <button onClick={() => setCreds(null)} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold">Done</button>
             </div>
           </div>
         </div>
@@ -214,7 +214,7 @@ export default function HqPage() {
 
       {editing && (
         <div className="fixed inset-0 bg-black/30 flex justify-end z-50" onClick={() => setEditing(null)}>
-          <div className="w-full max-w-[460px] bg-white h-full overflow-y-auto p-6 flex flex-col gap-4" onClick={(e) => e.stopPropagation()} data-testid="hq-drawer">
+          <div className="w-full max-w-[460px] bg-raised h-full overflow-y-auto p-6 flex flex-col gap-4" onClick={(e) => e.stopPropagation()} data-testid="hq-drawer">
             <div className="flex items-start justify-between">
               <div><div className="text-[18px] font-display font-semibold">{editing.name}</div><div className="text-[12px] text-ink-soft">{editing.owner?.email} · created {new Date(editing.createdAt).toLocaleDateString("en-IN")}</div></div>
               <button onClick={() => setEditing(null)} className="text-ink-soft text-lg">×</button>
@@ -260,8 +260,8 @@ export default function HqPage() {
             )}
             <HqBilling clientId={editing.id} onChanged={load} />
             <div className="flex flex-wrap gap-2 border-t border-line pt-4">
-              {editing.status === "pending" && <button onClick={() => patch(editing.id, { status: "active" })} className="bg-signal text-white rounded-lg px-3 py-2 text-[12.5px] font-semibold" data-testid="hq-approve">Approve & start trial</button>}
-              <button onClick={() => setOpening({ c: editing, reason: "support", readOnly: true, minutes: 60, note: "" })} className="bg-ink text-white rounded-lg px-3 py-2 text-[12.5px] font-semibold">Open workspace</button>
+              {editing.status === "pending" && <button onClick={() => patch(editing.id, { status: "active" })} className="bg-signal text-on-accent rounded-lg px-3 py-2 text-[12.5px] font-semibold" data-testid="hq-approve">Approve & start trial</button>}
+              <button onClick={() => setOpening({ c: editing, reason: "support", readOnly: true, minutes: 60, note: "" })} className="bg-ink text-paper rounded-lg px-3 py-2 text-[12.5px] font-semibold">Open workspace</button>
               <button onClick={() => runQa(editing)} className="border border-line rounded-lg px-3 py-2 text-[12.5px] font-semibold" data-testid="hq-qa">Grade recent calls (AI)</button>
               <button onClick={() => act(editing, "reset_owner")} className="border border-line rounded-lg px-3 py-2 text-[12.5px] font-semibold">New owner password</button>
               {editing.status === "suspended"
@@ -275,7 +275,7 @@ export default function HqPage() {
 
       {opening && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-[60]" onClick={() => setOpening(null)}>
-          <div className="w-full max-w-[460px] bg-white rounded-2xl border border-line p-6 flex flex-col gap-3" onClick={(e) => e.stopPropagation()} data-testid="open-form">
+          <div className="w-full max-w-[460px] bg-raised rounded-2xl border border-line p-6 flex flex-col gap-3" onClick={(e) => e.stopPropagation()} data-testid="open-form">
             <div className="text-[18px] font-display font-semibold">Open {opening.c.name}'s workspace</div>
             <div className="text-[12.5px] text-ink-soft">The client sees this visit, the reason and everything you change in their Activity log.</div>
             <label className="text-[12px] font-semibold">Reason<select id="open-reason" value={opening.reason} onChange={(e) => setOpening({ ...opening, reason: e.target.value })} className="mt-1 w-full border border-line rounded-lg px-3 py-2 text-[13px] font-normal">
@@ -288,7 +288,7 @@ export default function HqPage() {
             </div>
             <div className="flex justify-end gap-2 mt-1">
               <button onClick={() => setOpening(null)} className="border border-line rounded-lg px-4 py-2 text-[13px] font-semibold">Cancel</button>
-              <button onClick={() => { const o = opening; setOpening(null); act(o.c, "open", { reason: o.reason, readOnly: o.readOnly, minutes: o.minutes, note: o.note }); }} className="bg-ink text-white rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="open-go">Open</button>
+              <button onClick={() => { const o = opening; setOpening(null); act(o.c, "open", { reason: o.reason, readOnly: o.readOnly, minutes: o.minutes, note: o.note }); }} className="bg-ink text-paper rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="open-go">Open</button>
             </div>
           </div>
         </div>
@@ -296,7 +296,7 @@ export default function HqPage() {
 
       {qa && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-[60]" onClick={() => setQa(null)}>
-          <div className="w-full max-w-[640px] max-h-[85vh] overflow-y-auto bg-white rounded-2xl border border-line p-6 flex flex-col gap-3" onClick={(e) => e.stopPropagation()} data-testid="qa-result">
+          <div className="w-full max-w-[640px] max-h-[85vh] overflow-y-auto bg-raised rounded-2xl border border-line p-6 flex flex-col gap-3" onClick={(e) => e.stopPropagation()} data-testid="qa-result">
             <div className="text-[18px] font-display font-semibold">Call quality — {qa.client}</div>
             {qa.loading && <div className="text-[13px] text-ink-soft">Listening to recent calls… (about 20 seconds)</div>}
             {qa.error && <div className="text-[13px] text-miss">{qa.error}</div>}
@@ -310,7 +310,7 @@ export default function HqPage() {
                 {c.good?.length > 0 && <div className="text-signal">Good: {c.good.join("; ")}</div>}
               </div>
             ))}
-            <div className="flex justify-end"><button onClick={() => setQa(null)} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold">Close</button></div>
+            <div className="flex justify-end"><button onClick={() => setQa(null)} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold">Close</button></div>
           </div>
         </div>
       )}

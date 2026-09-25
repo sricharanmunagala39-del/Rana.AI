@@ -44,8 +44,8 @@ const BACKGROUND_OPTIONS: { id: BackgroundSound; label: string }[] = [
 const OUTCOMES: { key: string; label: string; description: string; tone: string }[] = [
   { key: "no_answer", label: "No answer", description: "The call didn't connect — no answer, busy, or a carrier failure.", tone: "bg-paper text-ink-soft border border-line" },
   { key: "ready_to_close", label: "Ready to close", description: "Something the caller said matched \"ready\", \"enrol\", \"book\" or \"convert\" — hand this to your counsellor first.", tone: "bg-signal-tint text-signal border border-signal/30" },
-  { key: "hot", label: "Hot", description: "Matched \"hot\" or \"high\" interest.", tone: "bg-orange-50 text-orange-700 border border-orange-200" },
-  { key: "warm", label: "Warm", description: "Matched \"warm\", \"interested\", \"callback\" or \"follow up\".", tone: "bg-amber-50 text-amber-700 border border-amber-200" },
+  { key: "hot", label: "Hot", description: "Matched \"hot\" or \"high\" interest.", tone: "bg-hot-tint text-hot border border-hot/30" },
+  { key: "warm", label: "Warm", description: "Matched \"warm\", \"interested\", \"callback\" or \"follow up\".", tone: "bg-warm-tint text-warm border border-warm/30" },
   { key: "not_interested", label: "Not interested", description: "Matched \"not interested\", \"decline\", \"reject\", or a do-not-disturb request.", tone: "bg-miss-tint text-miss border border-miss/20" },
   { key: "cold", label: "Cold", description: "Matched \"cold\"/\"low\" interest, or the call lasted under 15 seconds with no other signal.", tone: "bg-paper text-ink-soft border border-line" },
   { key: "new", label: "New", description: "Nothing above matched yet — the default until a human or a later call reclassifies it.", tone: "bg-paper text-ink-soft border border-line" },
@@ -436,15 +436,15 @@ export default function AgentPage() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => openTestModal("voice")}
-              className="border border-line bg-white text-ink rounded-full px-3.5 py-2 text-[12.5px] font-semibold flex items-center gap-1.5 hover:bg-paper">
+              className="border border-line bg-raised text-ink rounded-full px-3.5 py-2 text-[12.5px] font-semibold flex items-center gap-1.5 hover:bg-paper">
               🎤 Talk
             </button>
             <button onClick={() => openTestModal("chat")}
-              className="border border-line bg-white text-ink rounded-full px-3.5 py-2 text-[12.5px] font-semibold flex items-center gap-1.5 hover:bg-paper">
+              className="border border-line bg-raised text-ink rounded-full px-3.5 py-2 text-[12.5px] font-semibold flex items-center gap-1.5 hover:bg-paper">
               💬 Chat
             </button>
             <button onClick={() => openTestModal("phone")}
-              className="bg-ink text-white rounded-full px-4 py-2 text-[12.5px] font-semibold flex items-center gap-1.5">
+              className="bg-ink text-paper rounded-full px-4 py-2 text-[12.5px] font-semibold flex items-center gap-1.5">
               📞 Test call
             </button>
           </div>
@@ -464,7 +464,7 @@ export default function AgentPage() {
 
             {tab === "overview" && (
               <div className="max-w-[720px] flex flex-col gap-6">
-                <div className="border border-line rounded-2xl bg-white p-6 flex items-start gap-4">
+                <div className="border border-line rounded-2xl bg-raised p-6 flex items-start gap-4">
                   <div className="w-14 h-14 rounded-2xl bg-signal-tint flex items-center justify-center text-signal font-display font-bold text-2xl shrink-0">{settings.agentName.charAt(0)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[20px] font-display font-semibold">{settings.agentName}</div>
@@ -483,7 +483,7 @@ export default function AgentPage() {
                   </div>
                 </div>
 
-                <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-3">
+                <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-3">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
                       <div className="text-[14px] font-semibold">Publish to Cartesia</div>
@@ -494,7 +494,7 @@ export default function AgentPage() {
                       </div>
                     </div>
                     <button onClick={handlePublish} disabled={publishStatus === "loading"}
-                      className="bg-signal text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-50 shrink-0">
+                      className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-50 shrink-0">
                       {publishStatus === "loading" ? "Publishing…" : publishInfo?.agentId ? "Update" : "Publish"}
                     </button>
                   </div>
@@ -535,8 +535,8 @@ export default function AgentPage() {
                     <div className="text-[12.5px] text-ink-soft mt-0.5">Talk to it in the browser, or send a real test call to your phone.</div>
                   </div>
                   <div className="flex gap-2 shrink-0">
-                    <button onClick={() => openTestModal("voice")} className="bg-signal text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold">Talk now</button>
-                    <button onClick={() => { window.location.href = "/outbound/new"; }} className="border border-line bg-white text-ink rounded-lg px-4 py-2 text-[12.5px] font-semibold">Launch campaign</button>
+                    <button onClick={() => openTestModal("voice")} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold">Talk now</button>
+                    <button onClick={() => { window.location.href = "/outbound/new"; }} className="border border-line bg-raised text-ink rounded-lg px-4 py-2 text-[12.5px] font-semibold">Launch campaign</button>
                   </div>
                 </div>
 
@@ -557,16 +557,16 @@ export default function AgentPage() {
                   {settings.variables.map((v, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <input value={v.key} onChange={(e) => updateVariable(i, "key", e.target.value)} placeholder="field_key"
-                        className="w-[170px] border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] font-mono bg-white outline-none focus:border-signal" />
+                        className="w-[170px] border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] font-mono bg-raised outline-none focus:border-signal" />
                       <input value={v.label} onChange={(e) => updateVariable(i, "label", e.target.value)} placeholder="Label shown to your team"
-                        className="flex-1 border border-line rounded-lg px-2.5 py-1.5 bg-white outline-none focus:border-signal text-[12.5px]" />
+                        className="flex-1 border border-line rounded-lg px-2.5 py-1.5 bg-raised outline-none focus:border-signal text-[12.5px]" />
                       <button onClick={() => removeVariable(i)} className="text-miss text-xs font-semibold px-1">✕</button>
                     </div>
                   ))}
                   <button onClick={addVariable} className="text-[12.5px] font-semibold text-signal text-left mt-1">+ Add a field</button>
                 </div>
                 <div className="flex items-center gap-3 pt-2 border-t border-line">
-                  <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">Save changes</button>
+                  <button onClick={handleSave} className="bg-ink text-paper rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">Save changes</button>
                   {saved && <span className="text-[13px] text-signal font-medium mt-4">Saved ✓</span>}
                 </div>
               </div>
@@ -584,9 +584,9 @@ export default function AgentPage() {
                   <h2 className="text-[13px] font-semibold uppercase tracking-wide border-b border-line pb-2 mb-3">Call script — {settings.steps.length} steps</h2>
                   <div className="flex flex-col gap-3">
                     {settings.steps.map((step: AgentStep, i: number) => (
-                      <div key={step.id} className="border border-line rounded-xl bg-white p-4 flex gap-3">
+                      <div key={step.id} className="border border-line rounded-xl bg-raised p-4 flex gap-3">
                         <div className="flex flex-col items-center gap-1 pt-0.5 shrink-0">
-                          <span className="w-6 h-6 rounded-full bg-signal text-white text-[12px] font-bold flex items-center justify-center">{i + 1}</span>
+                          <span className="w-6 h-6 rounded-full bg-signal text-on-accent text-[12px] font-bold flex items-center justify-center">{i + 1}</span>
                           <button onClick={() => moveStep(step.id, -1)} disabled={i === 0} className="text-ink-soft text-[10px] leading-none disabled:opacity-20">▲</button>
                           <button onClick={() => moveStep(step.id, 1)} disabled={i === settings.steps.length - 1} className="text-ink-soft text-[10px] leading-none disabled:opacity-20">▼</button>
                         </div>
@@ -619,7 +619,7 @@ export default function AgentPage() {
 
                 <div className="flex flex-col gap-4 border-t border-line pt-5">
                   <div className="flex items-center gap-3">
-                    <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold">Save changes</button>
+                    <button onClick={handleSave} className="bg-ink text-paper rounded-lg px-5 py-2.5 text-[13.5px] font-semibold">Save changes</button>
                     {saved && <span className="text-[13px] text-signal font-medium">Saved ✓</span>}
                   </div>
                   <div className="bg-paper border border-line rounded-xl p-4 flex flex-col gap-3">
@@ -633,7 +633,7 @@ export default function AgentPage() {
                       </div>
                       {versions.length > 0 && (
                         <button onClick={() => setShowVerPanel((v) => !v)}
-                          className="text-[12px] text-ink-soft border border-line rounded-lg px-2.5 py-1 hover:bg-white">
+                          className="text-[12px] text-ink-soft border border-line rounded-lg px-2.5 py-1 hover:bg-raised">
                           {showVerPanel ? "Hide history" : `History (${versions.length})`}
                         </button>
                       )}
@@ -642,9 +642,9 @@ export default function AgentPage() {
                       <input value={versionLabel} onChange={(e) => setVersionLabel(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") handleSaveVersion(); }}
                         placeholder={`e.g. "Medical college outbound" (optional)`}
-                        className="flex-1 border border-line rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:border-signal" />
+                        className="flex-1 border border-line rounded-lg px-3 py-2 text-[13px] bg-raised outline-none focus:border-signal" />
                       <button onClick={handleSaveVersion} disabled={savingVer}
-                        className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold whitespace-nowrap disabled:opacity-50">
+                        className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold whitespace-nowrap disabled:opacity-50">
                         Save version
                       </button>
                     </div>
@@ -653,7 +653,7 @@ export default function AgentPage() {
                       <div className="flex flex-col gap-2 mt-1">
                         <div className="text-[11.5px] text-ink-soft uppercase tracking-wide font-semibold">Version history</div>
                         {versions.map((v) => (
-                          <div key={v.version} className="flex items-center gap-2 border border-line rounded-lg bg-white px-3 py-2.5">
+                          <div key={v.version} className="flex items-center gap-2 border border-line rounded-lg bg-raised px-3 py-2.5">
                             <div className="flex-1 min-w-0">
                               <div className="text-[13px] font-semibold truncate">{v.label}</div>
                               <div className="text-[11.5px] text-ink-soft">
@@ -701,7 +701,7 @@ export default function AgentPage() {
                 </div>
 
                 <div className="flex items-center gap-3 pt-2 border-t border-line">
-                  <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">Save changes</button>
+                  <button onClick={handleSave} className="bg-ink text-paper rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">Save changes</button>
                   {saved && <span className="text-[13px] text-signal font-medium mt-4">Saved ✓</span>}
                 </div>
               </div>
@@ -747,7 +747,7 @@ export default function AgentPage() {
                     <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2 mb-2">{catalogError}</div>
                   )}
                   <button type="button" onClick={() => setVoiceModalOpen(true)} disabled={catalogLoading}
-                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal flex items-center justify-between disabled:opacity-60">
+                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-raised outline-none focus:border-signal flex items-center justify-between disabled:opacity-60">
                     <span className="truncate text-left">
                       {catalogLoading
                         ? "Loading voices…"
@@ -771,7 +771,7 @@ export default function AgentPage() {
                 <div>
                   <label className="text-[13px] font-semibold block mb-1.5">Model — the agent's brain</label>
                   <button type="button" onClick={() => setModelModalOpen(true)} disabled={catalogLoading}
-                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal flex items-center justify-between disabled:opacity-60">
+                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-raised outline-none focus:border-signal flex items-center justify-between disabled:opacity-60">
                     <span className="truncate text-left">
                       {catalogLoading
                         ? "Loading models…"
@@ -794,7 +794,7 @@ export default function AgentPage() {
                 <div>
                   <label className="text-[13px] font-semibold block mb-1.5">Background sound</label>
                   <button type="button" onClick={() => setSoundModalOpen(true)}
-                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal flex items-center justify-between">
+                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-raised outline-none focus:border-signal flex items-center justify-between">
                     <span className="truncate text-left">
                       {backgroundSounds.find((s) => s.id === backgroundSoundId)?.filename || "None"}
                     </span>
@@ -822,7 +822,7 @@ export default function AgentPage() {
                   <div className="flex gap-2">
                     {(["off", "auto", "max"] as const).map((n) => (
                       <button key={n} type="button" onClick={() => setNoiseSuppression(n)}
-                        className={`text-[12.5px] font-semibold px-3.5 py-1.5 rounded-full border capitalize ${noiseSuppression === n ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"}`}>
+                        className={`text-[12.5px] font-semibold px-3.5 py-1.5 rounded-full border capitalize ${noiseSuppression === n ? "bg-ink text-paper border-ink" : "bg-raised text-ink-soft border-line"}`}>
                         {n}
                       </button>
                     ))}
@@ -843,12 +843,12 @@ export default function AgentPage() {
                 </div>
                 <div>
                   <label className="text-[13px] font-semibold block mb-1.5">Starting language</label>
-                  <select value={settings.startingLanguage} onChange={(e) => setSettings((s) => ({ ...s, startingLanguage: e.target.value }))} className="border border-line rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-signal">
+                  <select value={settings.startingLanguage} onChange={(e) => setSettings((s) => ({ ...s, startingLanguage: e.target.value }))} className="border border-line rounded-lg px-3 py-2 text-sm bg-raised outline-none focus:border-signal">
                     {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
                   </select>
                 </div>
                 <div className="flex items-center gap-3 pt-2 border-t border-line">
-                  <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">Save changes</button>
+                  <button onClick={handleSave} className="bg-ink text-paper rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">Save changes</button>
                   {saved && <span className="text-[13px] text-signal font-medium mt-4">Saved ✓</span>}
                 </div>
               </div>
@@ -861,9 +861,9 @@ export default function AgentPage() {
                   <div className="flex flex-col gap-2">
                     {settings.pronunciations.map((p, i) => (
                       <div key={i} className="flex items-center gap-2">
-                        <input value={p.word} onChange={(e) => updatePron(i, "word", e.target.value)} placeholder="Word" className="flex-1 border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none focus:border-signal" />
+                        <input value={p.word} onChange={(e) => updatePron(i, "word", e.target.value)} placeholder="Word" className="flex-1 border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-raised outline-none focus:border-signal" />
                         <span className="text-ink-soft text-xs">→</span>
-                        <input value={p.sayAs} onChange={(e) => updatePron(i, "sayAs", e.target.value)} placeholder="Say it as" className="flex-1 border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none focus:border-signal" />
+                        <input value={p.sayAs} onChange={(e) => updatePron(i, "sayAs", e.target.value)} placeholder="Say it as" className="flex-1 border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-raised outline-none focus:border-signal" />
                         <button onClick={() => removePron(i)} className="text-miss text-xs font-semibold px-1">✕</button>
                       </div>
                     ))}
@@ -872,7 +872,7 @@ export default function AgentPage() {
                   <div className="text-[11px] text-ink-soft mt-1">Preview only — not yet sent to Cartesia (Cartesia's pronunciation dictionaries are a separate, later step).</div>
                 </div>
                 <div className="flex items-center gap-3 pt-2 border-t border-line">
-                  <button onClick={handleSave} className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">Save changes</button>
+                  <button onClick={handleSave} className="bg-ink text-paper rounded-lg px-5 py-2.5 text-[13.5px] font-semibold mt-4">Save changes</button>
                   {saved && <span className="text-[13px] text-signal font-medium mt-4">Saved ✓</span>}
                 </div>
               </div>
@@ -899,9 +899,9 @@ export default function AgentPage() {
               <textarea value={editInput} onChange={(e) => setEditInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitEdit(); } }}
                 placeholder="Ask AI to change this agent…" rows={2}
-                className="flex-1 border border-line rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:border-signal resize-none" />
+                className="flex-1 border border-line rounded-lg px-3 py-2 text-[13px] bg-raised outline-none focus:border-signal resize-none" />
               <button onClick={submitEdit} disabled={editLoading || !editInput.trim()}
-                className="bg-ink text-white rounded-full w-9 h-9 flex items-center justify-center disabled:opacity-40 shrink-0">
+                className="bg-ink text-paper rounded-full w-9 h-9 flex items-center justify-center disabled:opacity-40 shrink-0">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
               </button>
             </div>
@@ -910,14 +910,14 @@ export default function AgentPage() {
       </div>
 
       {testModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-6" onClick={closeTestModal}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-[560px] max-h-[85vh] overflow-y-auto p-6 relative" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={closeTestModal}>
+          <div className="bg-raised rounded-2xl shadow-xl w-full max-w-[560px] max-h-[85vh] overflow-y-auto p-6 relative" onClick={(e) => e.stopPropagation()}>
             <button onClick={closeTestModal} className="absolute top-4 right-4 text-ink-soft hover:text-ink text-lg leading-none">×</button>
 
             <div className="flex gap-1 border border-line rounded-xl p-1 bg-paper w-fit mb-5">
               {(["voice", "phone", "chat"] as const).map((t) => (
                 <button key={t} onClick={() => setTestTab(t)}
-                  className={`px-4 py-1.5 rounded-lg text-[13px] font-semibold ${testTab === t ? "bg-white shadow-sm text-ink" : "text-ink-soft hover:text-ink"}`}>
+                  className={`px-4 py-1.5 rounded-lg text-[13px] font-semibold ${testTab === t ? "bg-raised shadow-sm text-ink" : "text-ink-soft hover:text-ink"}`}>
                   {t === "voice" ? "🎤 Voice" : t === "phone" ? "📞 Phone" : "💬 Chat"}
                 </button>
               ))}
@@ -936,20 +936,20 @@ export default function AgentPage() {
                 )}
 
                 {(isLive || isConnecting || callStatus === "ending") && (
-                  <div className="border border-signal/30 rounded-2xl bg-white overflow-hidden">
+                  <div className="border border-signal/30 rounded-2xl bg-raised overflow-hidden">
                     <div className="bg-signal px-5 py-3 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {isLive && (
                           <span className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                            <span className="text-white text-[12.5px] font-semibold">LIVE</span>
+                            <span className="w-2 h-2 rounded-full bg-on-accent animate-pulse" />
+                            <span className="text-on-accent text-[12.5px] font-semibold">LIVE</span>
                           </span>
                         )}
-                        {isConnecting && <span className="text-white text-[12.5px] font-semibold">Connecting…</span>}
-                        {callStatus === "ending" && <span className="text-white text-[12.5px] font-semibold">Ending…</span>}
+                        {isConnecting && <span className="text-on-accent text-[12.5px] font-semibold">Connecting…</span>}
+                        {callStatus === "ending" && <span className="text-on-accent text-[12.5px] font-semibold">Ending…</span>}
                       </div>
                       {isLive && (
-                        <span className="text-white/80 text-[12px] font-mono">{fmtDuration(callDuration)}</span>
+                        <span className="text-on-accent/80 text-[12px] font-mono">{fmtDuration(callDuration)}</span>
                       )}
                     </div>
 
@@ -959,10 +959,10 @@ export default function AgentPage() {
                           <div className="relative w-20 h-20">
                             <div className="absolute inset-0 rounded-full bg-signal/10 animate-ping" />
                             <div className="absolute inset-2 rounded-full bg-signal/20 animate-ping" style={{ animationDelay: "0.15s" }} />
-                            <div className="absolute inset-4 rounded-full bg-signal flex items-center justify-center">
-                              <svg width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="0">
+                            <div className="absolute inset-4 rounded-full bg-signal text-on-accent flex items-center justify-center">
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="0">
                                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                                <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4" stroke="white" fill="none" strokeWidth="2" strokeLinecap="round"/>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4" stroke="currentColor" fill="none" strokeWidth="2" strokeLinecap="round"/>
                               </svg>
                             </div>
                           </div>
@@ -979,7 +979,7 @@ export default function AgentPage() {
                           {transcript.map((t, i) => (
                             <div key={i} className={`flex ${t.role === "agent" ? "justify-start" : "justify-end"}`}>
                               <div className={`max-w-[85%] rounded-xl px-3.5 py-2 text-[12.5px] leading-relaxed ${
-                                t.role === "agent" ? "bg-signal-tint text-ink" : "bg-ink text-white"
+                                t.role === "agent" ? "bg-signal-tint text-ink" : "bg-ink text-paper"
                               }`}>
                                 {t.role === "agent" && (
                                   <div className="text-[10px] text-signal font-semibold uppercase tracking-wide mb-0.5">Agent</div>
@@ -1015,7 +1015,7 @@ export default function AgentPage() {
                 )}
 
                 {(callStatus === "idle" || callStatus === "error") && (
-                  <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-4">
+                  <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-4">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-full bg-signal-tint flex items-center justify-center shrink-0">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-signal">
@@ -1035,7 +1035,7 @@ export default function AgentPage() {
                         "Live transcript appears during the call",
                       ].map((step, i) => (
                         <div key={i} className="flex items-start gap-2.5">
-                          <span className="w-5 h-5 rounded-full bg-signal text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                          <span className="w-5 h-5 rounded-full bg-signal text-on-accent text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
                           <span className="text-[12.5px] text-ink leading-relaxed">{step}</span>
                         </div>
                       ))}
@@ -1049,7 +1049,7 @@ export default function AgentPage() {
                     )}
 
                     <button onClick={startVoiceCall} disabled={!publishInfo?.agentId}
-                      className="bg-signal text-white rounded-lg px-5 py-3 text-[13.5px] font-semibold flex items-center gap-2 w-fit disabled:opacity-40">
+                      className="bg-signal text-on-accent rounded-lg px-5 py-3 text-[13.5px] font-semibold flex items-center gap-2 w-fit disabled:opacity-40">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/>
                       </svg>
@@ -1067,7 +1067,7 @@ export default function AgentPage() {
             {testTab === "phone" && (
               <div className="flex flex-col gap-4">
                 <p className="text-[13px] text-ink-soft">Enter a number — Sarvam calls it using your DBMCI agent at full quality.</p>
-                <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-4">
+                <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-4">
                   {phoneStatus !== "calling" && (
                     <>
                       <div>
@@ -1077,7 +1077,7 @@ export default function AgentPage() {
                         <div className="text-[11px] text-ink-soft mt-1">Include country code (e.g. +91 for India)</div>
                       </div>
                       <button onClick={triggerPhoneCall} disabled={phoneLoading || !phoneNumber.trim()}
-                        className="bg-signal text-white rounded-lg py-2.5 text-[13.5px] font-semibold flex items-center justify-center gap-2 disabled:opacity-40">
+                        className="bg-signal text-on-accent rounded-lg py-2.5 text-[13.5px] font-semibold flex items-center justify-center gap-2 disabled:opacity-40">
                         {phoneLoading ? "Connecting to Sarvam…" : (
                           <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.13 12 19.79 19.79 0 0 1 1.06 3.38 2 2 0 0 1 3.05 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16z"/>
@@ -1112,7 +1112,7 @@ export default function AgentPage() {
             {testTab === "chat" && (
               <div className="flex flex-col gap-4">
                 <p className="text-[13px] text-ink-soft">Text-only test — same agent instructions, no audio.</p>
-                <div className="border border-line rounded-xl bg-white min-h-[260px] max-h-[360px] overflow-y-auto p-3.5 flex flex-col gap-2.5">
+                <div className="border border-line rounded-xl bg-raised min-h-[260px] max-h-[360px] overflow-y-auto p-3.5 flex flex-col gap-2.5">
                   {chatHistory.length === 0 && <div className="text-[12.5px] text-ink-soft text-center py-8">Type a message below to start.</div>}
                   {chatHistory.map((m, i) => (
                     <div key={i} className={`flex ${m.role === "assistant" ? "justify-start" : "justify-end"}`}>
@@ -1125,7 +1125,7 @@ export default function AgentPage() {
                   <input value={chatInput} onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
                     placeholder="Type a message and press Enter…" disabled={chatLoading}
-                    className="flex-1 border border-line rounded-lg px-3 py-2.5 text-[13px] bg-white outline-none focus:border-signal" />
+                    className="flex-1 border border-line rounded-lg px-3 py-2.5 text-[13px] bg-raised outline-none focus:border-signal" />
                   <button onClick={() => { setChatHistory([]); setChatInput(""); }}
                     className="text-[12px] text-ink-soft border border-line rounded-lg px-3">Clear</button>
                 </div>

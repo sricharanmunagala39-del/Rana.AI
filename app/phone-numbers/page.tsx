@@ -139,7 +139,7 @@ export default function PhoneNumbersPage() {
             <div className="text-[13px] text-ink-soft mt-0.5">The numbers your employees call from and answer.</div>
           </div>
 
-          <div className="border border-signal/30 rounded-xl bg-white p-5 flex items-center gap-4" data-testid="sarvam-number">
+          <div className="border border-signal/30 rounded-xl bg-raised p-5 flex items-center gap-4" data-testid="sarvam-number">
             <div className="w-10 h-10 rounded-full bg-signal-tint text-signal flex items-center justify-center font-bold">₹</div>
             <div className="flex-1 min-w-0">
               <div className="text-[14px] font-semibold">{sarvam?.number || "Sarvam Indian number"} <span className="text-[11px] font-semibold text-signal bg-signal-tint rounded-full px-2 py-0.5 ml-1">Sarvam · India</span></div>
@@ -154,7 +154,7 @@ export default function PhoneNumbersPage() {
 
           <div className="text-[12px] font-semibold text-ink-soft uppercase tracking-wide mt-2">Cartesia numbers (for employees on the Cartesia engine)</div>
 
-          <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-3">
+          <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-3">
             <div>
               <div className="text-[14px] font-semibold">Import an Indian number from Twilio</div>
               <div className="text-[12px] text-ink-soft mt-1 leading-relaxed">
@@ -194,7 +194,7 @@ export default function PhoneNumbersPage() {
             <div>
               <button onClick={handleImport}
                 disabled={importing || !tw.accountSid.trim() || !tw.number.trim() || !tw.label.trim() || (!twAlreadyConnected && (!tw.apiKeySid.trim() || !tw.apiKeySecret.trim()))}
-                className="bg-signal text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-40">
+                className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-40">
                 {importing ? "Importing…" : "Import number"}
               </button>
             </div>
@@ -202,13 +202,13 @@ export default function PhoneNumbersPage() {
             {twOk && <div className="text-[12.5px] text-signal bg-signal-tint border border-signal/20 rounded-lg px-3 py-2.5">{twOk}</div>}
           </div>
 
-          <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-3">
+          <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-3">
             <div className="text-[14px] font-semibold">Buy a Cartesia number (US only — for testing)</div>
             <div className="flex gap-2">
               <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={`Label, e.g. "DBMCI US test line"`}
                 className="flex-1 border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal" />
               <button onClick={handleBuy} disabled={buying || !label.trim()}
-                className="bg-signal text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-40 whitespace-nowrap">
+                className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-40 whitespace-nowrap">
                 {buying ? "Buying…" : "Buy number"}
               </button>
             </div>
@@ -221,7 +221,7 @@ export default function PhoneNumbersPage() {
             )}
           </div>
 
-          <div className="border border-line rounded-xl bg-white overflow-hidden">
+          <div className="border border-line rounded-xl bg-raised overflow-hidden">
             <div className="px-4 py-3 border-b border-line text-[13px] font-semibold flex items-center justify-between">
               <span>Your numbers</span>
               <button onClick={load} disabled={loading} className="text-[11.5px] font-semibold text-signal disabled:opacity-40">
@@ -259,7 +259,7 @@ export default function PhoneNumbersPage() {
                       <input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="Your mobile, e.g. 98765 43210"
                         className="flex-1 border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal" />
                       <button onClick={() => handleTestCall(n.id)} disabled={testing || !testTo.trim()}
-                        className="bg-signal text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-40 whitespace-nowrap">
+                        className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-40 whitespace-nowrap">
                         {testing ? "Calling…" : "Call me"}
                       </button>
                     </div>

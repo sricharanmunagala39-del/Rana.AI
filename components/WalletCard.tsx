@@ -34,7 +34,7 @@ export default function WalletCard({ w, canPay, onOffline, onNeedDetails, onChan
 
   const tone = w.empty ? "text-miss" : w.low ? "text-hot" : "";
   return (
-    <div id="recharge" className="border border-line rounded-xl bg-white p-5 flex flex-col gap-4" data-testid="wallet-card">
+    <div id="recharge" className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-4" data-testid="wallet-card">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="text-[15px] font-semibold">Prepaid calling balance</div>
@@ -60,7 +60,7 @@ export default function WalletCard({ w, canPay, onOffline, onNeedDetails, onChan
           ))}
           <div className="flex items-end gap-2">
             <label className="text-[11.5px] font-semibold">Other amount<input id="wallet-amount" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))} className={field + " w-[120px]"} placeholder={`min ${w.min}`} /></label>
-            <button onClick={() => recharge(Number(amount))} disabled={!!busy || !amount} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50" data-testid="recharge-custom">Recharge</button>
+            <button onClick={() => recharge(Number(amount))} disabled={!!busy || !amount} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50" data-testid="recharge-custom">Recharge</button>
           </div>
         </div>
       )}
@@ -81,7 +81,7 @@ export default function WalletCard({ w, canPay, onOffline, onNeedDetails, onChan
         <div className="flex flex-wrap items-end gap-3 bg-paper rounded-lg p-3" data-testid="auto-form">
           <label className="text-[11.5px] font-semibold">When balance is below (₹)<input id="auto-below" value={auto.below} onChange={(e) => setAuto({ ...auto, below: e.target.value.replace(/[^\d]/g, "") })} className={field + " w-[140px]"} /></label>
           <label className="text-[11.5px] font-semibold">Recharge (₹)<input id="auto-amount" value={auto.amount} onChange={(e) => setAuto({ ...auto, amount: e.target.value.replace(/[^\d]/g, "") })} className={field + " w-[140px]"} /></label>
-          <button onClick={() => saveAuto()} disabled={busy === "auto"} className="bg-ink text-white rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="auto-save">Save</button>
+          <button onClick={() => saveAuto()} disabled={busy === "auto"} className="bg-ink text-paper rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="auto-save">Save</button>
           <button onClick={() => setAuto(null)} className="text-[13px] font-semibold px-2">Cancel</button>
         </div>
       )}

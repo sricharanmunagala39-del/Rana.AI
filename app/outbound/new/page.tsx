@@ -69,8 +69,8 @@ Dr Rahul Varma,+91 90000 54321,Gandhi Medical College,2023`;
 // Defined at module level so inputs inside keep focus while typing.
 function Section({ n, title, children }: any) {
   return (
-    <section className="bg-white border border-line rounded-2xl p-5 flex flex-col gap-3">
-      <div className="flex items-center gap-2 text-[14.5px] font-semibold"><span className="w-6 h-6 rounded-full bg-signal text-white text-[12px] flex items-center justify-center">{n}</span>{title}</div>
+    <section className="bg-raised border border-line rounded-2xl p-5 flex flex-col gap-3">
+      <div className="flex items-center gap-2 text-[14.5px] font-semibold"><span className="w-6 h-6 rounded-full bg-signal text-on-accent text-[12px] flex items-center justify-center">{n}</span>{title}</div>
       {children}
     </section>
   );
@@ -224,7 +224,7 @@ export default function NewCampaignPage() {
           <Section n={3} title="When">
             <div className="flex flex-wrap gap-2">
               {[{ k: "now", l: "Start now" }, { k: "later", l: "Schedule" }].map((o) => (
-                <button key={o.k} onClick={() => setWhen(o.k as any)} className={`text-[12.5px] font-semibold px-3.5 py-1.5 rounded-lg border ${when === o.k ? "bg-ink text-white border-ink" : "border-line text-ink-soft"}`}>{o.l}</button>
+                <button key={o.k} onClick={() => setWhen(o.k as any)} className={`text-[12.5px] font-semibold px-3.5 py-1.5 rounded-lg border ${when === o.k ? "bg-ink text-paper border-ink" : "border-line text-ink-soft"}`}>{o.l}</button>
               ))}
               {when === "later" && <input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} className={input} />}
             </div>
@@ -241,7 +241,7 @@ export default function NewCampaignPage() {
             </div>
           </Section>
 
-          <section className="bg-white border border-line rounded-2xl p-5 flex flex-col gap-3">
+          <section className="bg-raised border border-line rounded-2xl p-5 flex flex-col gap-3">
             <div className="text-[14.5px] font-semibold">Review</div>
             <div className="text-[13px] leading-relaxed">
               <span className="font-semibold">{script?.name || "—"}</span> will call <span className="font-semibold">{ok.length.toLocaleString("en-IN")}</span> people
@@ -253,7 +253,7 @@ export default function NewCampaignPage() {
               <div className="text-[12.5px] text-miss bg-miss-tint rounded-lg px-3 py-2 flex items-center gap-3 flex-wrap">
                 <span className="flex-1">{error}</span>
                 {nextOpen && (
-                  <button type="button" className="bg-ink text-white rounded-md px-3 py-1.5 text-[12px] font-semibold"
+                  <button type="button" className="bg-ink text-paper rounded-md px-3 py-1.5 text-[12px] font-semibold"
                     onClick={() => {
                       // The picker works in IST, like the rest of the wizard.
                       const ist = new Date(Date.parse(nextOpen) + 330 * 60000).toISOString().slice(0, 16);
@@ -265,7 +265,7 @@ export default function NewCampaignPage() {
               </div>
             )}
             <div>
-              <button onClick={launch} disabled={launching || problems.length > 0} className="bg-signal text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-40">
+              <button onClick={launch} disabled={launching || problems.length > 0} className="bg-signal text-on-accent rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-40">
                 {launching ? "Launching…" : when === "now" ? `Launch — call ${ok.length} people` : "Schedule campaign"}
               </button>
             </div>

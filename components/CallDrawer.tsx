@@ -32,7 +32,7 @@ export default function CallDrawer({ call, onClose, onUpdated }: { call: CallRow
 
   return (
     <div className="fixed inset-0 z-40 flex" onClick={onClose}>
-      <div className="flex-1 bg-ink/20" />
+      <div className="flex-1 bg-black/60" />
       <aside className="w-[460px] max-w-full bg-raised border-l border-line h-full overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="p-6 border-b border-line flex items-start justify-between gap-3">
           <div>
@@ -61,7 +61,7 @@ export default function CallDrawer({ call, onClose, onUpdated }: { call: CallRow
             <div className="flex flex-wrap gap-1.5">
               {LEAD_ORDER.map((s: LeadStatus) => (
                 <button key={s} disabled={saving} onClick={() => patch({ lead_status: s })}
-                  className={`text-xs font-semibold px-2.5 py-1.5 rounded-md border ${call.lead_status === s ? "bg-ink text-white border-ink" : "border-line text-ink-soft hover:border-ink"}`}>
+                  className={`text-xs font-semibold px-2.5 py-1.5 rounded-md border ${call.lead_status === s ? "bg-ink text-paper border-ink" : "border-line text-ink-soft hover:border-ink"}`}>
                   {LEAD_LABEL[s]}
                 </button>
               ))}
@@ -118,7 +118,7 @@ export default function CallDrawer({ call, onClose, onUpdated }: { call: CallRow
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="e.g. Call back after 6pm, wants EMI options"
               className="w-full border border-line rounded-lg px-3 py-2 text-[13.5px] bg-paper outline-none focus:border-signal" />
             <button disabled={saving || notes === (call.notes ?? "")} onClick={() => patch({ notes })}
-              className="mt-2 text-[12.5px] font-semibold px-3 py-1.5 rounded-md bg-signal text-white disabled:opacity-40">Save notes</button>
+              className="mt-2 text-[12.5px] font-semibold px-3 py-1.5 rounded-md bg-signal text-on-accent disabled:opacity-40">Save notes</button>
           </div>
 
           <div>

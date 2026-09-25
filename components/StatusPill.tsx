@@ -5,7 +5,7 @@ const toneClasses: Record<PillTone, string> = {
   hot: "bg-hot-tint text-hot",
   warm: "bg-warm-tint text-warm",
   miss: "bg-miss-tint text-miss",
-  neutral: "bg-[#E9EBE5] text-ink-soft",
+  neutral: "bg-line/60 text-ink-soft",
 };
 
 export default function StatusPill({ label, tone }: { label: string; tone: PillTone }) {

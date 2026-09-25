@@ -102,7 +102,7 @@ export default function BillingPage() {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2 border border-line rounded-xl bg-white p-5 flex flex-col gap-3" data-testid="usage-card">
+                <div className="md:col-span-2 border border-line rounded-xl bg-raised p-5 flex flex-col gap-3" data-testid="usage-card">
                   <div className="flex items-baseline justify-between gap-3 flex-wrap">
                     <div className="text-[15px] font-semibold">{u.plan.name} plan</div>
                     <div className="text-[12px] text-ink-soft">{u.plan.key === "trial" ? `Trial ends ${fmt(u.trialEndsAt)}${u.trialDaysLeft !== null ? ` · ${u.trialDaysLeft} days left` : ""}` : `This period started ${fmt(u.periodStart)}${b?.state?.paidUntil ? ` · paid until ${fmt(b.state.paidUntil)}` : ""}`}</div>
@@ -119,7 +119,7 @@ export default function BillingPage() {
                     </div>
                   </div>
                 </div>
-                <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-2 text-[13px]" data-testid="limits-card">
+                <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-2 text-[13px]" data-testid="limits-card">
                   <div className="text-[15px] font-semibold">What's included</div>
                   <div className="flex justify-between"><span className="text-ink-soft">Employees</span><b>{u.limits.employees >= 999 ? "Unlimited" : u.limits.employees}</b></div>
                   <div className="flex justify-between"><span className="text-ink-soft">Calls at once</span><b>{u.limits.concurrency}</b></div>
@@ -133,7 +133,7 @@ export default function BillingPage() {
                 <WalletCard w={b.wallet} canPay={b.canPay} onOffline={(j) => setPending(j)} onNeedDetails={() => { setMsg(""); setDetails({ ...(b.profile || {}) }); }} onChanged={() => { loadBilling(); loadUsage(); }} />
               )}
 
-              <div className="border border-line rounded-xl bg-white overflow-x-auto" data-testid="plans-table">
+              <div className="border border-line rounded-xl bg-raised overflow-x-auto" data-testid="plans-table">
                 <table className="w-full text-[13px] min-w-[680px]">
                   <thead>
                     <tr className="text-left text-[11px] uppercase tracking-wide text-ink-soft border-b border-line">
@@ -159,7 +159,7 @@ export default function BillingPage() {
               <div className="text-[12px] text-ink-soft">Prices exclude 18% GST. Minutes are counted per call, rounded up to the next 30 seconds. Unused minutes don't roll over. Annual prepay: 12 months for the price of 10, onboarding free. Enterprise and custom deals: <span className="font-semibold">support@getrana.in</span>.</div>
 
               {b && (
-                <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-4" data-testid="choose-plan">
+                <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-4" data-testid="choose-plan">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
                       <div className="text-[15px] font-semibold">{u.plan.key === "trial" ? "Choose your plan" : "Change or renew your plan"}</div>
@@ -167,7 +167,7 @@ export default function BillingPage() {
                     </div>
                     <div className="flex rounded-lg border border-line overflow-hidden text-[12.5px] font-semibold" data-testid="interval">
                       {(["monthly", "annual"] as const).map((k) => (
-                        <button key={k} onClick={() => setInterval_(k)} className={`px-3 py-1.5 ${interval === k ? "bg-ink text-white" : "bg-white"}`}>{k === "monthly" ? "Monthly" : "Annual · 2 months free"}</button>
+                        <button key={k} onClick={() => setInterval_(k)} className={`px-3 py-1.5 ${interval === k ? "bg-ink text-paper" : "bg-raised"}`}>{k === "monthly" ? "Monthly" : "Annual · 2 months free"}</button>
                       ))}
                     </div>
                   </div>
@@ -190,7 +190,7 @@ export default function BillingPage() {
                                 <div className="flex justify-between font-semibold text-ink"><span>You pay</span><span className="tabular-nums">{inr(q.total, true)}</span></div>
                               </div>
                               <button onClick={() => checkout(k)} disabled={!b.canPay || !!busy} data-testid={`buy-${k}`}
-                                className={`mt-1 rounded-lg px-3 py-2 text-[12.5px] font-semibold disabled:opacity-40 ${current ? "border border-signal text-signal" : "bg-signal text-white"}`}>
+                                className={`mt-1 rounded-lg px-3 py-2 text-[12.5px] font-semibold disabled:opacity-40 ${current ? "border border-signal text-signal" : "bg-signal text-on-accent"}`}>
                                 {busy === k ? "Opening payment…" : current ? (b.state.paidUntil ? "Renew early" : "Pay for this plan") : `Pay ${inr(q.total)}`}
                               </button>
                             </>
@@ -205,7 +205,7 @@ export default function BillingPage() {
               )}
 
               {b && (
-                <div className="border border-line rounded-xl bg-white overflow-x-auto" data-testid="invoices">
+                <div className="border border-line rounded-xl bg-raised overflow-x-auto" data-testid="invoices">
                   <div className="px-5 pt-4 pb-2 flex items-center justify-between">
                     <div className="text-[15px] font-semibold">Invoices</div>
                   </div>
@@ -221,7 +221,7 @@ export default function BillingPage() {
                             <td className="px-3 py-2.5 text-right tabular-nums">{inr(i.total, true)}</td>
                             <td className="px-3 py-2.5"><span className={`text-[11.5px] font-semibold ${i.status === "paid" ? "text-signal" : i.status === "void" ? "text-ink-soft" : "text-hot"}`}>{STATUS[i.status] || i.status}{i.status === "issued" && i.due_date ? ` ${fmt(i.due_date)}` : ""}</span></td>
                             <td className="px-5 py-2.5 text-right whitespace-nowrap">
-                              {i.status === "issued" && i.rzp_link_url && <a href={i.rzp_link_url} className="bg-signal text-white rounded-lg px-3 py-1 text-[12px] font-semibold mr-2" data-testid="pay-invoice">Pay</a>}
+                              {i.status === "issued" && i.rzp_link_url && <a href={i.rzp_link_url} className="bg-signal text-on-accent rounded-lg px-3 py-1 text-[12px] font-semibold mr-2" data-testid="pay-invoice">Pay</a>}
                               <a href={`/billing/invoices/${i.id}`} target="_blank" className="border border-line rounded-lg px-3 py-1 text-[12px] font-semibold">View</a>
                             </td>
                           </tr>
@@ -233,7 +233,7 @@ export default function BillingPage() {
               )}
 
               {b && (
-                <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-2 text-[13px]" data-testid="billing-details">
+                <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-2 text-[13px]" data-testid="billing-details">
                   <div className="flex items-center justify-between">
                     <div className="text-[15px] font-semibold">Billing details</div>
                     {b.canPay && <button onClick={() => { setMsg(""); setDetails({ ...b.profile }); }} className="border border-line rounded-lg px-3 py-1.5 text-[12px] font-semibold" data-testid="edit-details">{b.profile.name ? "Edit" : "Add"}</button>}
@@ -255,7 +255,7 @@ export default function BillingPage() {
 
       {details && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50" onClick={() => setDetails(null)}>
-          <div className="w-full max-w-[520px] bg-white rounded-2xl border border-line p-6 flex flex-col gap-3" onClick={(e) => e.stopPropagation()} data-testid="details-form">
+          <div className="w-full max-w-[520px] bg-raised rounded-2xl border border-line p-6 flex flex-col gap-3" onClick={(e) => e.stopPropagation()} data-testid="details-form">
             <div className="text-[18px] font-display font-semibold">Billing details</div>
             <div className="text-[12.5px] text-ink-soft">Printed on your GST invoice. With a GSTIN, the state is taken from it.</div>
             <label className="text-[12px] font-semibold">Business name<input id="bd-name" value={details.name || ""} onChange={(e) => setDetails({ ...details, name: e.target.value })} className={field} placeholder="Sri Chaitanya Educational Society" /></label>
@@ -271,7 +271,7 @@ export default function BillingPage() {
             {msg && <div className="text-[12.5px] text-miss" data-testid="details-error">{msg}</div>}
             <div className="flex justify-end gap-2 mt-1">
               <button onClick={() => { setDetails(null); setAfterSave(null); }} className="border border-line rounded-lg px-4 py-2 text-[13px] font-semibold">Cancel</button>
-              <button onClick={saveDetails} disabled={busy === "details"} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50" data-testid="save-details">{busy === "details" ? "Saving…" : afterSave ? "Save and continue to payment" : "Save"}</button>
+              <button onClick={saveDetails} disabled={busy === "details"} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50" data-testid="save-details">{busy === "details" ? "Saving…" : afterSave ? "Save and continue to payment" : "Save"}</button>
             </div>
           </div>
         </div>
@@ -279,7 +279,7 @@ export default function BillingPage() {
 
       {pending && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-[500px] bg-white rounded-2xl border border-line p-6 flex flex-col gap-3" data-testid="offline-pay">
+          <div className="w-full max-w-[500px] bg-raised rounded-2xl border border-line p-6 flex flex-col gap-3" data-testid="offline-pay">
             <div className="text-[18px] font-display font-semibold">Invoice {pending.invoice.number}</div>
             <div className="text-[13px]">Amount due: <b>{inr(pending.invoice.total, true)}</b> by {fmt(pending.invoice.due_date)}.</div>
             {pending.linkError && <div className="text-[12.5px] text-hot">{pending.linkError}</div>}
@@ -293,7 +293,7 @@ export default function BillingPage() {
             <div className="text-[12px] text-ink-soft">Your plan switches on as soon as RANA confirms the payment.</div>
             <div className="flex justify-end gap-2">
               <a href={`/billing/invoices/${pending.invoice.id}`} target="_blank" className="border border-line rounded-lg px-4 py-2 text-[13px] font-semibold">View invoice</a>
-              <button onClick={() => setPending(null)} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold">Done</button>
+              <button onClick={() => setPending(null)} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold">Done</button>
             </div>
           </div>
         </div>

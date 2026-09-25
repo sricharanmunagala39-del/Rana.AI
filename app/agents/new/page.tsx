@@ -263,7 +263,7 @@ function WizardInner() {
           {stepIdx >= 2 && (
             <div className="flex items-center gap-3 shrink-0">
               {savedAt && <span className="text-[11.5px] text-ink-soft">Saved {savedAt}</span>}
-              <button type="button" onClick={persist} disabled={saving || !name.trim()} className="border border-line bg-white rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold disabled:opacity-50">
+              <button type="button" onClick={persist} disabled={saving || !name.trim()} className="border border-line bg-raised rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold disabled:opacity-50">
                 {saving ? "Saving…" : "Save"}
               </button>
             </div>
@@ -279,7 +279,7 @@ function WizardInner() {
                     i === stepIdx ? "bg-signal-tint text-signal font-semibold" : i < stepIdx ? "text-ink font-medium" : "text-ink-soft"
                   }`}>
                   <span className={`w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 ${
-                    i === stepIdx ? "bg-signal text-white" : i < stepIdx ? "bg-ink text-white" : "bg-paper border border-line text-ink-soft"
+                    i === stepIdx ? "bg-signal text-on-accent" : i < stepIdx ? "bg-ink text-on-accent" : "bg-paper border border-line text-ink-soft"
                   }`}>
                     {i < stepIdx ? "✓" : i + 1}
                   </span>
@@ -298,13 +298,13 @@ function WizardInner() {
                   <div>
                     <label className="text-[13px] font-semibold block mb-1.5">What's this agent called?</label>
                     <input value={name} onChange={(e) => setName(e.target.value)} placeholder={`e.g. "Telugu NEET PG Outbound"`} data-testid="agent-name"
-                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-white outline-none focus:border-signal" />
+                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-raised outline-none focus:border-signal" />
                     <div className="text-[11.5px] text-ink-soft mt-1">This is the name your team sees — not what the caller hears.</div>
                   </div>
                   <div>
                     <label className="text-[13px] font-semibold block mb-1.5">Which language does it open in?</label>
                     <select value={startingLanguage} onChange={(e) => setStartingLanguage(e.target.value)} data-testid="opening-language"
-                      className="border border-line rounded-lg px-3 py-2.5 text-[14px] bg-white outline-none focus:border-signal">
+                      className="border border-line rounded-lg px-3 py-2.5 text-[14px] bg-raised outline-none focus:border-signal">
                       {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
                     </select>
                     <div className="text-[11.5px] text-ink-soft mt-1.5">The greeting is spoken in this language — here and when you talk to it on the Talk page.</div>
@@ -316,10 +316,10 @@ function WizardInner() {
                         ["match_caller", "Reply in the caller's language", `Opens in ${openName}. If the caller talks in another language below, the employee switches with them — and back again.`],
                         ["fixed", `Always speak ${openName}`, `Stays in ${openName} even if the caller uses another language.`],
                       ].map(([k, t, d]) => (
-                        <label key={k} className={`flex items-start gap-3 border rounded-xl px-3.5 py-3 cursor-pointer ${policy.mode === k ? "border-signal bg-signal-tint/50" : "border-line bg-white"}`}>
+                        <label key={k} className={`flex items-start gap-3 border rounded-xl px-3.5 py-3 cursor-pointer ${policy.mode === k ? "border-signal bg-signal-tint/50" : "border-line bg-raised"}`}>
                           <input type="radio" name="policy" checked={policy.mode === k} onChange={() => setPolicy((p) => ({ ...p, mode: k as any }))} className="mt-1 accent-signal" />
                           <span>
-                            <span className="text-[13.5px] font-semibold block">{t}{k === "match_caller" && <span className="ml-2 text-[10.5px] font-semibold text-signal bg-white border border-signal/30 rounded-full px-1.5 py-0.5">Recommended</span>}</span>
+                            <span className="text-[13.5px] font-semibold block">{t}{k === "match_caller" && <span className="ml-2 text-[10.5px] font-semibold text-signal bg-raised border border-signal/30 rounded-full px-1.5 py-0.5">Recommended</span>}</span>
                             <span className="text-[12px] text-ink-soft">{d}</span>
                           </span>
                         </label>
@@ -333,7 +333,7 @@ function WizardInner() {
                             const on = policy.allowed.includes(l);
                             return (
                               <button key={l} type="button" onClick={() => toggleAllowed(l)} disabled={l === openBase} data-testid={`allow-${l}`}
-                                className={`text-[12.5px] font-semibold px-3 py-1 rounded-full border ${on ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"} ${l === openBase ? "opacity-80 cursor-default" : ""}`}>
+                                className={`text-[12.5px] font-semibold px-3 py-1 rounded-full border ${on ? "bg-ink text-paper border-ink" : "bg-raised text-ink-soft border-line"} ${l === openBase ? "opacity-80 cursor-default" : ""}`}>
                                 {on ? "✓ " : ""}{LANG_NAMES[l]}{l === openBase ? " · opens" : ""}
                               </button>
                             );
@@ -355,9 +355,9 @@ function WizardInner() {
                         ["cartesia", "Cartesia", "Global", "Very fast replies · English & international voices · voice cloning · US numbers or your Twilio number"],
                       ].map(([k, t, tag, d]) => (
                         <button key={k} type="button" onClick={() => setEngine(k as any)} data-testid={`engine-${k}`}
-                          className={`text-left border rounded-xl px-4 py-3 ${engine === k ? "border-signal bg-signal-tint/50 ring-1 ring-signal" : "border-line bg-white hover:border-signal/50"}`}>
+                          className={`text-left border rounded-xl px-4 py-3 ${engine === k ? "border-signal bg-signal-tint/50 ring-1 ring-signal" : "border-line bg-raised hover:border-signal/50"}`}>
                           <div className="flex items-center gap-2"><span className="text-[14px] font-semibold">{t}</span>
-                            <span className={`text-[10.5px] font-semibold rounded-full px-1.5 py-0.5 border ${k === "sarvam" ? "text-signal border-signal/30 bg-white" : "text-ink-soft border-line"}`}>{tag}</span></div>
+                            <span className={`text-[10.5px] font-semibold rounded-full px-1.5 py-0.5 border ${k === "sarvam" ? "text-signal border-signal/30 bg-raised" : "text-ink-soft border-line"}`}>{tag}</span></div>
                           <div className="text-[12px] text-ink-soft mt-1 leading-snug">{d}</div>
                         </button>
                       ))}
@@ -368,13 +368,13 @@ function WizardInner() {
                   </div>
 
                   {engine === "sarvam" && (
-                    <div className="border border-line rounded-xl bg-white p-4 flex items-center gap-4" data-testid="sarvam-voice">
+                    <div className="border border-line rounded-xl bg-raised p-4 flex items-center gap-4" data-testid="sarvam-voice">
                       <div className="w-11 h-11 rounded-full bg-signal-tint text-signal font-display font-bold flex items-center justify-center">{String(sarvamStatus?.sarvam?.voice || "Priya").charAt(0)}</div>
                       <div className="flex-1">
                         <div className="text-[14px] font-semibold">{sarvamStatus?.sarvam?.voice || "Priya"} <span className="text-[11.5px] font-normal text-ink-soft">· Sarvam Bulbul v3 · female</span></div>
                         <div className="text-[12px] text-ink-soft">Speaks {LANGUAGES.find((l) => l.code === startingLanguage)?.label || "English"} and switches to the caller's language automatically. Voice and speed are set on RANA's Sarvam agent.</div>
                       </div>
-                      <button type="button" onClick={previewSarvam} disabled={previewing} className="shrink-0 border border-line rounded-lg px-3 py-1.5 text-[12.5px] font-semibold bg-white disabled:opacity-50">
+                      <button type="button" onClick={previewSarvam} disabled={previewing} className="shrink-0 border border-line rounded-lg px-3 py-1.5 text-[12.5px] font-semibold bg-raised disabled:opacity-50">
                         {previewing ? "Playing…" : `▶ Hear in ${LANGUAGES.find((l) => l.code === startingLanguage)?.label || "English"}`}
                       </button>
                     </div>
@@ -385,7 +385,7 @@ function WizardInner() {
                   <div>
                     <label className="text-[13px] font-semibold block mb-1.5">Voice</label>
                     <button type="button" onClick={() => setVoiceModalOpen(true)} disabled={catalogLoading}
-                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-white outline-none focus:border-signal flex items-center justify-between disabled:opacity-60">
+                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-raised outline-none focus:border-signal flex items-center justify-between disabled:opacity-60">
                       <span className="truncate text-left">
                         {catalogLoading
                           ? "Loading voices…"
@@ -415,7 +415,7 @@ function WizardInner() {
                   <div>
                     <label className="text-[13px] font-semibold block mb-1.5">Brain — the model behind it</label>
                     <button type="button" onClick={() => setModelModalOpen(true)} disabled={catalogLoading}
-                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-white outline-none focus:border-signal flex items-center justify-between disabled:opacity-60">
+                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-raised outline-none focus:border-signal flex items-center justify-between disabled:opacity-60">
                       <span className="truncate text-left">
                         {catalogLoading
                           ? "Loading models…"
@@ -438,7 +438,7 @@ function WizardInner() {
                   <div>
                     <label className="text-[13px] font-semibold block mb-1.5">Background sound</label>
                     <button type="button" onClick={() => setSoundModalOpen(true)}
-                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-white outline-none focus:border-signal flex items-center justify-between">
+                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[14px] bg-raised outline-none focus:border-signal flex items-center justify-between">
                       <span className="truncate text-left">{selectedSound ? selectedSound.filename : "None"}</span>
                       <span className="text-[12.5px] font-semibold text-signal shrink-0 ml-3">{selectedSound ? "Change" : "Browse"}</span>
                     </button>
@@ -463,7 +463,7 @@ function WizardInner() {
                     <div className="flex gap-2">
                       {(["off", "auto", "max"] as const).map((n) => (
                         <button key={n} type="button" onClick={() => setNoiseSuppression(n)}
-                          className={`text-[12.5px] font-semibold px-3.5 py-1.5 rounded-full border capitalize ${noiseSuppression === n ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"}`}>
+                          className={`text-[12.5px] font-semibold px-3.5 py-1.5 rounded-full border capitalize ${noiseSuppression === n ? "bg-ink text-paper border-ink" : "bg-raised text-ink-soft border-line"}`}>
                           {n}
                         </button>
                       ))}
@@ -489,7 +489,7 @@ function WizardInner() {
                   <div className="text-[12.5px] text-ink-soft">Read it through. Anything to change? Ask the AI in plain words — or go back to the Studio and edit a card.</div>
                   {pb && <AskAiBar playbook={pb} greeting={studio.greeting} links={studio.links} openingLanguage={startingLanguage} onApply={(x: any) => setStudioPart(x)} compact />}
 
-                  <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-4" data-testid="review">
+                  <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-4" data-testid="review">
                     <div className="grid grid-cols-3 gap-4">
                       <div><Label>Name</Label><div className="text-[15px] font-semibold mt-0.5">{name || "(untitled)"}</div></div>
                       <div><Label>Opens in</Label><div className="text-[13.5px] mt-0.5">{openName}</div></div>
@@ -552,11 +552,11 @@ function WizardInner() {
 
                   <div className="flex items-center gap-3">
                     <button onClick={handleSaveDraft} disabled={saving || publishing}
-                      className="border border-line bg-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-50">
+                      className="border border-line bg-raised rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-50">
                       {saving && !publishing ? "Saving…" : "Save as draft"}
                     </button>
                     <button onClick={handlePublish} disabled={saving || publishing || !studio.greeting.trim() || !planReady} data-testid="publish"
-                      className="bg-signal text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-50">
+                      className="bg-signal text-on-accent rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-50">
                       {publishing ? "Publishing…" : cartesiaAgentId ? "Save & republish" : "Save & publish"}
                     </button>
                   </div>
@@ -569,12 +569,12 @@ function WizardInner() {
               {stepIdx < 3 && (
                 <div className="flex items-center gap-3 mt-10 pt-6 border-t border-line">
                   {stepIdx > 0 && (
-                    <button onClick={() => setStepIdx((i) => i - 1)} className="border border-line bg-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold">
+                    <button onClick={() => setStepIdx((i) => i - 1)} className="border border-line bg-raised rounded-lg px-5 py-2.5 text-[13.5px] font-semibold">
                       Back
                     </button>
                   )}
                   <button onClick={() => setStepIdx((i) => i + 1)} disabled={!canAdvance()} data-testid="continue"
-                    className="bg-ink text-white rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-40">
+                    className="bg-ink text-paper rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-40">
                     Continue
                   </button>
                   {stepIdx === 2 && !canAdvance() && (

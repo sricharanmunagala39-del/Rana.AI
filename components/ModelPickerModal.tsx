@@ -55,8 +55,8 @@ export default function ModelPickerModal({
   }, [models, query, provider]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-[680px] max-h-[80vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={onClose}>
+      <div className="bg-raised rounded-2xl shadow-xl w-full max-w-[680px] max-h-[80vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line flex items-center justify-between shrink-0">
           <div className="text-[15px] font-semibold">Select a model</div>
           <button onClick={onClose} className="text-ink-soft hover:text-ink text-lg leading-none">×</button>
@@ -67,7 +67,7 @@ export default function ModelPickerModal({
             className="w-full border border-line rounded-lg px-3 py-2 text-[13.5px] bg-paper outline-none focus:border-signal" />
           <div className="flex items-center gap-2">
             <select value={provider} onChange={(e) => setProvider(e.target.value)}
-              className="border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none">
+              className="border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-raised outline-none">
               <option value="">Any provider</option>
               {providers.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>

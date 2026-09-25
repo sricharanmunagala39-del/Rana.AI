@@ -43,12 +43,12 @@ export default function CampaignsPage() {
             <h1 className="font-display text-[26px] font-semibold m-0">Outbound campaigns</h1>
             <div className="text-[13px] text-ink-soft mt-1">Every list your employees have called. Open one to see every number, what happened, and who to follow up.</div>
           </div>
-          <Link href="/outbound/new" className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold">+ New campaign</Link>
+          <Link href="/outbound/new" className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold">+ New campaign</Link>
         </div>
 
         <div className="flex gap-1 bg-raised border border-line rounded-[9px] p-1 w-fit">
           {TABS.map((t) => (
-            <button key={t.k} onClick={() => setTab(t.k)} className={`text-[13px] font-semibold px-3.5 py-1.5 rounded-md ${tab === t.k ? "bg-ink text-white" : "text-ink-soft"}`}>{t.l}</button>
+            <button key={t.k} onClick={() => setTab(t.k)} className={`text-[13px] font-semibold px-3.5 py-1.5 rounded-md ${tab === t.k ? "bg-ink text-paper" : "text-ink-soft"}`}>{t.l}</button>
           ))}
         </div>
 

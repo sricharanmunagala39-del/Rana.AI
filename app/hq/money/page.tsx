@@ -52,9 +52,9 @@ export default function MoneyPage() {
             </div>
             {month && (
               <div className="flex items-center gap-2 text-[13px] font-semibold" data-testid="month-picker">
-                <button onClick={() => load(shift(month, -1))} className="border border-line rounded-lg px-3 py-1.5 bg-white">←</button>
+                <button onClick={() => load(shift(month, -1))} className="border border-line rounded-lg px-3 py-1.5 bg-raised">←</button>
                 <span className="min-w-[130px] text-center">{monthLabel(month)}</span>
-                <button onClick={() => load(shift(month, 1))} className="border border-line rounded-lg px-3 py-1.5 bg-white">→</button>
+                <button onClick={() => load(shift(month, 1))} className="border border-line rounded-lg px-3 py-1.5 bg-raised">→</button>
               </div>
             )}
           </div>
@@ -76,7 +76,7 @@ export default function MoneyPage() {
                   ["Sarvam cost (estimated)", inr(t.sarvamCost), `${Math.round(t.minutes).toLocaleString("en-IN")} min × ₹${d.costPerMin}`],
                   ["Your profit", inr(t.profit), "revenue excl. GST − fees − Sarvam"],
                 ].map(([k, v, sub]) => (
-                  <div key={k} className="border border-line rounded-xl bg-white px-4 py-3">
+                  <div key={k} className="border border-line rounded-xl bg-raised px-4 py-3">
                     <div className="text-[11.5px] text-ink-soft">{k}</div>
                     <div className={`text-[21px] font-display font-semibold tabular-nums ${k === "Your profit" && t.profit < 0 ? "text-miss" : ""}`}>{v}</div>
                     <div className="text-[11px] text-ink-soft">{sub}</div>
@@ -85,11 +85,11 @@ export default function MoneyPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-2 text-[13px]" data-testid="sarvam-card">
+                <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-2 text-[13px]" data-testid="sarvam-card">
                   <div className="flex items-center justify-between">
                     <div className="text-[15px] font-semibold">Sarvam credits</div>
                     <div className="flex gap-2">
-                      <button onClick={() => setForm({ kind: "topup", amount: "", gstIncluded: true, date: "", note: "" })} className="bg-signal text-white rounded-lg px-3 py-1.5 text-[12px] font-semibold" data-testid="add-topup">+ Top-up paid</button>
+                      <button onClick={() => setForm({ kind: "topup", amount: "", gstIncluded: true, date: "", note: "" })} className="bg-signal text-on-accent rounded-lg px-3 py-1.5 text-[12px] font-semibold" data-testid="add-topup">+ Top-up paid</button>
                       <button onClick={() => setForm({ kind: "balance", amount: "", date: "", note: "" })} className="border border-line rounded-lg px-3 py-1.5 text-[12px] font-semibold" data-testid="add-balance">Update balance</button>
                     </div>
                   </div>
@@ -119,7 +119,7 @@ export default function MoneyPage() {
                   <div className="text-[11.5px] text-ink-soft">Estimate uses ₹{d.costPerMin} per connected minute (Sarvam + carrier). Change it with <code>RANA_COST_PER_MIN</code> once you see Sarvam's real bill.</div>
                 </div>
 
-                <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-1.5 text-[13px]" data-testid="gst-card">
+                <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-1.5 text-[13px]" data-testid="gst-card">
                   <div className="text-[15px] font-semibold">GST for {monthLabel(month)}</div>
                   {!g.registered && <div className="text-[12px] text-hot">Not charging GST yet — add <code>RANA_GSTIN</code> in Vercel once your registration comes through.</div>}
                   <div className="flex justify-between"><span className="text-ink-soft">GST collected from clients</span><b className="tabular-nums">{inr(g.collected, true)}</b></div>
@@ -131,7 +131,7 @@ export default function MoneyPage() {
                 </div>
               </div>
 
-              <div className="border border-line rounded-xl bg-white overflow-x-auto" data-testid="client-money">
+              <div className="border border-line rounded-xl bg-raised overflow-x-auto" data-testid="client-money">
                 <div className="px-5 pt-4 pb-2 text-[15px] font-semibold">Per client</div>
                 <table className="w-full text-[13px] min-w-[900px]">
                   <thead>
@@ -158,7 +158,7 @@ export default function MoneyPage() {
                 <div className="px-5 py-3 text-[11.5px] text-ink-soft border-t border-line">"Margin at plan price" shows what a client would earn you at list price, for deals billed outside RANA (like pilots). Mark those payments as paid in HQ → Manage → Billing to count them here.</div>
               </div>
 
-              <div className="border border-line rounded-xl bg-white overflow-x-auto" data-testid="payments">
+              <div className="border border-line rounded-xl bg-raised overflow-x-auto" data-testid="payments">
                 <div className="px-5 pt-4 pb-2 text-[15px] font-semibold">Payments received</div>
                 {d.payments.length === 0 ? <div className="px-5 pb-5 text-[13px] text-ink-soft">No payments in {monthLabel(month)}.</div> : (
                   <table className="w-full text-[13px] min-w-[700px]">
@@ -187,7 +187,7 @@ export default function MoneyPage() {
 
       {form && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50" onClick={() => setForm(null)}>
-          <div className="w-full max-w-[440px] bg-white rounded-2xl border border-line p-6 flex flex-col gap-3" onClick={(e) => e.stopPropagation()} data-testid="ledger-form">
+          <div className="w-full max-w-[440px] bg-raised rounded-2xl border border-line p-6 flex flex-col gap-3" onClick={(e) => e.stopPropagation()} data-testid="ledger-form">
             <div className="text-[18px] font-display font-semibold">{form.kind === "topup" ? "Record a Sarvam top-up" : "Update Sarvam balance"}</div>
             <div className="text-[12.5px] text-ink-soft">{form.kind === "topup" ? "Enter what you paid Sarvam. RANA adds it to the estimated balance." : "Enter the credit balance shown on your Sarvam dashboard right now. RANA restarts its estimate from this number."}</div>
             <label className="text-[12px] font-semibold">Amount (₹)<input id="lg-amount" inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className={field} placeholder={form.kind === "topup" ? "29500" : "18250"} /></label>
@@ -196,7 +196,7 @@ export default function MoneyPage() {
             <label className="text-[12px] font-semibold">Note (optional)<input id="lg-note" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className={field} placeholder="Sarvam invoice no." /></label>
             <div className="flex justify-end gap-2 mt-1">
               <button onClick={() => setForm(null)} className="border border-line rounded-lg px-4 py-2 text-[13px] font-semibold">Cancel</button>
-              <button onClick={save} disabled={busy} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50" data-testid="save-ledger">{busy ? "Saving…" : "Save"}</button>
+              <button onClick={save} disabled={busy} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50" data-testid="save-ledger">{busy ? "Saving…" : "Save"}</button>
             </div>
           </div>
         </div>
