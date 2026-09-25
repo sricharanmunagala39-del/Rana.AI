@@ -17,7 +17,7 @@ export function AutoText({ value, onChange, placeholder, rows = 1, className = "
 }
 
 export function Card({ title, hint, badge, children, tone = "default", right, testId }: any) {
-  const toneCls = tone === "warn" ? "border-hot/40 bg-hot-tint/40" : "border-line bg-white";
+  const toneCls = tone === "warn" ? "border-hot/40 bg-hot-tint/40" : "border-line bg-raised";
   return (
     <div className={`border rounded-xl p-4 ${toneCls}`} data-testid={testId}>
       <div className="flex items-start justify-between gap-3 mb-2">

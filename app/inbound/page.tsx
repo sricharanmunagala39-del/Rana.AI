@@ -75,7 +75,7 @@ export default function InboundPage() {
         <div className="flex gap-1 bg-raised border border-line rounded-[9px] p-1 w-fit">
           {filters.map((f) => (
             <button key={f.key} onClick={() => setFilter(f.key)}
-              className={`text-[13.5px] font-semibold px-3.5 py-2 rounded-md ${filter === f.key ? "bg-ink text-white" : "text-ink-soft"}`}>
+              className={`text-[13.5px] font-semibold px-3.5 py-2 rounded-md ${filter === f.key ? "bg-ink text-paper" : "text-ink-soft"}`}>
               {f.label} <span className="opacity-60">{counts[f.key]}</span>
             </button>
           ))}

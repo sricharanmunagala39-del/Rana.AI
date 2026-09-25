@@ -142,7 +142,7 @@ export default function ScriptsPage() {
       <div className="flex-1 flex overflow-hidden">
 
         {/* Script list sidebar */}
-        <div className="w-[260px] border-r border-line bg-white flex flex-col shrink-0">
+        <div className="w-[260px] border-r border-line bg-raised flex flex-col shrink-0">
           <div className="px-4 py-3.5 border-b border-line flex items-center justify-between">
             <div>
               <div className="text-[13.5px] font-semibold">{client?.name}</div>
@@ -161,7 +161,7 @@ export default function ScriptsPage() {
                 className={`w-full text-left px-3 py-2.5 rounded-lg mb-0.5 group ${selected?.id === s.id ? "bg-signal-tint" : "hover:bg-paper"}`}>
                 <div className="flex items-center justify-between gap-1">
                   <span className={`text-[13px] font-medium truncate ${selected?.id === s.id ? "text-signal" : "text-ink"}`}>{s.name}</span>
-                  {s.status === "active" && <span className="shrink-0 text-[10px] font-bold text-white bg-signal rounded-full px-1.5 py-0.5">LIVE</span>}
+                  {s.status === "active" && <span className="shrink-0 text-[10px] font-bold text-on-accent bg-signal rounded-full px-1.5 py-0.5">LIVE</span>}
                 </div>
                 <div className="text-[11px] text-ink-soft mt-0.5">
                   {INDUSTRY_LABELS[s.industry as keyof typeof INDUSTRY_LABELS] ?? s.industry}{s.status === "draft" && " - draft"}
@@ -172,7 +172,7 @@ export default function ScriptsPage() {
 
           <div className="p-3 border-t border-line">
             {!showNew ? (
-              <button onClick={() => setShowNew(true)} className="w-full bg-ink text-white rounded-lg py-2 text-[13px] font-semibold flex items-center justify-center gap-1.5">
+              <button onClick={() => setShowNew(true)} className="w-full bg-ink text-paper rounded-lg py-2 text-[13px] font-semibold flex items-center justify-center gap-1.5">
                 <span className="text-base leading-none">+</span> New script
               </button>
             ) : (
@@ -185,7 +185,7 @@ export default function ScriptsPage() {
                   {Object.entries(INDUSTRY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
                 <div className="flex gap-1.5">
-                  <button onClick={handleCreate} disabled={creating || !newName.trim()} className="flex-1 bg-signal text-white rounded-lg py-1.5 text-[12.5px] font-semibold disabled:opacity-40">{creating ? "Creating" : "Create"}</button>
+                  <button onClick={handleCreate} disabled={creating || !newName.trim()} className="flex-1 bg-signal text-on-accent rounded-lg py-1.5 text-[12.5px] font-semibold disabled:opacity-40">{creating ? "Creating" : "Create"}</button>
                   <button onClick={() => { setShowNew(false); setNewName(""); }} className="px-3 border border-line rounded-lg text-[12.5px] text-ink-soft hover:bg-paper">Cancel</button>
                 </div>
               </div>
@@ -196,7 +196,7 @@ export default function ScriptsPage() {
         {/* Script editor */}
         {selected ? (
           <div className="flex-1 overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-line px-6 py-3 flex items-center justify-between z-10">
+            <div className="sticky top-0 bg-raised border-b border-line px-6 py-3 flex items-center justify-between z-10">
               <div className="flex items-center gap-3">
                 <div>
                   <input value={selected.name} onChange={(e) => fieldChange({ name: e.target.value })} className="text-[15px] font-semibold bg-transparent outline-none border-b border-transparent focus:border-signal" />
@@ -208,7 +208,7 @@ export default function ScriptsPage() {
                 {saved && <span className="text-[11.5px] text-signal">Saved</span>}
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => router.push("/agent")} className="border border-line bg-paper text-ink rounded-lg px-3.5 py-2 text-[12.5px] font-semibold flex items-center gap-1.5 hover:bg-white">
+                <button onClick={() => router.push("/agent")} className="border border-line bg-paper text-ink rounded-lg px-3.5 py-2 text-[12.5px] font-semibold flex items-center gap-1.5 hover:bg-raised">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>
                   Test voice
                 </button>
@@ -216,7 +216,7 @@ export default function ScriptsPage() {
                   <button onClick={() => setDeleteConfirm(selected.id)} className="border border-miss/30 text-miss rounded-lg px-3 py-2 text-[12.5px] font-semibold hover:bg-miss-tint">Delete</button>
                 )}
                 <button onClick={handlePublish} disabled={publishing || selected.status === "active"}
-                  className={`rounded-lg px-4 py-2 text-[13px] font-semibold flex items-center gap-1.5 ${selected.status === "active" ? "bg-signal-tint text-signal border border-signal/30" : "bg-signal text-white hover:opacity-90"} disabled:opacity-50`}>
+                  className={`rounded-lg px-4 py-2 text-[13px] font-semibold flex items-center gap-1.5 ${selected.status === "active" ? "bg-signal-tint text-signal border border-signal/30" : "bg-signal text-on-accent hover:opacity-90"} disabled:opacity-50`}>
                   {publishing ? "Publishing" : selected.status === "active" ? "Live" : "Publish as live"}
                 </button>
               </div>
@@ -252,13 +252,13 @@ export default function ScriptsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-[12.5px] font-semibold block mb-1.5">Voice</label>
-                    <select value={selected.speaker} onChange={(e) => fieldChange({ speaker: e.target.value })} className="w-full border border-line rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:border-signal">
+                    <select value={selected.speaker} onChange={(e) => fieldChange({ speaker: e.target.value })} className="w-full border border-line rounded-lg px-3 py-2 text-[13px] bg-raised outline-none focus:border-signal">
                       {SPEAKERS.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="text-[12.5px] font-semibold block mb-1.5">Language</label>
-                    <select value={selected.starting_language} onChange={(e) => fieldChange({ starting_language: e.target.value })} className="w-full border border-line rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:border-signal">
+                    <select value={selected.starting_language} onChange={(e) => fieldChange({ starting_language: e.target.value })} className="w-full border border-line rounded-lg px-3 py-2 text-[13px] bg-raised outline-none focus:border-signal">
                       {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
                     </select>
                   </div>
@@ -289,7 +289,7 @@ export default function ScriptsPage() {
 
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+          <div className="bg-raised rounded-2xl p-6 max-w-sm w-full shadow-xl">
             <div className="text-[15px] font-semibold mb-2">Delete this script?</div>
             <div className="text-[13px] text-ink-soft mb-5">"{scripts.find(s => s.id === deleteConfirm)?.name}" will be permanently deleted.</div>
             <div className="flex gap-2">

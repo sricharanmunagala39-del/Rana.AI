@@ -189,12 +189,12 @@ export default function VoicePickerModal({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-[640px] max-h-[80vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={onClose}>
+      <div className="bg-raised rounded-2xl shadow-xl w-full max-w-[640px] max-h-[80vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line flex items-center justify-between shrink-0">
           <div className="text-[15px] font-semibold">Select a voice</div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setCloneOpen(true)} className="bg-signal text-white rounded-lg px-3 py-1.5 text-[12.5px] font-semibold">+ Clone a voice</button>
+            <button onClick={() => setCloneOpen(true)} className="bg-signal text-on-accent rounded-lg px-3 py-1.5 text-[12.5px] font-semibold">+ Clone a voice</button>
             <button onClick={onClose} className="text-ink-soft hover:text-ink text-lg leading-none" aria-label="Close">×</button>
           </div>
         </div>
@@ -204,23 +204,23 @@ export default function VoicePickerModal({
             className="w-full border border-line rounded-lg px-3 py-2 text-[13.5px] bg-paper outline-none focus:border-signal" />
           <div className="flex items-center gap-2">
             <select value={gender} onChange={(e) => setGender(e.target.value)}
-              className="border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none">
+              className="border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-raised outline-none">
               <option value="">Any gender</option>
               {Object.entries(GENDER_LABELS).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
             </select>
             <select value={language} onChange={(e) => setLanguage(e.target.value)}
-              className="border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none">
+              className="border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-raised outline-none">
               <option value="">Any language</option>
               {languages.map((l) => <option key={l} value={l}>{languageName(l)}</option>)}
             </select>
             <select value={accent} onChange={(e) => setAccent(e.target.value)}
-              className="border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-white outline-none">
+              className="border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-raised outline-none">
               <option value="">Any accent</option>
               {accents.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
             {myCount > 0 && (
               <button onClick={() => setMineOnly((m) => !m)} aria-pressed={mineOnly}
-                className={`border rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold ${mineOnly ? "bg-ink text-white border-ink" : "border-line text-ink-soft"}`}>My voices · {myCount}</button>
+                className={`border rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold ${mineOnly ? "bg-ink text-paper border-ink" : "border-line text-ink-soft"}`}>My voices · {myCount}</button>
             )}
             <div className="text-[11.5px] text-ink-soft ml-auto">{filtered.length} of {all.length} voices</div>
           </div>
@@ -230,7 +230,7 @@ export default function VoicePickerModal({
             </label>
             <div className="flex gap-2">
               <input value={line} onChange={(e) => setLine(e.target.value.slice(0, 240))} placeholder={hint}
-                className="flex-1 min-w-0 border border-line rounded-lg px-3 py-1.5 text-[12.5px] bg-white outline-none focus:border-signal" />
+                className="flex-1 min-w-0 border border-line rounded-lg px-3 py-1.5 text-[12.5px] bg-raised outline-none focus:border-signal" />
               {line && <button onClick={() => setLine("")} className="text-[12px] text-ink-soft hover:text-ink px-1">Reset</button>}
             </div>
           </div>
@@ -243,7 +243,7 @@ export default function VoicePickerModal({
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-paper ${currentId === v.id ? "bg-signal-tint" : ""}`}>
               <button onClick={(e) => { e.stopPropagation(); togglePlay(v); }}
                 aria-label={playingId === v.id ? `Stop ${v.name}` : `Play ${v.name}`}
-                className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors ${playingId === v.id ? "bg-signal text-white" : heard[v.id] ? "bg-ink/70 text-white" : "bg-ink text-white hover:bg-signal"}`}>
+                className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors ${playingId === v.id ? "bg-signal text-on-accent" : heard[v.id] ? "bg-ink/70 text-on-accent" : "bg-ink text-on-accent hover:bg-signal"}`}>
                 {loadingId === v.id ? (
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="animate-spin"><path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round"/></svg>
                 ) : playingId === v.id ? (

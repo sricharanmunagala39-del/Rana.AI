@@ -48,7 +48,7 @@ export default function PronunciationPanel({ items, onChange, keyterms, onKeyter
 
   const PlayBtn = ({ k, text, label }: any) => (
     <button type="button" onClick={() => play(k, text)} disabled={!text?.trim()}
-      className="text-[11.5px] font-semibold border border-line rounded-md px-2 py-1 bg-white disabled:opacity-40 flex items-center gap-1 whitespace-nowrap">
+      className="text-[11.5px] font-semibold border border-line rounded-md px-2 py-1 bg-raised disabled:opacity-40 flex items-center gap-1 whitespace-nowrap">
       {loadingKey === k ? <Spinner /> : playing === k ? "■" : "▶"} {label}
     </button>
   );
@@ -85,7 +85,7 @@ export default function PronunciationPanel({ items, onChange, keyterms, onKeyter
           <span className="text-ink-soft">Hear it as a</span>
           {testLangs.map((l) => (
             <button key={l} type="button" onClick={() => setTestLang(l)} data-testid={`pron-lang-${l}`}
-              className={`font-semibold px-2.5 py-0.5 rounded-full border ${lang === l ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"}`}>{LANG_NAMES[l]}</button>
+              className={`font-semibold px-2.5 py-0.5 rounded-full border ${lang === l ? "bg-ink text-paper border-ink" : "bg-raised text-ink-soft border-line"}`}>{LANG_NAMES[l]}</button>
           ))}
           <span className="text-ink-soft">caller{engine === "sarvam" || voiceId ? <> · in <b className="text-ink">{voiceName || "your chosen"}</b>'s voice</> : " · pick a voice in step 2"}</span>
         </div>
@@ -97,17 +97,17 @@ export default function PronunciationPanel({ items, onChange, keyterms, onKeyter
           )}
           {items.map((p: any, i: number) => (
             <div key={i} className="grid grid-cols-[1fr_1.3fr_auto_auto] gap-2 items-center" data-testid="pron-row">
-              <div className="flex items-center gap-1.5 border border-line rounded-lg bg-white px-2">
+              <div className="flex items-center gap-1.5 border border-line rounded-lg bg-raised px-2">
                 <input value={p.word} onChange={(e) => set(i, "word", e.target.value)} placeholder="DBMCI" className="flex-1 min-w-0 py-1.5 text-[13.5px] outline-none bg-transparent" />
                 <PlayBtn k={`w${i}`} text={p.word} label="" />
               </div>
-              <div className="flex items-center gap-1.5 border border-signal/40 rounded-lg bg-white px-2">
+              <div className="flex items-center gap-1.5 border border-signal/40 rounded-lg bg-raised px-2">
                 <input value={p.sayAs} onChange={(e) => set(i, "sayAs", e.target.value)} placeholder={lang === "te" ? "డి బి ఎం సి ఐ" : lang === "hi" ? "डी बी एम सी आई" : "D B M C I"} className="flex-1 min-w-0 py-1.5 text-[13.5px] outline-none bg-transparent" />
                 <PlayBtn k={`s${i}`} text={p.sayAs} label="Test" />
               </div>
               {lang !== "en" ? (
                 <button type="button" onClick={() => writeNative(i)} disabled={writing === i || !(p.word || p.sayAs)} title={`Spell it by sound in ${LANG_NAMES[lang]} script`} data-testid="pron-native"
-                  className="text-[11.5px] font-semibold border border-line rounded-md px-2 py-1.5 bg-white disabled:opacity-40 whitespace-nowrap flex items-center gap-1">
+                  className="text-[11.5px] font-semibold border border-line rounded-md px-2 py-1.5 bg-raised disabled:opacity-40 whitespace-nowrap flex items-center gap-1">
                   {writing === i ? <Spinner /> : null} Write in {NATIVE_LABEL[lang] || LANG_NAMES[lang]}
                 </button>
               ) : <span />}
@@ -124,7 +124,7 @@ export default function PronunciationPanel({ items, onChange, keyterms, onKeyter
         <div className="text-[12px] text-ink-soft mt-0.5 mb-2">Names the caller might say — course names, exams, places, your brand. The employee's ear is tuned to catch these correctly.</div>
         <div className="flex flex-wrap gap-1.5 mb-2">
           {keyterms.map((k: string) => (
-            <span key={k} className="text-[12.5px] bg-white border border-line rounded-full pl-2.5 pr-1.5 py-0.5 flex items-center gap-1">
+            <span key={k} className="text-[12.5px] bg-raised border border-line rounded-full pl-2.5 pr-1.5 py-0.5 flex items-center gap-1">
               {k}
               <button type="button" onClick={() => onKeytermsChange(keyterms.filter((x: string) => x !== k))} className="text-ink-soft hover:text-miss text-[11px] px-0.5" aria-label={`Remove ${k}`}>✕</button>
             </span>
@@ -133,8 +133,8 @@ export default function PronunciationPanel({ items, onChange, keyterms, onKeyter
         </div>
         <div className="flex gap-2 max-w-[420px]">
           <input value={term} onChange={(e) => setTerm(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTerm(); } }}
-            placeholder="e.g. NEET PG, FMGE, Ameerpet" className="flex-1 border border-line rounded-lg px-3 py-1.5 text-[13.5px] bg-white outline-none focus:border-signal" />
-          <button type="button" onClick={addTerm} className="border border-line bg-white rounded-lg px-3 text-[12.5px] font-semibold">Add</button>
+            placeholder="e.g. NEET PG, FMGE, Ameerpet" className="flex-1 border border-line rounded-lg px-3 py-1.5 text-[13.5px] bg-raised outline-none focus:border-signal" />
+          <button type="button" onClick={addTerm} className="border border-line bg-raised rounded-lg px-3 text-[12.5px] font-semibold">Add</button>
         </div>
       </div>
     </div>

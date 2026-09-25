@@ -93,7 +93,7 @@ export default function Sidebar({ active, client: clientProp }: { active: string
         </div>
       )}
       {client?.hq && (
-        <Link href="/hq" className={`flex items-center gap-2 px-3 py-[9px] rounded-lg text-sm font-semibold ${active === "hq" ? "bg-ink text-white" : "bg-paper text-ink hover:bg-signal-tint"}`} data-testid="hq-link">
+        <Link href="/hq" className={`flex items-center gap-2 px-3 py-[9px] rounded-lg text-sm font-semibold ${active === "hq" ? "bg-ink text-paper" : "bg-paper text-ink hover:bg-signal-tint"}`} data-testid="hq-link">
           <span className="w-2 h-2 rounded-full bg-signal" /> RANA HQ · all clients
         </Link>
       )}

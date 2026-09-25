@@ -27,7 +27,7 @@ function Stages({ s, inbound, outbound }: { s: Script; inbound: PhoneNumber[]; o
       {steps.map((st, i) => (
         <div key={st.label} className={`rounded-lg border px-3 py-2 ${st.done ? "border-signal/30 bg-signal-tint" : "border-line bg-paper"}`}>
           <div className="flex items-center gap-1.5 text-[12px] font-semibold">
-            <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center ${st.done ? "bg-signal text-white" : "bg-white border border-line text-ink-soft"}`}>{st.done ? "✓" : i + 1}</span>
+            <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center ${st.done ? "bg-signal text-on-accent" : "bg-raised border border-line text-ink-soft"}`}>{st.done ? "✓" : i + 1}</span>
             {st.label}
           </div>
           <div className="text-[11.5px] text-ink-soft mt-0.5 truncate">{st.note}</div>
@@ -56,8 +56,8 @@ function DeployModal({ s, numbers, campaigns, onClose, onChanged }: { s: Script;
   }
 
   return (
-    <div className="fixed inset-0 z-40 bg-ink/30 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="w-full max-w-[640px] max-h-[90vh] overflow-y-auto bg-white rounded-2xl border border-line shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-40 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="w-full max-w-[640px] max-h-[90vh] overflow-y-auto bg-raised rounded-2xl border border-line shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-5 border-b border-line flex items-start justify-between">
           <div>
             <div className="text-[18px] font-display font-semibold">Deploy {s.name}</div>
@@ -74,7 +74,7 @@ function DeployModal({ s, numbers, campaigns, onClose, onChanged }: { s: Script;
             ].map((o) => (
               <button key={o.key} onClick={() => setMode(o.key as any)}
                 className={`text-left rounded-xl border p-4 transition-colors ${mode === o.key ? "border-signal bg-signal-tint" : "border-line hover:border-ink-soft"}`}>
-                <div className="w-8 h-8 rounded-full bg-white border border-line flex items-center justify-center mb-2">
+                <div className="w-8 h-8 rounded-full bg-raised border border-line flex items-center justify-center mb-2">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d={o.icon} /></svg>
                 </div>
                 <div className="text-[14px] font-semibold">{o.title}</div>
@@ -109,7 +109,7 @@ function DeployModal({ s, numbers, campaigns, onClose, onChanged }: { s: Script;
                     {isMine ? (
                       <button onClick={() => assign(n.id, null)} disabled={!!busy} className="text-[12px] font-semibold text-miss border border-miss/20 rounded-lg px-3 py-1.5 disabled:opacity-40">{busy === n.id ? "…" : "Stop"}</button>
                     ) : (
-                      <button onClick={() => assign(n.id, s.id)} disabled={!!busy} className="text-[12px] font-semibold text-white bg-signal rounded-lg px-3 py-1.5 disabled:opacity-40">{busy === n.id ? "…" : n.agentId ? "Replace" : "Assign"}</button>
+                      <button onClick={() => assign(n.id, s.id)} disabled={!!busy} className="text-[12px] font-semibold text-on-accent bg-signal rounded-lg px-3 py-1.5 disabled:opacity-40">{busy === n.id ? "…" : n.agentId ? "Replace" : "Assign"}</button>
                     )}
                   </div>
                 );
@@ -124,7 +124,7 @@ function DeployModal({ s, numbers, campaigns, onClose, onChanged }: { s: Script;
 
           {mode === "outbound" && (
             <div className="flex flex-col gap-3">
-              <Link href={`/outbound/new?employee=${s.id}`} className="bg-signal text-white rounded-lg px-4 py-2.5 text-[13px] font-semibold text-center">
+              <Link href={`/outbound/new?employee=${s.id}`} className="bg-signal text-on-accent rounded-lg px-4 py-2.5 text-[13px] font-semibold text-center">
                 Create a calling campaign with {s.name} →
               </Link>
               {campaigns.length > 0 && (
@@ -200,7 +200,7 @@ export default function EmployeesPage() {
               <div className="text-[22px] font-display font-semibold">My Employees</div>
               <div className="text-[13px] text-ink-soft mt-0.5">Build an employee, talk to it until it answers right, then deploy it on inbound calls, outbound campaigns, or both.</div>
             </div>
-            <Link href="/agents/new" className="bg-signal text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold shrink-0">+ New employee</Link>
+            <Link href="/agents/new" className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold shrink-0">+ New employee</Link>
           </div>
 
           {error && <div className="text-[12.5px] text-miss bg-miss-tint rounded-lg px-3 py-2.5 mt-4">{error}</div>}
@@ -213,7 +213,7 @@ export default function EmployeesPage() {
               const running = outbound.filter((c) => c.status === "running").length;
               const langLabel = LANGUAGES.find((l) => l.code === s.starting_language)?.label ?? s.starting_language;
               return (
-                <div key={s.id} className="border border-line rounded-2xl bg-white p-5">
+                <div key={s.id} className="border border-line rounded-2xl bg-raised p-5">
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-signal-tint flex items-center justify-center text-signal font-display font-bold text-xl shrink-0">{(s.name || "?").charAt(0)}</div>
                     <div className="flex-1 min-w-0">
@@ -226,11 +226,11 @@ export default function EmployeesPage() {
                     </div>
                     <div className="flex gap-2 shrink-0">
                       {!built ? (
-                        <button onClick={() => publish(s.id)} disabled={!!publishing} className="bg-signal text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-50">{publishing === s.id ? "Publishing…" : "Publish"}</button>
+                        <button onClick={() => publish(s.id)} disabled={!!publishing} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-50">{publishing === s.id ? "Publishing…" : "Publish"}</button>
                       ) : !tested ? (
-                        <Link href={`/talk?scriptId=${s.id}`} className="bg-signal text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold">Talk & test</Link>
+                        <Link href={`/talk?scriptId=${s.id}`} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold">Talk & test</Link>
                       ) : (
-                        <button onClick={() => setDeployId(s.id)} className="bg-signal text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold">Deploy</button>
+                        <button onClick={() => setDeployId(s.id)} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold">Deploy</button>
                       )}
                       {tested && <Link href={`/talk?scriptId=${s.id}`} className="border border-line rounded-lg px-3 py-2 text-[12.5px] font-semibold hover:bg-paper">Talk</Link>}
                       <Link href={`/agents/new?id=${s.id}`} className="border border-line rounded-lg px-3 py-2 text-[12.5px] font-semibold hover:bg-paper">Edit</Link>

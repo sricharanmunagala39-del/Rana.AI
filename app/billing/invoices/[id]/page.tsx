@@ -17,13 +17,13 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
   const taxed = Number(i.cgst) + Number(i.sgst) + Number(i.igst) > 0;
   const title = s.gstin ? "Tax Invoice" : "Invoice";
   return (
-    <div className="min-h-screen bg-paper print:bg-white py-8 print:py-0">
+    <div className="min-h-screen bg-paper print:bg-raised py-8 print:py-0">
       <style>{`@media print { @page { size: A4; margin: 14mm; } .no-print { display: none !important; } }`}</style>
       <div className="max-w-[820px] mx-auto no-print flex justify-end gap-2 mb-3 px-4">
-        {i.status === "issued" && i.rzp_link_url && <a href={i.rzp_link_url} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold">Pay {inr(i.total, true)}</a>}
-        <button onClick={() => window.print()} className="bg-ink text-white rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="print">Download PDF / Print</button>
+        {i.status === "issued" && i.rzp_link_url && <a href={i.rzp_link_url} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold">Pay {inr(i.total, true)}</a>}
+        <button onClick={() => window.print()} className="bg-ink text-paper rounded-lg px-4 py-2 text-[13px] font-semibold" data-testid="print">Download PDF / Print</button>
       </div>
-      <div className="max-w-[820px] mx-auto bg-white border border-line print:border-0 rounded-xl print:rounded-none p-10 print:p-0 text-[12.5px] text-ink relative" data-testid="invoice">
+      <div className="max-w-[820px] mx-auto bg-raised border border-line print:border-0 rounded-xl print:rounded-none p-10 print:p-0 text-[12.5px] text-ink relative" data-testid="invoice">
         {i.status !== "issued" && <div className={`absolute left-10 bottom-36 rotate-[-12deg] border-4 rounded-lg px-4 py-1 text-[26px] font-bold tracking-widest opacity-70 ${i.status === "paid" ? "border-signal text-signal" : "border-miss text-miss"}`} data-testid="stamp">{i.status === "paid" ? "PAID" : "CANCELLED"}</div>}
         <div className="flex justify-between items-start gap-6">
           <div>

@@ -123,7 +123,7 @@ function TeamTab({ me }: { me: Me }) {
             <select className={input} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
               {assignable.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
             </select>
-            <button className={`${btn} bg-signal text-white`} disabled={busy === "invite"}>{busy === "invite" ? "Inviting…" : "Invite"}</button>
+            <button className={`${btn} bg-signal text-on-accent`} disabled={busy === "invite"}>{busy === "invite" ? "Inviting…" : "Invite"}</button>
           </div>
           <div className="text-[12px] text-ink-soft">{roles.find((r) => r.key === form.role)?.can}</div>
         </form>
@@ -268,7 +268,7 @@ function CallingTab({ me }: { me: Me }) {
             return (
               <button key={d} type="button" disabled={!canEdit} aria-pressed={on}
                 onClick={() => setDraft({ ...draft, days: on ? draft.days.filter((x) => x !== i) : [...draft.days, i].sort() })}
-                className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-md border ${on ? "bg-ink text-white border-ink" : "border-line text-ink-soft"}`}>{d}</button>
+                className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-md border ${on ? "bg-ink text-paper border-ink" : "border-line text-ink-soft"}`}>{d}</button>
             );
           })}
         </div>
@@ -278,7 +278,7 @@ function CallingTab({ me }: { me: Me }) {
         </label>
         {canEdit ? (
           <div className="flex gap-2">
-            <button className={`${btn} bg-signal text-white`} disabled={!dirty || saving} onClick={save}>{saving ? "Saving…" : "Save calling hours"}</button>
+            <button className={`${btn} bg-signal text-on-accent`} disabled={!dirty || saving} onClick={save}>{saving ? "Saving…" : "Save calling hours"}</button>
             {dirty && <button className={`${btn} text-ink-soft`} onClick={() => setDraft(data.rules)}>Undo</button>}
           </div>
         ) : <div className="text-[12px] text-ink-soft">Only admins and owners can change calling hours.</div>}
@@ -294,7 +294,7 @@ function CallingTab({ me }: { me: Me }) {
             <textarea className={`${input} min-h-[76px] font-mono text-[12.5px]`} placeholder={"Paste numbers — one per line or comma-separated\n+91 98765 43210"} value={paste} onChange={(e) => setPaste(e.target.value)} />
             <div className="flex gap-2 flex-wrap">
               <input className={`${input} flex-1 min-w-[200px]`} placeholder="Reason (optional), e.g. Asked on WhatsApp" value={reason} onChange={(e) => setReason(e.target.value)} />
-              <button className={`${btn} bg-ink text-white`} disabled={!paste.trim()}>Add to do-not-call</button>
+              <button className={`${btn} bg-ink text-paper`} disabled={!paste.trim()}>Add to do-not-call</button>
             </div>
           </form>
         )}
@@ -365,7 +365,7 @@ function ActivityTab({ me }: { me: Me }) {
       {err && <Banner tone="err">{err}</Banner>}
       <div className="flex gap-1 bg-raised border border-line rounded-[9px] p-1 w-fit">
         {[["all", "Everything"], ["access", "Sign-ins & team"], ["calling", "Calling"], ["setup", "Setup"], ["data", "Leads & exports"]].map(([k, l]) => (
-          <button key={k} onClick={() => setFilter(k)} className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-md ${filter === k ? "bg-ink text-white" : "text-ink-soft"}`}>{l}</button>
+          <button key={k} onClick={() => setFilter(k)} className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-md ${filter === k ? "bg-ink text-paper" : "text-ink-soft"}`}>{l}</button>
         ))}
       </div>
       <div className={`${card} overflow-hidden`}>
@@ -413,7 +413,7 @@ function AccountTab({ me, first }: { me: Me; first: boolean }) {
           <input className={input} type="password" autoComplete="current-password" placeholder={first ? "One-time password you were sent" : "Current password"} value={f.current} onChange={(e) => setF({ ...f, current: e.target.value })} required />
           <input className={input} type="password" autoComplete="new-password" placeholder="New password (10+ characters, letters and numbers)" value={f.next} onChange={(e) => setF({ ...f, next: e.target.value })} required />
           <input className={input} type="password" autoComplete="new-password" placeholder="Type it again" value={f.confirm} onChange={(e) => setF({ ...f, confirm: e.target.value })} required />
-          <button className={`${btn} bg-signal text-white w-fit`} disabled={busy}>{busy ? "Saving…" : "Change password"}</button>
+          <button className={`${btn} bg-signal text-on-accent w-fit`} disabled={busy}>{busy ? "Saving…" : "Change password"}</button>
         </form>
       )}
     </div>
@@ -452,7 +452,7 @@ export default function SettingsPage() {
         </div>
         <div className="flex gap-1 bg-raised border border-line rounded-[9px] p-1 w-fit" role="tablist">
           {TABS.map((t) => (
-            <button key={t.k} role="tab" aria-selected={tab === t.k} onClick={() => go(t.k)} className={`text-[13px] font-semibold px-3.5 py-1.5 rounded-md ${tab === t.k ? "bg-ink text-white" : "text-ink-soft"}`}>{t.l}</button>
+            <button key={t.k} role="tab" aria-selected={tab === t.k} onClick={() => go(t.k)} className={`text-[13px] font-semibold px-3.5 py-1.5 rounded-md ${tab === t.k ? "bg-ink text-paper" : "text-ink-soft"}`}>{t.l}</button>
           ))}
         </div>
         {!me ? <div className="text-[13px] text-ink-soft">Loading…</div> : (

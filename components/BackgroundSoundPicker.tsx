@@ -43,8 +43,8 @@ export default function BackgroundSoundPicker({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-[520px] max-h-[75vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={onClose}>
+      <div className="bg-raised rounded-2xl shadow-xl w-full max-w-[520px] max-h-[75vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line flex items-center justify-between shrink-0">
           <div className="text-[15px] font-semibold">Background sound</div>
           <button onClick={onClose} className="text-ink-soft hover:text-ink text-lg leading-none">×</button>

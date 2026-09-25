@@ -54,23 +54,23 @@ export default function HqTeamPage() {
           </div>
           {err && <div className="text-[13px] text-miss" data-testid="team-error">{err}</div>}
 
-          <div className="border border-line rounded-xl bg-white p-5 flex flex-col gap-3" data-testid="twostep">
+          <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-3" data-testid="twostep">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-[15px] font-semibold">Your two-step login {tf?.enabled ? <span className="ml-2 text-[11px] text-signal">ON</span> : <span className="ml-2 text-[11px] text-miss">OFF</span>}</div>
                 <div className="text-[12.5px] text-ink-soft">After your password, RANA asks for a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, Authy). Strongly recommended for HQ — it can see every client.</div>
               </div>
-              {tf && !tf.enabled && !tf.secret && <button onClick={() => twoStep("start")} disabled={busy} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold shrink-0" data-testid="twostep-start">Turn on</button>}
+              {tf && !tf.enabled && !tf.secret && <button onClick={() => twoStep("start")} disabled={busy} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold shrink-0" data-testid="twostep-start">Turn on</button>}
             </div>
             {tf?.secret && (
               <div className="bg-paper rounded-lg p-4 flex flex-col gap-2 text-[13px]" data-testid="twostep-setup">
                 <div>1. In your authenticator app, choose <b>Add account → Enter a setup key</b>. Account: <b>RANA AI</b>. Key:</div>
-                <div className="font-mono text-[15px] font-semibold select-all bg-white border border-line rounded-lg px-3 py-2 w-fit" data-testid="twostep-secret">{tf.secret}</div>
+                <div className="font-mono text-[15px] font-semibold select-all bg-raised border border-line rounded-lg px-3 py-2 w-fit" data-testid="twostep-secret">{tf.secret}</div>
                 <div className="text-[12px] text-ink-soft">On your phone? <a href={tf.url} className="text-signal font-semibold">Tap here to add it to your app</a>.</div>
                 <div>2. Type the 6-digit code the app shows:</div>
                 <div className="flex gap-2 items-center">
                   <input id="twostep-code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" className="border border-line rounded-lg px-3 py-2 text-[16px] tracking-[0.25em] w-[140px] text-center" placeholder="123456" />
-                  <button onClick={() => twoStep("enable")} disabled={busy || code.length !== 6} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50" data-testid="twostep-enable">Turn on</button>
+                  <button onClick={() => twoStep("enable")} disabled={busy || code.length !== 6} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50" data-testid="twostep-enable">Turn on</button>
                 </div>
               </div>
             )}
@@ -84,10 +84,10 @@ export default function HqTeamPage() {
           </div>
 
           {d && (
-            <div className="border border-line rounded-xl bg-white overflow-x-auto" data-testid="hq-staff">
+            <div className="border border-line rounded-xl bg-raised overflow-x-auto" data-testid="hq-staff">
               <div className="px-5 pt-4 pb-2 flex items-center justify-between">
                 <div className="text-[15px] font-semibold">HQ staff</div>
-                <button onClick={() => setForm({ email: "", name: "", role: "ops" })} className="bg-ink text-white rounded-lg px-3 py-1.5 text-[12.5px] font-semibold" data-testid="staff-add">+ Add person</button>
+                <button onClick={() => setForm({ email: "", name: "", role: "ops" })} className="bg-ink text-paper rounded-lg px-3 py-1.5 text-[12.5px] font-semibold" data-testid="staff-add">+ Add person</button>
               </div>
               <table className="w-full text-[13px] min-w-[720px]">
                 <thead><tr className="text-left text-[11px] uppercase tracking-wide text-ink-soft border-b border-line"><th className="px-5 py-2">Person</th><th className="px-3 py-2">Role</th><th className="px-3 py-2">Two-step</th><th className="px-3 py-2">Last sign-in</th><th className="px-5 py-2"></th></tr></thead>
@@ -118,7 +118,7 @@ export default function HqTeamPage() {
 
       {form && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50" onClick={() => setForm(null)}>
-          <div className="w-full max-w-[440px] bg-white rounded-2xl border border-line p-6 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-[440px] bg-raised rounded-2xl border border-line p-6 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
             <div className="text-[18px] font-display font-semibold">Add someone to RANA HQ</div>
             <label className="text-[12px] font-semibold">Email<input id="staff-email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={field} /></label>
             <label className="text-[12px] font-semibold">Name<input id="staff-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={field} /></label>
@@ -127,18 +127,18 @@ export default function HqTeamPage() {
             </select></label>
             <div className="flex justify-end gap-2 mt-1">
               <button onClick={() => setForm(null)} className="border border-line rounded-lg px-4 py-2 text-[13px] font-semibold">Cancel</button>
-              <button onClick={add} disabled={busy} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50" data-testid="staff-save">Add</button>
+              <button onClick={add} disabled={busy} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50" data-testid="staff-save">Add</button>
             </div>
           </div>
         </div>
       )}
       {created && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-[440px] bg-white rounded-2xl border border-line p-6 flex flex-col gap-3" data-testid="staff-created">
+          <div className="w-full max-w-[440px] bg-raised rounded-2xl border border-line p-6 flex flex-col gap-3" data-testid="staff-created">
             <div className="text-[18px] font-display font-semibold">Login for {created.user.email}</div>
             <div className="text-[13px]">One-time password: <b className="font-mono select-all">{created.password}</b></div>
             <div className="text-[12px] text-ink-soft">{created.emailed ? "We've emailed it to them too." : "Send it to them yourself — email isn't set up yet."} They'll set their own password on first sign-in.</div>
-            <div className="flex justify-end"><button onClick={() => setCreated(null)} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold">Done</button></div>
+            <div className="flex justify-end"><button onClick={() => setCreated(null)} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold">Done</button></div>
           </div>
         </div>
       )}

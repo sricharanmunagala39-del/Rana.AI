@@ -66,17 +66,17 @@ export default function AskAiBar({ playbook, greeting, links, openingLanguage, o
           value={text} onChange={(e) => setText(e.target.value)} disabled={busy}
           onKeyDown={(e) => { if (e.key === "Enter") run(text); }}
           placeholder="Ask AI to change the script… e.g. “If they ask about hostel, say it's not included”"
-          className="flex-1 bg-white border border-line rounded-lg px-3 py-2 text-[13.5px] outline-none focus:border-signal disabled:opacity-60"
+          className="flex-1 bg-raised border border-line rounded-lg px-3 py-2 text-[13.5px] outline-none focus:border-signal disabled:opacity-60"
         />
         <button type="button" onClick={() => run(text)} disabled={busy || !text.trim()}
-          className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-40 flex items-center gap-2">
+          className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-40 flex items-center gap-2">
           {busy ? <><Spinner /> Changing…</> : "Change"}
         </button>
       </div>
       {!compact && !last && !busy && (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {SUGGESTIONS.map((s) => (
-            <button key={s} type="button" onClick={() => setText(s)} className="text-[11.5px] bg-white border border-line rounded-full px-2.5 py-1 text-ink-soft hover:text-ink hover:border-signal">
+            <button key={s} type="button" onClick={() => setText(s)} className="text-[11.5px] bg-raised border border-line rounded-full px-2.5 py-1 text-ink-soft hover:text-ink hover:border-signal">
               {s}
             </button>
           ))}
@@ -84,7 +84,7 @@ export default function AskAiBar({ playbook, greeting, links, openingLanguage, o
       )}
       {err && <div className="text-[12px] text-miss mt-2">{err}</div>}
       {last && (
-        <div className="mt-2 flex items-start justify-between gap-3 bg-white border border-line rounded-lg px-3 py-2" data-testid="ask-ai-result">
+        <div className="mt-2 flex items-start justify-between gap-3 bg-raised border border-line rounded-lg px-3 py-2" data-testid="ask-ai-result">
           <div className="text-[12.5px]">
             <div className="font-semibold">{last.summary}</div>
             {last.sections.length > 0 && <div className="text-ink-soft mt-0.5">Changed: {last.sections.join(", ")}</div>}

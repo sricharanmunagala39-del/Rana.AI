@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { inr } from "@/lib/money";
 
-const LEVEL: Record<string, string> = { red: "border-miss/30 bg-miss-tint", orange: "border-hot/40 bg-hot/10", info: "border-line bg-white" };
+const LEVEL: Record<string, string> = { red: "border-miss/30 bg-miss-tint", orange: "border-hot/40 bg-hot/10", info: "border-line bg-raised" };
 const DOT: Record<string, string> = { red: "bg-miss", orange: "bg-hot", info: "bg-ink-soft/50" };
 export const BAND: Record<string, string> = { good: "bg-signal-tint text-signal", watch: "bg-hot/15 text-hot", risk: "bg-miss-tint text-miss" };
 
@@ -51,9 +51,9 @@ export default function HqOverview({ onData, onOpenClient, onApprove }: { onData
       {/* Search + Ask HQ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="relative">
-          <input id="hq-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search any client, person, phone number or invoice…" className="w-full border border-line rounded-xl bg-white px-4 py-2.5 text-[13.5px] outline-none focus:border-signal" />
+          <input id="hq-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search any client, person, phone number or invoice…" className="w-full border border-line rounded-xl bg-raised px-4 py-2.5 text-[13.5px] outline-none focus:border-signal" />
           {results && (
-            <div className="absolute z-20 mt-1 w-full bg-white border border-line rounded-xl shadow-lg max-h-[360px] overflow-y-auto" data-testid="search-results">
+            <div className="absolute z-20 mt-1 w-full bg-raised border border-line rounded-xl shadow-lg max-h-[360px] overflow-y-auto" data-testid="search-results">
               {results.length === 0 ? <div className="px-4 py-3 text-[13px] text-ink-soft">Nothing found.</div> : results.map((r, i) => (
                 <button key={i} onClick={() => { if (r.href) window.open(r.href, "_blank"); else onOpenClient?.(r.clientId); setQ(""); }} className="w-full text-left px-4 py-2 hover:bg-paper border-b border-line last:border-0">
                   <div className="text-[13px]"><span className="text-[10.5px] uppercase tracking-wide text-ink-soft mr-2">{r.type}</span><b>{r.title}</b></div>
@@ -64,12 +64,12 @@ export default function HqOverview({ onData, onOpenClient, onApprove }: { onData
           )}
         </div>
         <form onSubmit={(e) => { e.preventDefault(); if (ask.trim()) askHq(ask.trim()); }} className="flex gap-2">
-          <input id="hq-ask" value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="Ask HQ: which clients might run out of minutes this week?" className="flex-1 border border-line rounded-xl bg-white px-4 py-2.5 text-[13.5px] outline-none focus:border-signal" />
-          <button disabled={asking || !ask.trim()} className="bg-ink text-white rounded-xl px-4 text-[13px] font-semibold disabled:opacity-50" data-testid="hq-ask-btn">{asking ? "Thinking…" : "Ask"}</button>
+          <input id="hq-ask" value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="Ask HQ: which clients might run out of minutes this week?" className="flex-1 border border-line rounded-xl bg-raised px-4 py-2.5 text-[13.5px] outline-none focus:border-signal" />
+          <button disabled={asking || !ask.trim()} className="bg-ink text-paper rounded-xl px-4 text-[13px] font-semibold disabled:opacity-50" data-testid="hq-ask-btn">{asking ? "Thinking…" : "Ask"}</button>
         </form>
       </div>
       {answer && (
-        <div className="border border-line rounded-xl bg-white px-5 py-4 text-[13.5px]" data-testid="hq-answer">
+        <div className="border border-line rounded-xl bg-raised px-5 py-4 text-[13.5px]" data-testid="hq-answer">
           <div className="flex justify-between gap-3"><div className="text-[11px] uppercase tracking-wide text-signal font-semibold">Ask HQ · {answer.q}</div><button onClick={() => setAnswer(null)} className="text-ink-soft">×</button></div>
           {!answer.a && !answer.err && <div className="text-ink-soft mt-1">Reading your data…</div>}
           {answer.err && <div className="text-miss mt-1">{answer.err}</div>}
@@ -83,12 +83,12 @@ export default function HqOverview({ onData, onOpenClient, onApprove }: { onData
           <div className="text-[15px] font-semibold">Needs you today {d.alerts.length ? <span className="text-ink-soft font-normal">· {d.alerts.filter((a: any) => a.level === "red").length} urgent, {d.alerts.length} total</span> : null}</div>
           {d.alerts.length > 6 && <button onClick={() => setShowAll(!showAll)} className="text-[12px] text-signal font-semibold">{showAll ? "Show fewer" : `Show all ${d.alerts.length}`}</button>}
         </div>
-        {d.alerts.length === 0 ? <div className="border border-line rounded-xl bg-white px-5 py-4 text-[13px] text-ink-soft">All clear — nothing needs you right now.</div> : alerts.map((a: any, i: number) => (
+        {d.alerts.length === 0 ? <div className="border border-line rounded-xl bg-raised px-5 py-4 text-[13px] text-ink-soft">All clear — nothing needs you right now.</div> : alerts.map((a: any, i: number) => (
           <div key={i} className={`border rounded-xl px-4 py-2.5 text-[13px] flex items-center gap-3 ${LEVEL[a.level]}`}>
             <span className={`w-2 h-2 rounded-full shrink-0 ${DOT[a.level]}`} />
             <div className="flex-1">{a.client && <button onClick={() => a.clientId && onOpenClient?.(a.clientId)} className="font-semibold underline decoration-line mr-1">{a.client}:</button>}{a.text}</div>
             {a.action?.href && <Link href={a.action.href} className="text-[12px] font-semibold text-signal shrink-0">{a.action.label} →</Link>}
-            {a.action?.op === "approve" && a.clientId && <button onClick={() => onApprove?.(a.clientId)} className="bg-signal text-white rounded-lg px-3 py-1 text-[12px] font-semibold shrink-0" data-testid="approve-signup">Approve</button>}
+            {a.action?.op === "approve" && a.clientId && <button onClick={() => onApprove?.(a.clientId)} className="bg-signal text-on-accent rounded-lg px-3 py-1 text-[12px] font-semibold shrink-0" data-testid="approve-signup">Approve</button>}
           </div>
         ))}
       </div>
@@ -102,7 +102,7 @@ export default function HqOverview({ onData, onOpenClient, onApprove }: { onData
           ...(M ? [["Plan revenue / month", inr(M.mrr), `${inr(M.collectedMonth)} collected this month`], ["Sarvam credits", M.sarvam?.tracked ? inr(M.sarvam.balance) : "Not tracked", M.sarvam?.tracked ? `${M.sarvam.daysLeft ?? "—"} days left · ~${inr(M.sarvam.forecast30)}/30d` : "Enter it on Money"]] : []),
           ["Clients", String(G.clients), `${G.paying} paying · ${G.trials} trial${G.pending ? ` · ${G.pending} waiting` : ""}`],
         ].map(([k, v, sub]) => (
-          <div key={k} className="border border-line rounded-xl bg-white px-4 py-3">
+          <div key={k} className="border border-line rounded-xl bg-raised px-4 py-3">
             <div className="text-[11.5px] text-ink-soft">{k}</div>
             <div className="text-[20px] font-display font-semibold tabular-nums">{v}</div>
             <div className="text-[11px] text-ink-soft">{sub}</div>
@@ -112,7 +112,7 @@ export default function HqOverview({ onData, onOpenClient, onApprove }: { onData
 
       {/* Health + platform */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="md:col-span-2 border border-line rounded-xl bg-white p-4" data-testid="hq-health">
+        <div className="md:col-span-2 border border-line rounded-xl bg-raised p-4" data-testid="hq-health">
           <div className="flex items-center justify-between mb-2"><div className="text-[14px] font-semibold">Client health</div><div className="text-[11.5px] text-ink-soft">{G.atRisk} at risk · trial → paid {G.trialConversion}% · {G.new30} new in 30 days</div></div>
           <div className="flex flex-col">
             {d.clients.slice(0, 8).map((c: any) => (
@@ -126,7 +126,7 @@ export default function HqOverview({ onData, onOpenClient, onApprove }: { onData
             ))}
           </div>
         </div>
-        <div className="border border-line rounded-xl bg-white p-4 text-[12.5px] flex flex-col gap-1.5" data-testid="hq-platform">
+        <div className="border border-line rounded-xl bg-raised p-4 text-[12.5px] flex flex-col gap-1.5" data-testid="hq-platform">
           <div className="text-[14px] font-semibold mb-1">Platform health</div>
           {P.crons.map((c: any) => (
             <div key={c.job} className="flex justify-between"><span className="text-ink-soft">Daily {c.job}</span><span className={c.last ? (c.last.ok ? "text-signal font-semibold" : "text-miss font-semibold") : "text-ink-soft"}>{c.last ? `${c.last.ok ? "OK" : "FAILED"} · ${new Date(c.last.ran_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : "not run yet"}</span></div>

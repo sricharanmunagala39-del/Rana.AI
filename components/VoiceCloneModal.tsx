@@ -161,11 +161,11 @@ export default function VoiceCloneModal({ defaultLanguage, onCreated, onAdded, o
   }
 
   const gradeTone = clip?.quality.grade === "great" ? "bg-signal-tint text-signal" : clip?.quality.grade === "good" ? "bg-warm-tint text-warm" : "bg-miss-tint text-miss";
-  const input = "border border-line rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:border-signal";
+  const input = "border border-line rounded-lg px-3 py-2 text-[13px] bg-raised outline-none focus:border-signal";
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-6" onClick={(e) => { e.stopPropagation(); if (!saving && !recording) onClose(); }}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-[680px] max-h-[88vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-6" onClick={(e) => { e.stopPropagation(); if (!saving && !recording) onClose(); }}>
+      <div className="bg-raised rounded-2xl shadow-xl w-full max-w-[680px] max-h-[88vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line flex items-center justify-between shrink-0">
           <div>
             <div className="text-[15px] font-semibold">Clone a voice</div>
@@ -180,7 +180,7 @@ export default function VoiceCloneModal({ defaultLanguage, onCreated, onAdded, o
             <div className="text-[16px] font-semibold">{done.name} is ready</div>
             <div className="text-[13px] text-ink-soft max-w-[420px]">It&apos;s now in your voice list under &ldquo;My voices&rdquo;. Press play there to hear it say the sample line, then pick it for any employee.</div>
             <div className="flex gap-2 mt-2">
-              <button onClick={() => onCreated(done)} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold">Use this voice</button>
+              <button onClick={() => onCreated(done)} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold">Use this voice</button>
               <button onClick={onClose} className="border border-line rounded-lg px-4 py-2 text-[13px] font-semibold">Close</button>
             </div>
           </div>
@@ -195,15 +195,15 @@ export default function VoiceCloneModal({ defaultLanguage, onCreated, onAdded, o
                 className={`border-2 border-dashed rounded-xl p-4 flex flex-col sm:flex-row items-center gap-3 justify-between ${drag ? "border-signal bg-signal-tint" : "border-line bg-paper"}`}>
                 <div className="text-[12.5px] text-ink-soft">Drop audio files here — one or many (up to 20). Calls, voice notes or studio recordings all work.</div>
                 <div className="flex gap-2 shrink-0">
-                  <button onClick={() => fileInput.current?.click()} className="border border-line bg-white rounded-lg px-3 py-1.5 text-[12.5px] font-semibold">Upload files</button>
+                  <button onClick={() => fileInput.current?.click()} className="border border-line bg-raised rounded-lg px-3 py-1.5 text-[12.5px] font-semibold">Upload files</button>
                   {recording
                     ? <button onClick={stopRecording} className="bg-miss text-white rounded-lg px-3 py-1.5 text-[12.5px] font-semibold">■ Stop {fmt(elapsed)}</button>
-                    : <button onClick={startRecording} className="bg-ink text-white rounded-lg px-3 py-1.5 text-[12.5px] font-semibold">● Record now</button>}
+                    : <button onClick={startRecording} className="bg-ink text-paper rounded-lg px-3 py-1.5 text-[12.5px] font-semibold">● Record now</button>}
                 </div>
                 <input ref={fileInput} type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm,.flac,.aac" multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
               </div>
               {recording && (
-                <div className="rounded-xl border border-line p-3 bg-white">
+                <div className="rounded-xl border border-line p-3 bg-raised">
                   <div className="text-[11.5px] text-ink-soft mb-1">Read this naturally, like a real call (about 45 seconds). Stops by itself at 1:30.</div>
                   <div className="text-[13.5px] leading-relaxed">{READ_ALOUD[language] ?? READ_ALOUD.en}</div>
                 </div>
@@ -281,7 +281,7 @@ export default function VoiceCloneModal({ defaultLanguage, onCreated, onAdded, o
           <div className="px-5 py-3 border-t border-line flex items-center gap-3 shrink-0">
             <div className={`flex-1 text-[12px] text-ink-soft ${err ? "" : "truncate"}`} data-testid="clone-status">{err ? <span className="text-miss leading-snug block">{err}</span> : problems[0] || "Ready — this takes about 10 seconds."}</div>
             <button onClick={onClose} className="border border-line rounded-lg px-4 py-2 text-[13px] font-semibold">Cancel</button>
-            <button onClick={create} disabled={saving || busy || problems.length > 0} className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-40">{saving ? "Cloning…" : "Create voice"}</button>
+            <button onClick={create} disabled={saving || busy || problems.length > 0} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-40">{saving ? "Cloning…" : "Create voice"}</button>
           </div>
         )}
       </div>

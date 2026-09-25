@@ -121,10 +121,10 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
             <Card title="Paste your call script" hint="Any format works — headings, bullet points, a paragraph, or a transcript of your best counsellor's call. English, Telugu, Hindi or mixed." testId="source-card">
               <textarea value={sourceScript} onChange={(e) => set({ sourceScript: e.target.value })} rows={10} data-testid="source-script"
                 placeholder={"Intro: …\nQuestions to ask: …\nOffer / fees: …\nIf they say it's expensive: …\nClosing: …"}
-                className="w-full border border-line rounded-lg px-3 py-2.5 text-[13.5px] bg-white outline-none focus:border-signal resize-y leading-relaxed" />
+                className="w-full border border-line rounded-lg px-3 py-2.5 text-[13.5px] bg-raised outline-none focus:border-signal resize-y leading-relaxed" />
               <div className="flex flex-wrap items-center gap-2 mt-3">
                 <button type="button" onClick={analyze} disabled={analyzing || sourceScript.trim().length < 40} data-testid="analyze"
-                  className="bg-signal text-white rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-40 flex items-center gap-2">
+                  className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-40 flex items-center gap-2">
                   {analyzing ? <><Spinner /> Reading your script…</> : <>✦ {playbook ? "Read it again" : "Build the call plan with AI"}</>}
                 </button>
                 {!playbook && !sourceScript && (
@@ -172,11 +172,11 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
                 right={greetMismatch ? null : greeting.trim() ? <span className="text-[11px] text-signal font-semibold">✓ {openName}</span> : null}>
                 <AutoText value={greeting} onChange={(v: string) => set({ greeting: v })} rows={2} data-testid="greeting"
                   placeholder={open === "te" ? "నమస్కారం, నేను DBMCI నుండి మాట్లాడుతున్నాను…" : open === "hi" ? "नमस्ते, मैं DBMCI से बात कर रही हूँ…" : "Hello, this is Priya calling from DBMCI…"}
-                  className="text-[14px] border border-line rounded-lg px-3 py-2 bg-white focus:border-signal" />
+                  className="text-[14px] border border-line rounded-lg px-3 py-2 bg-raised focus:border-signal" />
                 {greetMismatch && (
                   <div className="mt-2 flex items-center justify-between gap-3 text-[12.5px] bg-hot-tint border border-hot/30 rounded-lg px-3 py-2" data-testid="greeting-mismatch">
                     <span>This greeting is in {LANG_NAMES[greetLang] || "another language"}, but the employee opens calls in <b>{openName}</b>.</span>
-                    <button type="button" onClick={translateGreeting} disabled={translating} className="shrink-0 bg-white border border-line rounded-md px-2.5 py-1 font-semibold flex items-center gap-1.5">
+                    <button type="button" onClick={translateGreeting} disabled={translating} className="shrink-0 bg-raised border border-line rounded-md px-2.5 py-1 font-semibold flex items-center gap-1.5">
                       {translating ? <Spinner /> : null} Translate to {openName}
                     </button>
                   </div>
@@ -227,7 +227,7 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
 
               <div className="flex items-center gap-3 text-[12.5px]">
                 <span className="text-ink-soft">How closely should it stick to this?</span>
-                <select value={strictness} onChange={(e) => setStrictness(parseInt(e.target.value, 10))} className="border border-line rounded-lg px-2 py-1 text-[12.5px] bg-white outline-none">
+                <select value={strictness} onChange={(e) => setStrictness(parseInt(e.target.value, 10))} className="border border-line rounded-lg px-2 py-1 text-[12.5px] bg-raised outline-none">
                   {strictnessLabels.map((t: any) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
                 <span className="text-ink-soft">{strictnessLabels.find((t: any) => t.value === strictness)?.description}</span>
@@ -246,11 +246,11 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
             {policy?.mode === "match_caller" ? " It says it in the caller's language." : ""}
           </div>
           {links.map((l: any, i: number) => (
-            <div key={i} className="border border-line rounded-xl bg-white p-3 flex flex-col gap-2" data-testid="link-row">
+            <div key={i} className="border border-line rounded-xl bg-raised p-3 flex flex-col gap-2" data-testid="link-row">
               <div className="flex gap-2">
                 <input value={l.label} onChange={(e) => setLink(i, "label", e.target.value)} placeholder="Label, e.g. Seat booking"
                   className="w-[180px] border border-line rounded-lg px-2.5 py-1.5 text-[13px] font-semibold outline-none focus:border-signal" />
-                <select value={l.purpose} onChange={(e) => setLink(i, "purpose", e.target.value)} className="border border-line rounded-lg px-2 text-[12.5px] bg-white outline-none">
+                <select value={l.purpose} onChange={(e) => setLink(i, "purpose", e.target.value)} className="border border-line rounded-lg px-2 text-[12.5px] bg-raised outline-none">
                   {PURPOSES.map(([k, t]) => <option key={k} value={k}>{t}</option>)}
                 </select>
                 <button type="button" onClick={() => set({ links: links.filter((_: any, j: number) => j !== i) })} className="ml-auto text-miss text-[12px] font-semibold px-1" aria-label="Remove link">✕</button>

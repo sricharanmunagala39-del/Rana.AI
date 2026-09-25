@@ -245,7 +245,7 @@ function TalkInner() {
       <div className="flex-1 flex flex-col">
         <div className="border-b border-line px-6 py-3.5 flex items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Who</span>
-          <div className="flex items-center gap-2 border border-line rounded-full pl-1 pr-3 py-1 bg-white">
+          <div className="flex items-center gap-2 border border-line rounded-full pl-1 pr-3 py-1 bg-raised">
             <div className="w-6 h-6 rounded-full bg-signal-tint flex items-center justify-center text-signal font-display font-bold text-[11px]">
               {agentName.charAt(0)}
             </div>
@@ -262,7 +262,7 @@ function TalkInner() {
               <span>{stale ? <><b>You edited {agentName} after publishing.</b> Calls still use the older version until you publish again.</> : republishMsg}</span>
               {stale && (
                 <button onClick={() => republish()} disabled={republishing || isLive || isConnecting}
-                  className="shrink-0 bg-ink text-white rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold disabled:opacity-50">
+                  className="shrink-0 bg-ink text-paper rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold disabled:opacity-50">
                   {republishing ? "Publishing…" : "Publish latest"}
                 </button>
               )}
@@ -271,7 +271,7 @@ function TalkInner() {
         )}
 
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="w-full max-w-[640px] rounded-3xl bg-ink text-white overflow-hidden relative">
+          <div className="w-full max-w-[640px] rounded-3xl stage-glow text-white overflow-hidden relative">
             <div className="px-8 py-14 flex flex-col items-center text-center gap-1">
 
               <div className="relative w-[120px] h-[120px] mb-7">
@@ -279,7 +279,7 @@ function TalkInner() {
                 {isConnecting && <div className="absolute inset-0 rounded-full bg-white/10 animate-pulse" />}
                 <div className="absolute inset-3 rounded-full border-2 border-white/15" />
                 <div className="absolute inset-0 rounded-full flex items-center justify-center">
-                  <div className="w-[74px] h-[74px] rounded-full bg-gradient-to-br from-signal to-purple-500 flex items-center justify-center text-2xl font-display font-bold">
+                  <div className="w-[74px] h-[74px] rounded-full bg-gradient-to-br from-signal to-violet flex items-center justify-center text-2xl font-display font-bold">
                     {agentName.charAt(0)}
                   </div>
                 </div>
@@ -299,7 +299,7 @@ function TalkInner() {
 
               {isIdleOrError && (
                 <button onClick={startCall} disabled={statusLoading}
-                  className="mt-7 bg-white text-ink rounded-full px-6 py-3 text-[14px] font-semibold flex items-center gap-2 disabled:opacity-50">
+                  className="mt-7 bg-raised text-ink rounded-full px-6 py-3 text-[14px] font-semibold flex items-center gap-2 disabled:opacity-50">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/>
                   </svg>
@@ -325,7 +325,7 @@ function TalkInner() {
                     )}
                     {transcript.map((t, i) => (
                       <div key={i} className={`flex ${t.role === "agent" ? "justify-start" : "justify-end"}`}>
-                        <div className={`max-w-[85%] rounded-xl px-3.5 py-2 text-[12.5px] leading-relaxed ${t.role === "agent" ? "bg-white/10 text-white" : "bg-signal text-white"}`}>
+                        <div className={`max-w-[85%] rounded-xl px-3.5 py-2 text-[12.5px] leading-relaxed ${t.role === "agent" ? "bg-white/10 text-on-accent" : "bg-signal text-on-accent"}`}>
                           {t.text}
                         </div>
                       </div>
@@ -367,7 +367,7 @@ function TalkInner() {
                     <input value={phoneTo} onChange={(e) => setPhoneTo(e.target.value)} placeholder="98765 43210" inputMode="tel"
                       className="flex-1 bg-white/10 border border-white/15 rounded-lg px-3 py-2 text-[13px] outline-none focus:border-white/40 placeholder:text-white/30" />
                     <button onClick={callMyPhone} disabled={phoneBusy || phoneTo.replace(/\D/g, "").length < 10}
-                      className="bg-white text-ink rounded-lg px-4 text-[12.5px] font-semibold disabled:opacity-40">{phoneBusy ? "Calling…" : "Call me"}</button>
+                      className="bg-raised text-ink rounded-lg px-4 text-[12.5px] font-semibold disabled:opacity-40">{phoneBusy ? "Calling…" : "Call me"}</button>
                   </div>
                   {phoneMsg && <div className={`text-[11.5px] mt-2 ${phoneMsg.ok ? "text-signal" : "text-red-300"}`}>{phoneMsg.text}</div>}
                 </div>
@@ -382,7 +382,7 @@ function TalkInner() {
 
         {!isLive && transcript.length > 0 && (
           <div className="px-8 pb-6 flex justify-center">
-            <div className="w-full max-w-[640px] bg-white border border-line rounded-2xl p-5">
+            <div className="w-full max-w-[640px] bg-raised border border-line rounded-2xl p-5">
               <div className="text-[13px] font-semibold mb-3">Last test conversation</div>
               <div className="flex flex-col gap-2 max-h-[260px] overflow-y-auto">
                 {transcript.map((t, i) => (
@@ -397,7 +397,7 @@ function TalkInner() {
 
         {scriptId && isPublished && (
           <div className="px-8 pb-10 flex justify-center">
-            <div className="w-full max-w-[640px] bg-white border border-line rounded-2xl p-6 flex flex-col gap-4">
+            <div className="w-full max-w-[640px] bg-raised border border-line rounded-2xl p-6 flex flex-col gap-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-[15px] font-semibold">Test before you deploy</div>
@@ -423,7 +423,7 @@ function TalkInner() {
                 className="w-full border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal" />
               <div className="flex flex-wrap items-center gap-3">
                 <button onClick={() => saveTest(true)} disabled={savingTest || !allChecked || (testsRun === 0 && !testedAt)}
-                  className="bg-signal text-white rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-40">
+                  className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold disabled:opacity-40">
                   {testedAt ? "Re-confirm sign-off" : "Sign off — ready to deploy"}
                 </button>
                 {testedAt && <a href={`/employees?deploy=${scriptId}`} className="border border-line rounded-lg px-4 py-2 text-[12.5px] font-semibold hover:bg-paper">Deploy {agentName} →</a>}

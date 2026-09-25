@@ -21,12 +21,12 @@ export default function SignupPage() {
     <div className="min-h-screen bg-paper flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-6"><span className="text-[22px] font-display font-bold">RANA AI</span><p className="text-[13px] text-ink-soft">AI employees that call your leads — in 11 Indian languages</p></div>
-        <div className="bg-white border border-line rounded-2xl p-7 shadow-sm">
+        <div className="bg-raised border border-line rounded-2xl p-7 shadow-sm">
           {done ? (
             <div className="flex flex-col gap-3" data-testid="signup-done">
               <h1 className="text-[18px] font-semibold">You're in the queue</h1>
               <p className="text-[13.5px] text-ink-soft">We'll switch on your 14-day free trial shortly (usually within a working day) and email you. You can sign in now and start building your first AI employee.</p>
-              <a href="/login" className="bg-signal text-white rounded-lg py-2.5 text-[14px] font-semibold text-center">Sign in</a>
+              <a href="/login" className="bg-signal text-on-accent rounded-lg py-2.5 text-[14px] font-semibold text-center">Sign in</a>
             </div>
           ) : (
             <form onSubmit={submit} className="flex flex-col gap-3" data-testid="signup-form">
@@ -40,7 +40,7 @@ export default function SignupPage() {
               </select>
               <input id="su-password" className={field} placeholder="Choose a password (8+ characters)" type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
               {err && <div className="text-[12.5px] text-miss bg-miss-tint rounded-lg px-3 py-2">{err}</div>}
-              <button disabled={busy} className="bg-signal text-white rounded-lg py-2.5 text-[14px] font-semibold disabled:opacity-50 mt-1" data-testid="signup-submit">{busy ? "Creating…" : "Create my workspace"}</button>
+              <button disabled={busy} className="bg-signal text-on-accent rounded-lg py-2.5 text-[14px] font-semibold disabled:opacity-50 mt-1" data-testid="signup-submit">{busy ? "Creating…" : "Create my workspace"}</button>
               <p className="text-[11.5px] text-ink-soft text-center">14 days · 100 minutes · no card needed. Already have a login? <a href="/login" className="text-signal">Sign in</a></p>
             </form>
           )}

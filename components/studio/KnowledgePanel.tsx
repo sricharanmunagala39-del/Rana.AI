@@ -120,7 +120,7 @@ export default function KnowledgePanel({ scriptId, ensureSaved, onCount, opening
       <div className="flex gap-1.5">
         {[["file", "Upload document"], ["url", "Website page"], ["text", "Type or paste"]].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setMode(k as any)}
-            className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-full border ${mode === k ? "bg-ink text-white border-ink" : "bg-white text-ink-soft border-line"}`}>{l}</button>
+            className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-full border ${mode === k ? "bg-ink text-paper border-ink" : "bg-raised text-ink-soft border-line"}`}>{l}</button>
         ))}
       </div>
 
@@ -129,7 +129,7 @@ export default function KnowledgePanel({ scriptId, ensureSaved, onCount, opening
           onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
           onDrop={(e) => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files?.length) onFiles(e.dataTransfer.files); }}
           onClick={() => !busy && fileRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl px-4 py-7 text-center cursor-pointer ${drag ? "border-signal bg-signal-tint" : "border-line bg-white hover:border-signal/60"}`}>
+          className={`border-2 border-dashed rounded-xl px-4 py-7 text-center cursor-pointer ${drag ? "border-signal bg-signal-tint" : "border-line bg-raised hover:border-signal/60"}`}>
           <div className="text-[13.5px] font-semibold">Drop files here or click to choose</div>
           <div className="text-[11.5px] text-ink-soft mt-1">PDF, Word (.docx) or text · up to 25 MB each · read on your computer, only the text is saved</div>
           <input ref={fileRef} type="file" multiple accept={ACCEPT} className="hidden" data-testid="knowledge-file" onChange={(e) => e.target.files && onFiles(e.target.files)} />
@@ -138,20 +138,20 @@ export default function KnowledgePanel({ scriptId, ensureSaved, onCount, opening
       {mode === "url" && (
         <div className="flex gap-2">
           <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://yourinstitute.com/courses/neet-pg"
-            className="flex-1 border border-line rounded-lg px-3 py-2 text-[13.5px] bg-white outline-none focus:border-signal" />
+            className="flex-1 border border-line rounded-lg px-3 py-2 text-[13.5px] bg-raised outline-none focus:border-signal" />
           <button type="button" onClick={addUrl} disabled={!!busy || !/^https?:\/\/\S+\.\S+/.test(url.trim())}
-            className="bg-ink text-white rounded-lg px-4 text-[13px] font-semibold disabled:opacity-40">Add page</button>
+            className="bg-ink text-paper rounded-lg px-4 text-[13px] font-semibold disabled:opacity-40">Add page</button>
         </div>
       )}
       {mode === "text" && (
-        <div className="flex flex-col gap-2 border border-line rounded-xl bg-white p-3">
+        <div className="flex flex-col gap-2 border border-line rounded-xl bg-raised p-3">
           <input value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} placeholder="Title, e.g. Fee structure 2026"
             className="text-[13.5px] font-semibold outline-none bg-transparent" />
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={5} placeholder="Paste anything the employee should know…"
             className="text-[13.5px] outline-none bg-transparent resize-y" />
           <div className="flex justify-end">
             <button type="button" onClick={addNote} disabled={!!busy || note.trim().length < 20}
-              className="bg-ink text-white rounded-lg px-4 py-1.5 text-[13px] font-semibold disabled:opacity-40">Add notes</button>
+              className="bg-ink text-paper rounded-lg px-4 py-1.5 text-[13px] font-semibold disabled:opacity-40">Add notes</button>
           </div>
         </div>
       )}
@@ -162,7 +162,7 @@ export default function KnowledgePanel({ scriptId, ensureSaved, onCount, opening
           <span>{err}</span>
           {/Type or paste/.test(err) && mode !== "text" && (
             <button type="button" onClick={() => { setMode("text"); setNoteTitle(noteTitle || (url ? (() => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; } })() : "")); setErr(""); }}
-              className="shrink-0 bg-white border border-line rounded-md px-2.5 py-1 font-semibold text-ink">Paste it instead</button>
+              className="shrink-0 bg-raised border border-line rounded-md px-2.5 py-1 font-semibold text-ink">Paste it instead</button>
           )}
         </div>
       )}
@@ -171,7 +171,7 @@ export default function KnowledgePanel({ scriptId, ensureSaved, onCount, opening
         {loading && <div className="text-[12.5px] text-ink-soft">Loading…</div>}
         {!loading && items.length === 0 && <div className="text-[12.5px] text-ink-soft">Nothing added yet.</div>}
         {items.map((k) => (
-          <div key={k.id} className="border border-line rounded-xl bg-white" data-testid="knowledge-item">
+          <div key={k.id} className="border border-line rounded-xl bg-raised" data-testid="knowledge-item">
             <div className="flex items-center gap-3 px-3.5 py-2.5">
               <span aria-hidden>{KIND_ICON[k.kind] || "📄"}</span>
               <button type="button" onClick={() => setOpen(open === k.id ? null : k.id)} className="flex-1 min-w-0 text-left">
@@ -181,7 +181,7 @@ export default function KnowledgePanel({ scriptId, ensureSaved, onCount, opening
                 </div>
               </button>
               <button type="button" onClick={() => runExtract(k.id)} disabled={extract[k.id]?.loading} data-testid="knowledge-use"
-                className="shrink-0 text-[12px] font-semibold bg-signal text-white rounded-md px-2.5 py-1 disabled:opacity-50 flex items-center gap-1.5">
+                className="shrink-0 text-[12px] font-semibold bg-signal text-on-accent rounded-md px-2.5 py-1 disabled:opacity-50 flex items-center gap-1.5">
                 {extract[k.id]?.loading ? <><Spinner /> Reading…</> : "✦ Use in script"}
               </button>
               <button type="button" onClick={() => setOpen(open === k.id ? null : k.id)} className="shrink-0 text-[12px] font-semibold text-signal">{open === k.id ? "Hide" : "What it read"}</button>
@@ -190,7 +190,7 @@ export default function KnowledgePanel({ scriptId, ensureSaved, onCount, opening
             {k.hint && (
               <div className="mx-3.5 mb-2.5 text-[12px] bg-hot-tint border border-hot/30 rounded-lg px-3 py-2 flex items-start justify-between gap-3" data-testid="knowledge-hint">
                 <span>{k.hint}</span>
-                {k.kind === "url" && <button type="button" onClick={() => { setMode("text"); setNoteTitle(k.title); }} className="shrink-0 bg-white border border-line rounded-md px-2 py-0.5 font-semibold">Paste instead</button>}
+                {k.kind === "url" && <button type="button" onClick={() => { setMode("text"); setNoteTitle(k.title); }} className="shrink-0 bg-raised border border-line rounded-md px-2 py-0.5 font-semibold">Paste instead</button>}
               </div>
             )}
             {open === k.id && (
@@ -222,7 +222,7 @@ export default function KnowledgePanel({ scriptId, ensureSaved, onCount, opening
                   {d.missing?.length > 0 && <div className="bg-paper border border-line rounded-lg px-3 py-2"><div className="font-semibold mb-0.5">Not in this source — find it elsewhere</div>{d.missing.map((m: string, i: number) => <div key={i}>• {m}</div>)}</div>}
                   {!empty && (
                     <div className="flex items-center gap-3">
-                      <button type="button" onClick={() => addPicked(k.id)} data-testid="knowledge-add" className="bg-ink text-white rounded-lg px-3.5 py-1.5 font-semibold">Add selected to script</button>
+                      <button type="button" onClick={() => addPicked(k.id)} data-testid="knowledge-add" className="bg-ink text-paper rounded-lg px-3.5 py-1.5 font-semibold">Add selected to script</button>
                       {added[k.id] && <span className="text-signal font-semibold">{added[k.id]}</span>}
                     </div>
                   )}

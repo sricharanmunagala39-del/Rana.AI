@@ -30,9 +30,9 @@ type Dash = {
   generatedAt: string;
 };
 
-const IN_COLOR = "#008300";   // inbound — validated pair (CVD ΔE 26.5) with outbound
-const OUT_COLOR = "#2a78d6";  // outbound
-const ONE_HUE = "#1C6B4F";    // single-series magnitude bars (brand signal)
+const IN_COLOR = "rgb(var(--c-signal))";   // inbound — brand teal
+const OUT_COLOR = "rgb(var(--c-violet))";  // outbound — violet (distinct hue from teal)
+const ONE_HUE = "rgb(var(--c-signal))";    // single-series magnitude bars (brand signal)
 
 const RANGES = [
   { key: "today", label: "Today" }, { key: "yesterday", label: "Yesterday" }, { key: "day_before", label: "Day before" },
@@ -49,7 +49,7 @@ function Info({ text }: { text: string }) {
   return (
     <span className="relative group inline-flex">
       <span className="w-[15px] h-[15px] rounded-full border border-line text-[9.5px] leading-[13px] text-center text-ink-soft cursor-help">i</span>
-      <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-5 z-30 w-[240px] rounded-lg bg-ink text-white text-[11.5px] leading-snug px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">{text}</span>
+      <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-5 z-30 w-[240px] rounded-lg bg-ink text-paper text-[11.5px] leading-snug px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">{text}</span>
     </span>
   );
 }
@@ -144,11 +144,11 @@ function StackedColumns({ data, labelOf, height = 170 }: { data: { key: string; 
               })}
             </div>
             {hover !== null && (
-              <div className="absolute z-20 -top-2 pointer-events-none bg-ink text-white rounded-lg px-3 py-2 text-[11.5px] shadow-lg whitespace-nowrap"
+              <div className="absolute z-20 -top-2 pointer-events-none bg-ink text-paper rounded-lg px-3 py-2 text-[11.5px] shadow-lg whitespace-nowrap"
                 style={{ left: `${Math.min(80, Math.max(0, (hover / data.length) * 100 - 6))}%` }}>
                 <div className="font-semibold mb-0.5">{labelOf(data[hover].key, hover)}</div>
                 <div>Inbound {data[hover].inbound} · Outbound {data[hover].outbound}</div>
-                <div className="text-white/70">Connected {data[hover].connected} ({share(data[hover].connected, data[hover].inbound + data[hover].outbound)})</div>
+                <div className="text-paper/70">Connected {data[hover].connected} ({share(data[hover].connected, data[hover].inbound + data[hover].outbound)})</div>
               </div>
             )}
           </div>
@@ -270,7 +270,7 @@ export default function DashboardPage() {
           <div className="flex gap-1 bg-raised border border-line rounded-[10px] p-1">
             {DIRS.map((d) => (
               <button key={d.key} onClick={() => setDir(d.key)}
-                className={`text-[13px] font-semibold px-3.5 py-1.5 rounded-md flex items-center gap-1.5 ${dir === d.key ? "bg-ink text-white" : "text-ink-soft hover:text-ink"}`}>
+                className={`text-[13px] font-semibold px-3.5 py-1.5 rounded-md flex items-center gap-1.5 ${dir === d.key ? "bg-ink text-paper" : "text-ink-soft hover:text-ink"}`}>
                 {d.key !== "all" && <span className="w-2 h-2 rounded-full" style={{ background: d.key === "inbound" ? IN_COLOR : OUT_COLOR }} />}
                 {d.label}
               </button>
@@ -279,7 +279,7 @@ export default function DashboardPage() {
           <div className="flex flex-wrap gap-1 bg-raised border border-line rounded-[10px] p-1">
             {RANGES.map((r) => (
               <button key={r.key} onClick={() => setRange(r.key)}
-                className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-md ${range === r.key ? "bg-signal text-white" : "text-ink-soft hover:text-ink"}`}>{r.label}</button>
+                className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-md ${range === r.key ? "bg-signal text-on-accent" : "text-ink-soft hover:text-ink"}`}>{r.label}</button>
             ))}
           </div>
           {range === "custom" && (
@@ -337,7 +337,7 @@ export default function DashboardPage() {
               items={(data?.leadMix || []).filter((m) => m.status !== "new" || m.count > 0).map((m) => ({
                 label: <StatusPill label={m.status === "no_answer" ? "DNP / no answer" : LEAD_LABEL[m.status]} tone={LEAD_TONE[m.status]} />,
                 value: m.count, note: share(m.count, mixTotal),
-                color: m.status === "no_answer" || m.status === "not_interested" || m.status === "new" ? "#8a8f8a" : undefined,
+                color: m.status === "no_answer" || m.status === "not_interested" || m.status === "new" ? "rgb(var(--c-ink-soft))" : undefined,
               }))} />
           </Card>
         </div>
@@ -349,7 +349,7 @@ export default function DashboardPage() {
           </Card>
           <Card title="Why calls didn't connect" info="The reason the phone network reported when a call wasn't answered. Busy and no-answer numbers are worth retrying at a different hour.">
             {data && data.notConnected.length ? (
-              <BarList items={data.notConnected.map((r) => ({ label: r.reason, value: r.count, note: share(r.count, data.kpis.total) }))} max={Math.max(...data.notConnected.map((r) => r.count))} color="#8a8f8a" />
+              <BarList items={data.notConnected.map((r) => ({ label: r.reason, value: r.count, note: share(r.count, data.kpis.total) }))} max={Math.max(...data.notConnected.map((r) => r.count))} color="rgb(var(--c-ink-soft))" />
             ) : data ? <div className="text-[13px] text-ink-soft py-6 text-center">Every call connected in this period.</div> : null}
           </Card>
         </div>
