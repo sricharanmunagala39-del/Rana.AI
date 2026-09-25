@@ -97,6 +97,11 @@ export default function Sidebar({ active, client: clientProp }: { active: string
           <span className="w-2 h-2 rounded-full bg-signal" /> RANA HQ · all clients
         </Link>
       )}
+      {client?.hq && (
+        <Link href="/hq/money" className="flex items-center gap-2 px-3 py-[7px] -mt-3 rounded-lg text-[13px] font-medium text-ink-soft hover:bg-paper" data-testid="hq-money-nav">
+          <span className="w-2 h-2" /> ₹ Money &amp; Sarvam credits
+        </Link>
+      )}
 
       <nav className="flex flex-col gap-5">
         {GROUPS.map((group) => (
