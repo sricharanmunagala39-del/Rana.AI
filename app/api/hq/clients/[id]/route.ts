@@ -20,7 +20,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const denied = requireHq(session); if (denied) return denied;
   const c = await load(params.id);
   if (!c) return Response.json({ error: "Client not found" }, { status: 404 });
-  return Response.json({ client: c, users: await listUsers(c.id), usage: await usageOf(c) });
+  const { login_password, webhook_secret, cartesia_webhook_secret, ...safe } = c; // never send secrets or hashes to the browser
+  return Response.json({ client: safe, users: await listUsers(c.id), usage: await usageOf(c) });
 }
 
 const intOrNull = (v: any, max: number) => (v === null || v === "" || v === undefined ? null : Math.max(0, Math.min(max, Math.round(Number(v)) || 0)));
@@ -72,7 +73,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const { sendEmail, emailHtml, ownerEmails, APP_URL } = await import("@/lib/notify");
     await sendEmail({ to: await ownerEmails(c.id, c.login_email), kind: "approved", clientId: c.id, subject: "Your RANA AI free trial is on", html: emailHtml({ title: "Your 14-day free trial has started", lines: ["You have 100 minutes to try RANA with your own leads. Build an AI employee, test it on the Talk page, then launch your first campaign."], button: { label: "Open RANA", url: `${APP_URL()}/` } }) });
   }
-  return Response.json({ ok: true, client: updated, usage: await usageOf(updated) });
+  const { login_password: _p, webhook_secret: _w, cartesia_webhook_secret: _cw, ...safeUpdated } = updated || {};
+  return Response.json({ ok: true, client: safeUpdated, usage: await usageOf(updated) });
 }
 
 /** POST { action: "reset_owner" | "open" } */

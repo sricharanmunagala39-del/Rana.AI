@@ -235,7 +235,7 @@ function CallingTab({ me }: { me: Me }) {
     try { await api(`/api/dnc?phone=${encodeURIComponent(phone)}`, { method: "DELETE" }); loadDnc(); } catch (e: any) { setMsg({ tone: "err", text: e.message }); }
   }
 
-  if (!data || !draft) return <div className="text-[13px] text-ink-soft">Loading…</div>;
+  if (!data || !draft) return msg ? <Banner tone={msg.tone} onClose={() => setMsg(null)}>{msg.text}</Banner> : <div className="text-[13px] text-ink-soft">Loading…</div>;
   return (
     <div className="flex flex-col gap-4">
       {msg && <Banner tone={msg.tone} onClose={() => setMsg(null)}>{msg.text}</Banner>}
@@ -244,22 +244,17 @@ function CallingTab({ me }: { me: Me }) {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <div className="text-[15px] font-semibold">Calling hours</div>
-            <div className="text-[12.5px] text-ink-soft mt-0.5">Campaigns can't start outside these hours. In India, TRAI allows promotional calls 9am–9pm; in the US, 8am–9pm in the person's local time.</div>
+            <div className="text-[12.5px] text-ink-soft mt-0.5">Campaigns only call inside these hours (India time). TRAI allows promotional calls 9am–9pm, so RANA never calls outside that — you can make the window shorter.</div>
           </div>
           <StatusPill label={data.rules.enforce ? (data.openNow ? "Open now" : `Closed · opens ${when(data.nextOpen)}`) : "Not enforced"} tone={data.rules.enforce ? (data.openNow ? "signal" : "warm") : "miss"} />
         </div>
 
-        <fieldset disabled={!canEdit} className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <fieldset disabled={!canEdit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="flex flex-col gap-1 text-[12px] text-ink-soft">From
             <input type="time" className={input} value={toHHMM(draft.windowStart)} onChange={(e) => setDraft({ ...draft, windowStart: fromHHMM(e.target.value) })} />
           </label>
           <label className="flex flex-col gap-1 text-[12px] text-ink-soft">Until
             <input type="time" className={input} value={toHHMM(draft.windowEnd)} onChange={(e) => setDraft({ ...draft, windowEnd: fromHHMM(e.target.value) })} />
-          </label>
-          <label className="flex flex-col gap-1 text-[12px] text-ink-soft">Timezone
-            <select className={input} value={draft.timezone} onChange={(e) => setDraft({ ...draft, timezone: e.target.value })}>
-              {(TIMEZONES.includes(draft.timezone) ? TIMEZONES : [draft.timezone, ...TIMEZONES]).map((t) => <option key={t} value={t}>{t.replace("_", " ")}</option>)}
-            </select>
           </label>
         </fieldset>
         <div className="flex flex-wrap gap-1.5">
@@ -272,10 +267,6 @@ function CallingTab({ me }: { me: Me }) {
             );
           })}
         </div>
-        <label className="flex items-center gap-2 text-[13px]">
-          <input type="checkbox" disabled={!canEdit} checked={draft.enforce} onChange={(e) => setDraft({ ...draft, enforce: e.target.checked })} />
-          Block campaigns outside these hours
-        </label>
         {canEdit ? (
           <div className="flex gap-2">
             <button className={`${btn} bg-signal text-on-accent`} disabled={!dirty || saving} onClick={save}>{saving ? "Saving…" : "Save calling hours"}</button>

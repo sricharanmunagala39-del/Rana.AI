@@ -1,6 +1,6 @@
 // Plans, trials and usage. One source of truth for what each workspace may do and how much it has used.
 // Prices exclude GST. A client row can override any limit (minutes_included, max_employees, …) for custom deals.
-import { sb } from "./db";
+import { sb, sbAll } from "./db";
 
 export type PlanKey = "trial" | "starter" | "growth" | "scale" | "enterprise";
 export type Plan = {
@@ -49,13 +49,13 @@ export function billedMinutes(durations: number[]): number {
 
 /** Billed minutes in [from, to) — used for overage invoices. */
 export async function minutesBetween(clientId: string, from: Date, to: Date): Promise<number> {
-  const rows = await sb<any[]>(`/calls?client_id=eq.${clientId}&created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=duration_seconds,source&limit=100000`);
+  const rows = await sbAll<any>(`/calls?client_id=eq.${clientId}&created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=duration_seconds,source&order=created_at.asc,id.asc`);
   return billedMinutes((rows || []).filter((r) => r.source !== "manual").map((r) => Number(r.duration_seconds) || 0));
 }
 
 export async function usageOf(client: any, now = new Date()) {
   const from = cycleStart(client, now);
-  const rows = await sb<any[]>(`/calls?client_id=eq.${client.id}&created_at=gte.${encodeURIComponent(from.toISOString())}&duration_seconds=gt.0&select=duration_seconds,source&limit=50000`).catch(() => []);
+  const rows = await sbAll<any>(`/calls?client_id=eq.${client.id}&created_at=gte.${encodeURIComponent(from.toISOString())}&duration_seconds=gt.0&select=duration_seconds,source&order=created_at.asc,id.asc`).catch(() => []);
   // Practice on the Talk page (browser sessions, source "manual") is free: Sarvam doesn't charge for it, so we don't either.
   const all = (rows || []).filter((r) => r.source !== "manual").map((r) => Number(r.duration_seconds) || 0);
   const tests = (rows || []).filter((r) => r.source === "manual").map((r) => Number(r.duration_seconds) || 0);

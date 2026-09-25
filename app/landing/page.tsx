@@ -40,7 +40,7 @@ function jsonLd() {
     url: "https://ranaai.in",
     description: DESCRIPTION,
     publisher: { "@id": "https://ranaai.in/#org" },
-    inLanguage: ["en-IN", "hi-IN", "te-IN", "ta-IN", "kn-IN", "ml-IN", "mr-IN", "bn-IN", "gu-IN", "pa-IN", "ur-IN"],
+    inLanguage: ["en-IN", "hi-IN", "te-IN", "ta-IN", "kn-IN", "ml-IN", "mr-IN", "bn-IN", "gu-IN", "pa-IN", "or-IN"],
     offers: PLANS.map((p) => ({
       "@type": "Offer",
       name: `${p.name} plan`,

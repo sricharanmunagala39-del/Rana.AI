@@ -6,8 +6,9 @@
  * Client resolution: ?key= (preferred, per-client secret) -> app_id match on clients.sarvam_app_id.
  */
 export const runtime = "nodejs";
-import { getClientByWebhookSecret, getClientByAppId, upsertCall, payloadToCall } from "@/lib/calls";
-import { sarvamConfig, recordingUrl } from "@/lib/sarvamAgent";
+import { getClientByWebhookSecret, getClientByAppId, upsertCall, payloadToCall, existingCall } from "@/lib/calls";
+import crypto from "crypto";
+import { sarvamConfig, recordingUrl, SARVAM_VOICES } from "@/lib/sarvamAgent";
 import { optOutPhrase, addDnc } from "@/lib/compliance";
 import { normalisePhone } from "@/lib/campaigns";
 
@@ -50,12 +51,19 @@ export async function POST(req: Request) {
 
   const key = new URL(req.url).searchParams.get("key");
   let client = key ? await getClientByWebhookSecret(key) : null;
-  if (!client && payload?.app_id) client = await getClientByAppId(payload.app_id);
+  // Fallback for a client's own Sarvam agent (set up before per-client keys). Never for RANA's shared runtime agents,
+  // whose ids are shared by every client — those webhooks must carry ?key=.
+  const shared = new Set([sarvamConfig()?.appId, ...SARVAM_VOICES.map((v) => v.appId)].filter(Boolean) as string[]);
+  if (!client && payload?.app_id && !shared.has(String(payload.app_id))) client = await getClientByAppId(payload.app_id);
   if (!client) return Response.json({ error: "Unknown client" }, { status: 404 });
 
   try {
     const row = payloadToCall(payload, client.id);
-    if (!row.interaction_id) row.interaction_id = `manual-${client.id.slice(0, 8)}-${Date.now()}`;
+    // No id from Sarvam: derive a stable one, so a retried webhook updates the same row instead of adding another.
+    if (!row.interaction_id) row.interaction_id = `sarvam-${crypto.createHash("sha256").update(JSON.stringify([client.id, payload.user_identifier, payload.start_datetime ?? payload.created_at, payload.user_phone_number, payload.app_id])).digest("hex").slice(0, 32)}`;
+    const prev = await existingCall(row.interaction_id);
+    if (prev && prev.client_id !== client.id) return Response.json({ error: "That call belongs to another workspace." }, { status: 409 });
+    if (prev?.lead_reason === "Set manually by your team.") { delete row.lead_status; delete row.lead_reason; }
 
     // Recordings only ever exist for calls that actually connected — skip the extra
     // network round-trip otherwise.
@@ -63,6 +71,7 @@ export async function POST(req: Request) {
     if (appId && row.interaction_id && (row.duration_seconds ?? 0) > 0) {
       row.recording_url = await fetchRecordingUrl(appId, row.interaction_id);
     }
+    if (prev?.recording_url && !row.recording_url) delete row.recording_url; // keep a recording we already have
 
     const saved = await upsertCall(row);
 

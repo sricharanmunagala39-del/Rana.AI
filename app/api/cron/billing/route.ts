@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
   const ua = req.headers.get("user-agent") || "";
-  const allowed = secret ? auth === `Bearer ${secret}` : ua.startsWith("vercel-cron/");
+  const allowed = !!secret && auth === `Bearer ${secret}`; // CRON_SECRET is required (Vercel sends it automatically)
   if (!allowed) return Response.json({ error: "Forbidden" }, { status: 403 });
   try {
     const billing = await runBilling();

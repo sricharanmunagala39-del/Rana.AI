@@ -26,10 +26,15 @@ export function hotp(secret: string, counter: number): string {
 export function totp(secret: string, at = Date.now()): string { return hotp(secret, Math.floor(at / 30000)); }
 /** Accepts the current code and one step either side (clock drift). */
 export function verifyTotp(secret: string, code: string, at = Date.now()): boolean {
+  return matchTotpStep(secret, code, at) !== null;
+}
+/** The time step the code belongs to (current or one either side, for clock drift), or null if it doesn't match. */
+export function matchTotpStep(secret: string, code: string, at = Date.now()): number | null {
   const c = String(code || "").replace(/\s/g, "");
-  if (!/^\d{6}$/.test(c)) return false;
+  if (!/^\d{6}$/.test(c)) return null;
   const step = Math.floor(at / 30000);
-  return [-1, 0, 1].some((d) => { const want = hotp(secret, step + d); return crypto.timingSafeEqual(Buffer.from(want), Buffer.from(c)); });
+  for (const d of [-1, 0, 1]) { const want = hotp(secret, step + d); if (crypto.timingSafeEqual(Buffer.from(want), Buffer.from(c))) return step + d; }
+  return null;
 }
 export function otpauthUrl(secret: string, email: string): string {
   return `otpauth://totp/${encodeURIComponent(`RANA AI:${email}`)}?secret=${secret}&issuer=${encodeURIComponent("RANA AI")}&digits=6&period=30`;

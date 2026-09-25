@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 import { sb } from "@/lib/db";
 import { createSessionCookie } from "@/lib/auth";
-import { verifyTotp, readTicket } from "@/lib/totp";
+import { matchTotpStep, readTicket } from "@/lib/totp";
 import { audit } from "@/lib/audit";
 
 const fails = new Map<string, { n: number; first: number }>();
@@ -15,7 +15,10 @@ export async function POST(req: Request) {
   if (f && Date.now() - f.first < 15 * 60_000 && f.n >= 6) return Response.json({ error: "Too many wrong codes. Wait 15 minutes." }, { status: 429 });
   const [u] = (await sb<any[]>(`/users?id=eq.${uid}&select=id,client_id,email,name,role,is_active,totp_secret,totp_enabled,must_change_password&limit=1`)) || [];
   if (!u?.is_active || !u.totp_enabled || !u.totp_secret) return Response.json({ error: "Sign-in failed." }, { status: 401 });
-  if (!verifyTotp(u.totp_secret, String(b.code || ""))) {
+  const step = matchTotpStep(u.totp_secret, String(b.code || ""));
+  // Each code works once: claim its time step atomically, so a copied code can't open a second session.
+  const claimed = step === null ? [] : ((await sb<any[]>(`/users?id=eq.${u.id}&or=(totp_last_step.is.null,totp_last_step.lt.${step})`, { method: "PATCH", body: JSON.stringify({ totp_last_step: step }) }).catch(() => null)) ?? [{ id: u.id }]);
+  if (step === null || !claimed.length) {
     fails.set(uid, !f || Date.now() - f.first > 15 * 60_000 ? { n: 1, first: Date.now() } : { n: f.n + 1, first: f.first });
     await audit({ clientId: u.client_id, email: u.email, userId: u.id }, "login_failed", { req, detail: { step: "2fa" } });
     return Response.json({ error: "That code isn't right. Use the 6-digit code shown in your authenticator app now." }, { status: 401 });

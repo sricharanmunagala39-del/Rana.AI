@@ -1,6 +1,6 @@
 // RANA HQ command centre: one pass over every client → metrics, health score (0–100), alerts, live strip, platform health.
 // Everything here is read-only and computed from data RANA already stores.
-import { sb } from "./db";
+import { sb, sbAll } from "./db";
 import { PLANS, type PlanKey, usageOf, billedMinutes } from "./plans";
 import { walletOf } from "./wallet";
 import { sarvamBalance, costPerMin } from "./finance";
@@ -43,7 +43,8 @@ export async function hqOverview(now = new Date()) {
   const [clients, users, calls, openInv, paidMonth, campaigns, crons, rzpEvents, mailFails, diag] = await Promise.all([
     sb<any[]>(`/clients?is_hq=eq.false&order=created_at.desc&select=*`),
     sb<any[]>(`/users?select=client_id,email,role,last_login_at,is_active`),
-    sb<any[]>(`/calls?created_at=gte.${encodeURIComponent(since14)}&select=client_id,created_at,duration_seconds,connectivity_status,failure_reason,lead_status,source&limit=50000`),
+    // Real calls only — free Talk-page practice (source "manual") isn't activity, minutes or cost.
+    sbAll<any>(`/calls?created_at=gte.${encodeURIComponent(since14)}&or=(source.is.null,source.neq.manual)&select=client_id,created_at,duration_seconds,connectivity_status,failure_reason,lead_status,source&order=created_at.asc,id.asc`),
     sb<any[]>(`/invoices?status=eq.issued&select=client_id,total,due_date,number,kind`),
     sb<any[]>(`/invoices?status=eq.paid&paid_at=gte.${encodeURIComponent(new Date(Date.parse(todayIST(now).slice(0, 7) + "-01T00:00:00Z") - IST).toISOString())}&select=total,subtotal`),
     sb<any[]>(`/campaigns?status=in.(running,scheduled)&select=client_id,name,status,last_error,last_synced_at,started_at`),

@@ -262,7 +262,7 @@ export async function recordingUrl(cfg: SarvamConfig, appId: string, interaction
 export async function sarvamTts(opts: { text: string; language: string; speaker?: string; pace?: number }): Promise<ArrayBuffer> {
   const key = process.env.SARVAM_CHAT_API_KEY || process.env.SARVAM_API_KEY;
   if (!key) throw new Error("SARVAM_CHAT_API_KEY is not set");
-  const lang = baseLang(opts.language);
+  const lang = baseLang(opts.language) === "or" ? "od" : baseLang(opts.language); // Sarvam writes Odia as od-IN
   const code = ["en", "hi", "te", "ta", "kn", "ml", "mr", "bn", "gu", "pa", "od"].includes(lang) ? `${lang}-IN` : "en-IN";
   const res = await fetch("https://api.sarvam.ai/text-to-speech", {
     method: "POST",

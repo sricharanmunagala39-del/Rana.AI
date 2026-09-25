@@ -15,12 +15,17 @@ export const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function rulesFromClient(c: any): CallingRules {
   if (!c) return DEFAULT_RULES;
+  // TRAI (TCCCPR) allows promotional calls only 9 AM–9 PM IST. A client can narrow the window, never widen it or switch it off.
+  const start = Number.isFinite(c.calling_window_start) ? c.calling_window_start : DEFAULT_RULES.windowStart;
+  const end = Number.isFinite(c.calling_window_end) ? c.calling_window_end : DEFAULT_RULES.windowEnd;
+  const ws = Math.min(1259, Math.max(DEFAULT_RULES.windowStart, start));
+  const we = Math.max(ws + 1, Math.min(DEFAULT_RULES.windowEnd, end));
   return {
-    timezone: c.timezone || DEFAULT_RULES.timezone,
-    windowStart: Number.isFinite(c.calling_window_start) ? c.calling_window_start : DEFAULT_RULES.windowStart,
-    windowEnd: Number.isFinite(c.calling_window_end) ? c.calling_window_end : DEFAULT_RULES.windowEnd,
+    timezone: DEFAULT_RULES.timezone,
+    windowStart: ws,
+    windowEnd: we,
     days: Array.isArray(c.calling_days) && c.calling_days.length ? c.calling_days.map(Number) : DEFAULT_RULES.days,
-    enforce: c.enforce_calling_window !== false,
+    enforce: true,
   };
 }
 

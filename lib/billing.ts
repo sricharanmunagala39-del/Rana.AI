@@ -124,6 +124,7 @@ export function checkoutQuote(c: any, plan: PlanKey, interval: Interval, today =
   if (paidUntil && paidUntil > today && cur && cur.key !== plan && SELF_SERVE.includes(cur.key)) {
     const curMonthly = cur.pricePerMonth || 0;
     if ((P.pricePerMonth || 0) < curMonthly) return { items: [], error: `You're on ${cur.name} until ${paidUntil}. To move to a smaller plan, write to support@ranaai.in and we'll switch you at renewal.` };
+    if (c.billing_interval === "annual" && interval === "monthly") return { items: [], error: `You're on an annual ${cur.name} plan until ${paidUntil}. Upgrade to an annual plan, or write to support@ranaai.in.` };
     const left = daysBetween(today, paidUntil);
     const paidFor = c.billing_interval === "annual" ? curMonthly * 10 : curMonthly;
     const span = c.billing_interval === "annual" ? 365 : 30;
@@ -215,10 +216,20 @@ export async function markPaid(invoiceId: string, p: { via: string; paymentId?: 
     }
     if ((inv.items || []).some((i: any) => i.onboarding)) patch.onboarding_paid = true;
     await sb(`/invoices?id=eq.${inv.id}`, { method: "PATCH", body: JSON.stringify({ period_start: base, period_end: end }) });
+    // Any other unpaid plan/renewal invoice is now out of date (e.g. an old renewal after an upgrade) — void it so it
+    // can't pause a paying client or switch them back to the old plan if paid by mistake.
+    const stale = (await sb<any[]>(`/invoices?client_id=eq.${c.id}&status=eq.issued&kind=in.(plan,renewal)&id=neq.${inv.id}&select=id,status,rzp_link_id`).catch(() => [])) || [];
+    for (const s of stale) await voidInvoice(s).catch(() => {});
   }
   if (inv.kind === "recharge" && c) {
     // Prepaid calling credit: the amount before GST goes into the wallet (once per invoice — unique index).
-    await sb(`/wallet_ledger`, { method: "POST", prefer: "return=minimal", body: JSON.stringify({ client_id: c.id, kind: "credit", amount: Number(inv.subtotal), invoice_id: inv.id, note: `Recharge ${inv.number}`, created_by: p.via }) }).catch(() => {});
+    await sb(`/wallet_ledger`, { method: "POST", prefer: "return=minimal", body: JSON.stringify({ client_id: c.id, kind: "credit", amount: Number(inv.subtotal), invoice_id: inv.id, note: `Recharge ${inv.number}`, created_by: p.via }) })
+      .catch(async (e: any) => {
+        if (/409|duplicate|23505/i.test(String(e?.message))) return; // already credited
+        // Couldn't credit the wallet: put the invoice back to unpaid so Razorpay's retry credits it properly.
+        await sb(`/invoices?id=eq.${inv.id}`, { method: "PATCH", body: JSON.stringify({ status: "issued", paid_at: null, paid_via: null }) }).catch(() => {});
+        throw e;
+      });
     if (!c.wallet_enabled) patch.wallet_enabled = true;
     // A fresh recharge re-arms the low-balance email.
     const notified = { ...(c.notified || {}) }; for (const k of Object.keys(notified)) if (k.startsWith("wallet_")) delete notified[k];
@@ -245,6 +256,11 @@ export async function voidInvoice(inv: any) {
   if (inv.rzp_link_id && razorpayConfigured()) await cancelPaymentLink(inv.rzp_link_id).catch(() => {});
   const [v] = await sb<any[]>(`/invoices?id=eq.${inv.id}`, { method: "PATCH", body: JSON.stringify({ status: "void" }) });
   return v;
+}
+
+/** First billing period start, capped to the 28th the same way cycleStart() is (plans started on the 29th–31st). */
+function firstCycleYmd(c: any): string {
+  return cycleStart({ ...c, plan: c.plan === "trial" ? "starter" : c.plan }, new Date(String(c.billing_cycle_start).slice(0, 10) + "T12:00:00Z")).toISOString().slice(0, 10);
 }
 
 /** Billing health for the Billing page banner and the HQ table. */
@@ -295,7 +311,7 @@ export async function runBilling(now = new Date()) {
         const cur = cycleStart(c, now);
         const prev = cycleStart(c, new Date(cur.getTime() - 1000));
         const prevYmd = prev.toISOString().slice(0, 10);
-        if (prevYmd >= String(c.billing_cycle_start).slice(0, 10) && prev < cur) {
+        if (prevYmd >= firstCycleYmd(c) && prev < cur) {
           const used = await minutesBetween(c.id, prev, cur);
           const over = Math.max(0, used - lim.minutes);
           if (over > 0) {
@@ -307,7 +323,7 @@ export async function runBilling(now = new Date()) {
         const cur = cycleStart(c, now);
         const prev = cycleStart(c, new Date(cur.getTime() - 1000));
         const prevYmd = prev.toISOString().slice(0, 10);
-        if (prevYmd >= String(c.billing_cycle_start).slice(0, 10) && prev < cur && !inv.some((i) => i.kind === "overage" && i.period_start === prevYmd && i.status !== "void")) {
+        if (prevYmd >= firstCycleYmd(c) && prev < cur && !inv.some((i) => i.kind === "overage" && i.period_start === prevYmd && i.status !== "void")) {
           const used = await minutesBetween(c.id, prev, cur);
           const over = Math.max(0, used - lim.minutes);
           if (over > 0) {

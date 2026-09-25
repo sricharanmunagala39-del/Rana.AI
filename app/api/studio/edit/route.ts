@@ -22,6 +22,7 @@ export async function POST(req: Request) {
       summary: String(out.summary || "Updated the script.").slice(0, 300),
     });
   } catch (e: any) {
-    return Response.json({ error: `The AI couldn't make that change: ${e?.message || e}` }, { status: 502 });
+    console.error("[studio edit]", e?.message || e);
+    return Response.json({ error: "The AI couldn't make that change. Please try again in a minute." }, { status: 502 });
   }
 }

@@ -20,6 +20,22 @@ export async function sb<T = any>(path: string, opts: RequestInit & { prefer?: s
   return (text ? JSON.parse(text) : null) as T;
 }
 
+/**
+ * GET every row, 1,000 at a time. Supabase's API returns at most 1,000 rows per request (max-rows), so
+ * billing and usage totals must page or they silently undercount busy clients. Pass a path with an `order=`.
+ */
+export async function sbAll<T = any>(path: string, max = 200_000): Promise<T[]> {
+  const base = path.replace(/([?&])limit=\d+&?/, "$1").replace(/[?&]$/, "");
+  const sep = base.includes("?") ? "&" : "?";
+  const out: T[] = [];
+  for (let offset = 0; offset < max; offset += 1000) {
+    const page = (await sb<T[]>(`${base}${sep}limit=1000&offset=${offset}`)) || [];
+    out.push(...page);
+    if (page.length < 1000) break;
+  }
+  return out;
+}
+
 /** Quote a value for a PostgREST `in.(...)` filter. */
 export function inList(values: string[]): string {
   return `(${values.map((v) => `"${String(v).replace(/"/g, '\\"')}"`).join(",")})`;

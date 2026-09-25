@@ -6,7 +6,7 @@ import { hqEmails } from "./hq";
 export const APP_URL = () => (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://ranaai.in").replace(/\/$/, "");
 export const emailConfigured = () => !!process.env.RESEND_API_KEY;
 const FROM = () => process.env.RANA_MAIL_FROM || "RANA AI <support@ranaai.in>";
-const esc = (s: any) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
+export const esc = (s: any) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 
 /** Simple, readable HTML: a heading, paragraphs, an optional button, a small footer. */
 export function emailHtml(o: { title: string; lines: string[]; button?: { label: string; url: string }; foot?: string }) {

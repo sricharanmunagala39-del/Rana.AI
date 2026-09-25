@@ -35,10 +35,10 @@ export async function POST(req: Request) {
   failed.forEach((f) => console.error("[studio analyze] part failed:", f.reason?.message || f.reason));
 
   if (!ok.length) {
-    const reason = String(failed[0]?.reason?.message || "unknown error").slice(0, 160);
+
     const h = heuristicPlaybook(script);
     return Response.json({ ...h, greeting: "", keyterms: [], pronunciations: [], fallback: true,
-      warning: `The AI couldn't read this script (${reason}), so it was split by headings. Click "Read it again" to retry.` });
+      warning: `The AI couldn't read this script just now, so it was split by headings. Click "Read it again" to retry.` });
   }
 
   const merged = mergeAnalyses(ok);

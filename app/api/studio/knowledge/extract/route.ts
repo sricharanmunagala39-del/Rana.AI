@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   if (!g.script) return Response.json({ error: "Save the employee first." }, { status: 400 });
   const k = await getKnowledge(g.script.id, String(b.id || ""));
   if (!k) return Response.json({ error: "That document isn't there any more." }, { status: 404 });
-  if (!llmProvider()) return Response.json({ error: "No AI key is set up in Vercel (ANTHROPIC_API_KEY or SARVAM_CHAT_API_KEY)." }, { status: 400 });
+  if (!llmProvider()) return Response.json({ error: "AI reading isn't available right now — RANA support has been notified." }, { status: 400 });
   try {
     const out: any = await chatJson(extractMessages(k.title, k.content || "", String(b.openingLanguage || "en")), { maxTokens: 3000, temperature: 0.1 });
     return Response.json({
@@ -27,6 +27,7 @@ export async function POST(req: Request) {
       hint: thinHint(k),
     });
   } catch (e: any) {
-    return Response.json({ error: `The AI couldn't read this document: ${String(e?.message || e).slice(0, 220)}` }, { status: 502 });
+    console.error("[knowledge extract]", e?.message || e);
+    return Response.json({ error: "The AI couldn't read this document right now. Please try again in a minute." }, { status: 502 });
   }
 }

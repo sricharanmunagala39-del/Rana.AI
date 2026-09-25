@@ -22,7 +22,7 @@ const SCRIPT: { who: "caller" | "ai"; text: string; tag?: string }[] = [
 const FEATURES = [
   { k: "INBOUND", t: "Answers every call, 24×7", d: "After hours, during the rush, on Sundays. It picks up in the caller's language, answers questions from your own knowledge, and captures their details.", big: true },
   { k: "OUTBOUND", t: "Calls your lead lists", d: "Upload a list and launch a campaign. Your AI employee dials, follows up and books the next step — no telecaller hiring." },
-  { k: "LANGUAGE", t: "11 Indian languages", d: "Telugu, Hindi, Tamil, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, Urdu and English — and it switches when the caller does." },
+  { k: "LANGUAGE", t: "11 Indian languages", d: "Telugu, Hindi, Tamil, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, Odia and English — and it switches when the caller does." },
   { k: "QUALIFY", t: "Hot · warm · cold, automatically", d: "Every call is recorded, transcribed, summarised and scored. Your team opens the dashboard and calls the ready-to-close leads first." },
   { k: "VOICE", t: "A voice that sounds like you", d: "Pick from natural Indian voices or clone your own, and set the tone — warm counsellor, crisp sales, patient support." },
   { k: "CONTROL", t: "You're in control", d: "Change the script, voice and knowledge yourself and test it on the Talk page before a single customer hears it.", wide: true },

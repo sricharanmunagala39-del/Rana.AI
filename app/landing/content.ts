@@ -7,7 +7,7 @@ export const PLANS = [
 
 export const FAQ: [string, string][] = [
   ["Will callers know they're talking to an AI?", "It sounds natural and follows the conversation, but we recommend it introduces itself as your assistant. Honesty keeps trust high — and callers mostly care that someone picked up instantly."],
-  ["Which languages does it speak?", "11 Indian languages: Telugu, Hindi, Tamil, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, Urdu and English. It can open in one and follow the caller if they switch."],
+  ["Which languages does it speak?", "11 Indian languages: Telugu, Hindi, Tamil, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, Odia and English. It can open in one and follow the caller if they switch."],
   ["Can it use my existing business number?", "Trials run on a shared Indian number. Growth and above get their own Indian number; for promotional outbound lists we help you with DLT registration so you stay compliant."],
   ["How fast can we go live?", "You can build and test your first AI employee the same day on the free trial. Done-for-you setups with your scripts and data usually take one to two weeks."],
   ["What happens when my minutes run out?", "Plan minutes are used first. After that, calls continue from a prepaid balance you top up by UPI, card or netbanking — or turn on auto-recharge so campaigns never stop."],

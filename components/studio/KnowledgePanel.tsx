@@ -42,7 +42,7 @@ export default function KnowledgePanel({ scriptId, ensureSaved, onCount, opening
 
   async function add(body: any): Promise<boolean> {
     const id = scriptId || (await ensureSaved());
-    if (!id) { setErr("Give the employee a name first so we can save it."); return false; }
+    if (!id) { setErr("Couldn't save the employee yet — check the message next to the Save button at the top."); return false; }
     const res = await fetch("/api/studio/knowledge", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scriptId: id, ...body }) });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error || "Couldn't add that.");

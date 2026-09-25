@@ -50,7 +50,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const voice = voiceFor((first as any).engine === "cartesia" ? null : first.voice_name);
     const base = sarvamConfig();
     const cfg = base ? withVoice(base, voice.key) : null;
-    if (!cfg) return Response.json({ error: `Sarvam isn't configured: set ${sarvamMissing().join(", ")} in Vercel.` }, { status: 500 });
+    if (!cfg) return Response.json({ error: "Calling isn't switched on for your account yet — RANA support has been notified." }, { status: 500 });
     try {
       const { instructions, keyterms } = await compile(first);
       const agentRef = `sarvam:${cfg.appId}`;

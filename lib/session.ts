@@ -12,7 +12,7 @@ const TTL_MS = 20_000;
 
 export function forgetUser(userId: string) { cache.delete(userId); }
 
-async function isHqClient(id: string): Promise<boolean> {
+export async function isHqClient(id: string): Promise<boolean> {
   const c = hqClients.get(id);
   if (c && Date.now() - c.at < 300_000) return c.hq;
   const r = await sb<any[]>(`/clients?id=eq.${id}&select=is_hq&limit=1`).catch(() => null);
@@ -35,7 +35,8 @@ export async function getSession(req: Request): Promise<Session | null> {
         : { active: false, role: "viewer", name: null, clientId: s.clientId, hqRole: null, isHqClient: false, at: Date.now() };
       cache.set(s.userId, live);
     } catch {
-      return s; // database blip: fall back to the signed cookie rather than logging everyone out
+      // Database blip: let people keep reading with the signed cookie, but never allow writes on stale roles.
+      return req.method === "GET" || req.method === "HEAD" ? { ...s, role: "viewer" } : null;
     }
   }
   // Founders (env list) are always HQ; other HQ staff need an hq_role on the HQ workspace.

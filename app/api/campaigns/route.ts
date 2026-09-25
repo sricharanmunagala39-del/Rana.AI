@@ -96,9 +96,9 @@ export async function POST(req: Request) {
   // ── Sarvam engine: a Sarvam campaign on RANA's Indian number; each contact carries this employee's instructions.
   if (onSarvam) {
     const base = sarvamConfig();
-    if (!base) return Response.json({ error: `Sarvam isn't configured: set ${sarvamMissing().join(", ")} in Vercel.` }, { status: 500 });
+    if (!base) return Response.json({ error: "Calling isn't switched on for your account yet — RANA support has been notified." }, { status: 500 });
     const cfg = withVoice(withClientNumber(base, clientRow), script.voice_name);
-    if (!cfg.connectionId) return Response.json({ error: "No Sarvam phone number is connected (RANA_SARVAM_CONNECTION_ID)." }, { status: 500 });
+    if (!cfg.connectionId) return Response.json({ error: "No calling number is connected to your account yet — RANA support has been notified." }, { status: 500 });
     const client: any = await getClientById(session.clientId);
     const campaign = await createCampaignRow({
       client_id: session.clientId, name, script_id: script.id, cartesia_agent_id: script.cartesia_agent_id, engine: "sarvam",
@@ -124,7 +124,8 @@ export async function POST(req: Request) {
       return Response.json({ ok: true, campaign: updated, accepted: contacts.length, invalid, skippedDnc: skippedDnc.length });
     } catch (err: any) {
       await updateCampaignRow(campaign.id, { status: "failed", last_error: String(err?.message || err).slice(0, 500) });
-      return Response.json({ error: `Sarvam didn't accept the campaign: ${err?.message || err}`, campaignId: campaign.id }, { status: 502 });
+      console.error("[campaign launch]", err?.message || err);
+      return Response.json({ error: "The campaign couldn't start. Please try again — if it keeps failing, RANA support can see what went wrong.", campaignId: campaign.id }, { status: 502 });
     }
   }
 

@@ -86,6 +86,7 @@ export const LANGUAGES: { code: string; label: string }[] = [
   { code: "mr-IN", label: "Marathi" },
   { code: "ta-IN", label: "Tamil" },
   { code: "pa-IN", label: "Punjabi" },
+  { code: "or-IN", label: "Odia" },
 ];
 
 /** How the agent should treat the steps below, depending on the strictness slider (1-5). */
