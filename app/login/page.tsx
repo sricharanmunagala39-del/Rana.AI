@@ -14,7 +14,8 @@ export default function LoginPage() {
   function go(data) {
     // Invited with a one-time password: set their own before anything else.
     if (data.mustChangePassword) { router.push("/settings?tab=account&first=1"); return; }
-    const next = new URLSearchParams(window.location.search).get("next"); router.push(next && next.startsWith("/") && !next.startsWith("//") && next !== "/" ? next : (data.home || "/"));
+    const next = new URLSearchParams(window.location.search).get("next"); const safe = !!next && /^\/(?![\/\\])/.test(next) && !/[\\\s]/.test(next) && next !== "/"; // blocks //evil and /\evil
+    router.push(safe ? next! : (data.home || "/"));
   }
   async function handleCode(e: React.FormEvent) {
     e.preventDefault();

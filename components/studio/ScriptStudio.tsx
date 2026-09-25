@@ -9,7 +9,7 @@ import { Card, ListEditor, PairEditor, AutoText, Spinner } from "./Editors";
 import AskAiBar from "./AskAiBar";
 import KnowledgePanel from "./KnowledgePanel";
 import PronunciationPanel from "./PronunciationPanel";
-import { EMPTY_PLAYBOOK, LANG_NAMES, baseLang, detectScriptLanguage, spokenUrl } from "@/lib/playbook";
+import { EMPTY_PLAYBOOK, LANG_NAMES, baseLang, detectScriptLanguage, sameScriptLanguage, spokenUrl } from "@/lib/playbook";
 
 const PURPOSES = [["payment", "Payment"], ["website", "Website"], ["booking", "Booking / demo"], ["brochure", "Brochure"], ["other", "Other"]];
 
@@ -92,7 +92,7 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
   }
 
   const greetLang = detectScriptLanguage(greeting);
-  const greetMismatch = greeting.trim() && greetLang && greetLang !== open;
+  const greetMismatch = greeting.trim() && greetLang && !sameScriptLanguage(greetLang, open);
 
   const tabs = [
     ["script", "Script", null],

@@ -10,7 +10,7 @@ import BackgroundSoundPicker, { PickerBackgroundSound } from "@/components/Backg
 import ScriptStudio from "@/components/studio/ScriptStudio";
 import AskAiBar from "@/components/studio/AskAiBar";
 import { LANGUAGES, STRICTNESS_LABELS, stepsToInstructions } from "@/lib/storage";
-import { baseLang, LANG_NAMES, playbookFromSteps, playbookToSteps, detectScriptLanguage } from "@/lib/playbook";
+import { baseLang, LANG_NAMES, playbookFromSteps, playbookToSteps, detectScriptLanguage, sameScriptLanguage } from "@/lib/playbook";
 
 const STEPS = [
   { key: "basics", label: "Name & languages" },
@@ -20,7 +20,7 @@ const STEPS = [
 ] as const;
 
 // Languages a caller can switch into mid-call (the employee follows them).
-const SWITCH_LANGS = ["en", "te", "hi", "ta", "kn", "ml", "mr", "bn", "gu", "pa"];
+const SWITCH_LANGS = ["en", "te", "hi", "ta", "kn", "ml", "mr", "bn", "gu", "pa", "or"];
 
 function WizardInner() {
   const params = useSearchParams();
@@ -68,6 +68,11 @@ function WizardInner() {
   const [cartesiaAgentId, setCartesiaAgentId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [limitMsg, setLimitMsg] = useState("");
+  useEffect(() => {
+    if (editId) return;
+    fetch("/api/auth/me").then((r) => r.json()).then((d) => { if (d?.employeeBlock) setLimitMsg(d.employeeBlock); }).catch(() => {});
+  }, [editId]);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState("");
@@ -171,6 +176,7 @@ function WizardInner() {
   }
 
   async function persist(): Promise<string | null> {
+    if (loadError) { setSaveError("This employee didn't load properly — reload the page before saving, so nothing is overwritten."); return null; }
     if (!name.trim()) { setSaveError("Give the employee a name first."); return null; }
     setSaving(true); setSaveError("");
     try {
@@ -263,6 +269,7 @@ function WizardInner() {
           </div>
           {stepIdx >= 2 && (
             <div className="flex items-center gap-3 shrink-0">
+              {saveError && <span className="text-[11.5px] text-miss max-w-[320px] text-right">{saveError}</span>}
               {savedAt && <span className="text-[11.5px] text-ink-soft">Saved {savedAt}</span>}
               <button type="button" onClick={persist} disabled={saving || !name.trim()} className="border border-line bg-raised rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold disabled:opacity-50">
                 {saving ? "Saving…" : "Save"}
@@ -293,6 +300,11 @@ function WizardInner() {
 
           <div className="flex-1 overflow-y-auto p-10">
             <div className={stepIdx >= 2 ? "max-w-[860px]" : "max-w-[640px]"}>
+              {limitMsg && (
+                <div className="mb-6 text-[13px] bg-hot-tint border border-hot/30 rounded-xl px-4 py-3" data-testid="employee-limit">
+                  {limitMsg} <a href="/employees" className="font-semibold underline">Edit an employee</a> · <a href="/billing" className="font-semibold underline">See plans</a>
+                </div>
+              )}
 
               {stepIdx === 0 && (
                 <div className="flex flex-col gap-6">
@@ -343,7 +355,7 @@ function WizardInner() {
                       </div>
                     )}
                   </div>
-                  {(openBase !== "en" || policy.allowed.some((l) => l !== "en")) && (
+                  {(openBase !== "en" || (policy.mode === "match_caller" && policy.allowed.some((l) => l !== "en"))) && (
                     <div data-testid="speaking-style">
                       <label className="text-[13px] font-semibold block mb-2">How it speaks</label>
                       <div className="flex flex-col gap-2">
@@ -540,7 +552,7 @@ function WizardInner() {
                     <div>
                       <Label>Greeting</Label>
                       <div className="text-[13.5px] mt-0.5 leading-relaxed">{studio.greeting || <span className="text-miss">No greeting yet</span>}</div>
-                      {studio.greeting && detectScriptLanguage(studio.greeting) && detectScriptLanguage(studio.greeting) !== openBase && (
+                      {studio.greeting && detectScriptLanguage(studio.greeting) && !sameScriptLanguage(detectScriptLanguage(studio.greeting), openBase) && (
                         <div className="text-[12px] text-warm mt-1">⚠ The greeting isn't in {openName}. Fix it in the Studio (there's a Translate button).</div>
                       )}
                     </div>
