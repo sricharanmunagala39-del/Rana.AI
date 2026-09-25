@@ -77,38 +77,35 @@ export default function Sidebar({ active, client: clientProp }: { active: string
     router.push("/login");
   }
   return (
-    <div className="w-[220px] shrink-0 bg-raised border-r border-line box-border p-5 flex flex-col gap-6 h-screen sticky top-0 overflow-y-auto">
-      <div className="flex items-center gap-2.5 px-1">
-        <div className="w-[30px] h-[30px] rounded-[7px] bg-signal flex items-center justify-center shrink-0">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.95.36 1.87.68 2.75a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.33-1.34a2 2 0 0 1 2.11-.45c.88.32 1.8.55 2.75.68A2 2 0 0 1 22 16.92z"/></svg>
-        </div>
-        <span className="font-display text-[17px] font-semibold tracking-tight">RANA AI</span>
-      </div>
+    <div className="w-[236px] shrink-0 glass border-r border-line box-border px-4 py-5 flex flex-col gap-6 h-screen sticky top-0 overflow-y-auto z-30">
+      <Link href="/" className="flex items-center gap-2.5 px-1.5 group">
+        <Logo />
+        <span className="font-display text-[17px] font-semibold tracking-tight">RANA<span className="text-gradient"> AI</span></span>
+      </Link>
 
       {client?.actingAsHq && (
-        <div className="rounded-lg bg-hot-tint border border-hot/30 px-3 py-2 text-[11.5px] leading-snug" data-testid="hq-acting">
-          <div className="font-semibold text-hot">RANA HQ inside this workspace</div>
-          <div className="text-ink-soft">{client.hqSession?.readOnly ? "Read-only visit — nothing can be changed." : "Changes you make are logged in their activity."}{client.hqSession?.expiresAt ? ` Ends ${new Date(client.hqSession.expiresAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}.` : ""}</div>
-          <button onClick={backToHq} className="mt-1 font-semibold text-signal">← Back to HQ</button>
+        <div className="rounded-xl bg-hot-tint border border-hot/30 px-3 py-2.5 text-[11.5px] leading-snug" data-testid="hq-acting">
+          <div className="font-semibold text-hot flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-hot" />RANA HQ inside this workspace</div>
+          <div className="text-ink-soft mt-0.5">{client.hqSession?.readOnly ? "Read-only visit — nothing can be changed." : "Changes you make are logged in their activity."}{client.hqSession?.expiresAt ? ` Ends ${new Date(client.hqSession.expiresAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}.` : ""}</div>
+          <button onClick={backToHq} className="mt-1.5 font-semibold text-signal">← Back to HQ</button>
         </div>
       )}
       {client?.hq && (
-        <Link href="/hq" className={`flex items-center gap-2 px-3 py-[9px] rounded-lg text-sm font-semibold ${active === "hq" ? "bg-ink text-paper" : "bg-paper text-ink hover:bg-signal-tint"}`} data-testid="hq-link">
-          <span className="w-2 h-2 rounded-full bg-signal" /> RANA HQ · all clients
-        </Link>
-      )}
-      {client?.hq && (
-        <Link href="/hq/money" className="flex items-center gap-2 px-3 py-[7px] -mt-3 rounded-lg text-[13px] font-medium text-ink-soft hover:bg-paper" data-testid="hq-money-nav">
-          <span className="w-2 h-2" /> ₹ Money &amp; Sarvam credits
-        </Link>
-      )}
-      {client?.hq && (
-        <Link href="/hq/team" className="flex items-center gap-2 px-3 py-[7px] -mt-4 rounded-lg text-[13px] font-medium text-ink-soft hover:bg-paper" data-testid="hq-team-nav">
-          <span className="w-2 h-2" /> Team &amp; security
-        </Link>
+        <div className="flex flex-col gap-0.5">
+          <div className="px-3 pb-1 text-[10px] font-mono uppercase tracking-[0.14em] text-ink-soft/60">// Command</div>
+          <Link href="/hq" className={`relative flex items-center gap-2.5 px-3 py-[9px] rounded-lg text-[13.5px] font-semibold ${active === "hq" ? "bg-signal-tint text-signal shadow-glow" : "text-ink hover:bg-raised"}`} data-testid="hq-link">
+            <span className="w-2 h-2 rounded-full bg-signal live-dot" /> RANA HQ · all clients
+          </Link>
+          <Link href="/hq/money" className="flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium text-ink-soft hover:bg-raised hover:text-ink" data-testid="hq-money-nav">
+            <span className="w-2 text-center text-[11px]">₹</span> Money &amp; Sarvam credits
+          </Link>
+          <Link href="/hq/team" className="flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium text-ink-soft hover:bg-raised hover:text-ink" data-testid="hq-team-nav">
+            <span className="w-2 text-center text-[11px]">◆</span> Team &amp; security
+          </Link>
+        </div>
       )}
       {client?.pending && (
-        <div className="rounded-lg bg-hot-tint border border-hot/30 px-3 py-2 text-[11.5px] leading-snug" data-testid="pending-banner">
+        <div className="rounded-xl bg-hot-tint border border-hot/30 px-3 py-2.5 text-[11.5px] leading-snug" data-testid="pending-banner">
           <div className="font-semibold text-hot">Waiting for approval</div>
           <div className="text-ink-soft">Build your AI employee now — calling switches on when RANA starts your trial.</div>
         </div>
@@ -117,30 +114,71 @@ export default function Sidebar({ active, client: clientProp }: { active: string
       <nav className="flex flex-col gap-5">
         {GROUPS.map((group) => (
           <div key={group.label} className="flex flex-col gap-0.5">
-            <div className="px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-wide text-ink-soft/70">{group.label}</div>
-            {group.items.map((item) => (
-              <Link key={item.key} href={item.href}
-                className={`flex items-center gap-[11px] px-3 py-[9px] rounded-lg text-sm ${item.key === active ? "bg-signal-tint text-signal font-semibold" : "text-ink-soft font-medium hover:bg-paper"}`}>
-                {ICONS[item.icon]}{item.label}
-              </Link>
-            ))}
+            <div className="px-3 pb-1 text-[10px] font-mono uppercase tracking-[0.14em] text-ink-soft/60">// {group.label}</div>
+            {group.items.map((item) => {
+              const on = item.key === active;
+              return (
+                <Link key={item.key} href={item.href}
+                  className={`relative flex items-center gap-[11px] px-3 py-[8px] rounded-lg text-[13.5px] ${on ? "bg-signal-tint text-signal font-semibold" : "text-ink-soft font-medium hover:bg-raised hover:text-ink"}`}>
+                  {on && <span className="absolute -left-4 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-signal shadow-glow" />}
+                  <span className={on ? "text-signal" : "opacity-80"}>{ICONS[item.icon]}</span>{item.label}
+                </Link>
+              );
+            })}
           </div>
         ))}
       </nav>
 
-      <div className="mt-auto p-3 rounded-[10px] border border-line flex flex-col gap-1">
-        <span className="text-[11px] text-ink-soft">Logged in as</span>
-        <span className="text-sm font-semibold truncate">{client?.name ?? "RANA AI"}</span>
-        {client?.industry && <span className="text-[11px] text-ink-soft capitalize">{client.industry}</span>}
-        {p && (
-          <Link href="/billing" data-testid="plan-chip" className={`mt-1 rounded-md px-2 py-1 text-[11px] leading-snug border ${low ? "border-miss/30 bg-miss-tint text-miss" : "border-line bg-paper text-ink-soft"}`}>
-            <span className="font-semibold">{p.status === "suspended" ? "Paused" : p.name}</span>
-            {p.trialDaysLeft !== null && p.status !== "suspended" ? ` · ${p.trialDaysLeft} day${p.trialDaysLeft === 1 ? "" : "s"} left` : ""}
-            <br />{Math.round(p.minutesUsed)} / {p.minutesIncluded.toLocaleString("en-IN")} min used
-          </Link>
-        )}
-        <button onClick={handleLogout} className="text-[11px] text-ink-soft hover:text-signal mt-1 text-left">Sign out</button>
+      <div className="mt-auto flex flex-col gap-2">
+        <ThemeToggle />
+        <div className="p-3 rounded-xl border border-line bg-raised flex flex-col gap-1">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-violet-tint text-violet font-display font-bold flex items-center justify-center text-[13px] shrink-0">{(client?.name ?? "R").charAt(0).toUpperCase()}</div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-semibold truncate">{client?.name ?? "RANA AI"}</div>
+              {client?.industry && <div className="text-[11px] text-ink-soft capitalize truncate">{client.industry}</div>}
+            </div>
+          </div>
+          {p && (
+            <Link href="/billing" data-testid="plan-chip" className={`mt-1.5 rounded-lg px-2.5 py-2 text-[11px] leading-snug border ${low ? "border-miss/30 bg-miss-tint text-miss" : "border-line bg-sunken text-ink-soft"}`}>
+              <div className="flex justify-between"><span className="font-semibold text-ink">{p.status === "suspended" ? "Paused" : p.name}</span>
+              <span>{p.trialDaysLeft !== null && p.status !== "suspended" ? ` · ${p.trialDaysLeft} day${p.trialDaysLeft === 1 ? "" : "s"} left` : ""}</span></div>
+              <div className="h-1 rounded-full bg-line mt-1.5 overflow-hidden"><div className={`h-full rounded-full ${low ? "bg-miss" : "bg-gradient-to-r from-signal to-violet"}`} style={{ width: `${Math.min(100, (p.minutesUsed / Math.max(1, p.minutesIncluded)) * 100)}%` }} /></div>
+              <div className="mt-1 font-mono">{Math.round(p.minutesUsed)} / {p.minutesIncluded.toLocaleString("en-IN")} min used</div>
+            </Link>
+          )}
+          <button onClick={handleLogout} className="text-[11.5px] text-ink-soft hover:text-signal mt-1 text-left">Sign out</button>
+        </div>
       </div>
     </div>
+  );
+}
+
+export function Logo({ size = 30 }: { size?: number }) {
+  return (
+    <span className="relative inline-flex items-center justify-center shrink-0 rounded-[9px] brand-mark" style={{ width: size, height: size }}>
+      <span className="absolute inset-[2px] rounded-[7px] bg-paper flex items-center justify-center">
+        <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none" aria-hidden>
+          <circle cx="12" cy="12" r="6.5" stroke="rgb(var(--c-signal))" strokeWidth="2.4" />
+          <circle cx="12" cy="12" r="2.2" fill="rgb(var(--c-violet))" />
+        </svg>
+      </span>
+    </span>
+  );
+}
+
+export function ThemeToggle() {
+  const [light, setLight] = useState(false);
+  useEffect(() => { setLight(document.documentElement.getAttribute("data-theme") === "light"); }, []);
+  function flip() {
+    const next = !light; setLight(next);
+    if (next) document.documentElement.setAttribute("data-theme", "light"); else document.documentElement.removeAttribute("data-theme");
+    try { localStorage.setItem("rana_theme", next ? "light" : "dark"); } catch {}
+  }
+  return (
+    <button onClick={flip} data-testid="theme-toggle" className="flex items-center justify-between rounded-xl border border-line bg-raised px-3 py-2 text-[12px] text-ink-soft hover:text-ink">
+      <span className="flex items-center gap-2">{light ? "☀︎ Day" : "☾ Night"} mode</span>
+      <span className={`w-8 h-[18px] rounded-full p-[2px] flex ${light ? "bg-line justify-start" : "bg-signal/30 justify-end"}`}><span className={`w-[14px] h-[14px] rounded-full ${light ? "bg-ink-soft" : "bg-signal"}`} /></span>
+    </button>
   );
 }
