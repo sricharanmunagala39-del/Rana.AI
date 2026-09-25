@@ -42,7 +42,7 @@ export default function LoginPage() {
   }
   const field = "w-full border border-line rounded-xl px-3.5 py-3 text-[14px] bg-sunken outline-none focus:border-signal";
   return (
-    <AuthShell foot={<>New to RANA? <a href="/signup" className="text-signal font-semibold">Start a free trial</a> · Help: <span className="text-signal font-medium">support@getrana.in</span></>}>
+    <AuthShell foot={<>New to RANA? <a href="/signup" className="text-signal font-semibold">Start a free trial</a> · Help: <span className="text-signal font-medium">support@ranaai.in</span></>}>
       {ticket ? (
         <form onSubmit={handleCode} className="flex flex-col gap-4" data-testid="twofa-form">
           <div className="text-[11px] font-mono text-signal tracking-wider">// STEP 2 OF 2</div>

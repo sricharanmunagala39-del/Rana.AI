@@ -38,7 +38,7 @@ export function seller() {
     gstin: gstin && GSTIN_RE.test(gstin) ? gstin : null,
     address: process.env.RANA_ADDRESS || null,
     state: stateOfGstin(gstin) || process.env.RANA_STATE || null,
-    email: process.env.RANA_BILLING_EMAIL || "support@getrana.in",
+    email: process.env.RANA_BILLING_EMAIL || "support@ranaai.in",
     sac: process.env.RANA_SAC || "998314",
     pan: process.env.RANA_PAN || null,
   };
@@ -111,7 +111,7 @@ const monthsOf = (i: Interval | null | undefined) => (i === "annual" ? 12 : 1);
 
 /** What a client pays to move to `plan` now: plan fee, first-time onboarding (waived on annual), credit for unused days on an upgrade. */
 export function checkoutQuote(c: any, plan: PlanKey, interval: Interval, today = todayIST()): { items: Item[]; error?: string } {
-  if (!SELF_SERVE.includes(plan)) return { items: [], error: "Enterprise is set up with RANA directly — write to support@getrana.in." };
+  if (!SELF_SERVE.includes(plan)) return { items: [], error: "Enterprise is set up with RANA directly — write to support@ranaai.in." };
   const s = seller();
   const P = PLANS[plan];
   const items: Item[] = [];
@@ -123,7 +123,7 @@ export function checkoutQuote(c: any, plan: PlanKey, interval: Interval, today =
   const cur = PLANS[c?.plan as PlanKey];
   if (paidUntil && paidUntil > today && cur && cur.key !== plan && SELF_SERVE.includes(cur.key)) {
     const curMonthly = cur.pricePerMonth || 0;
-    if ((P.pricePerMonth || 0) < curMonthly) return { items: [], error: `You're on ${cur.name} until ${paidUntil}. To move to a smaller plan, write to support@getrana.in and we'll switch you at renewal.` };
+    if ((P.pricePerMonth || 0) < curMonthly) return { items: [], error: `You're on ${cur.name} until ${paidUntil}. To move to a smaller plan, write to support@ranaai.in and we'll switch you at renewal.` };
     const left = daysBetween(today, paidUntil);
     const paidFor = c.billing_interval === "annual" ? curMonthly * 10 : curMonthly;
     const span = c.billing_interval === "annual" ? 365 : 30;
@@ -140,7 +140,7 @@ type NewInvoice = {
 };
 
 function appUrl(origin?: string) {
-  return (origin || process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://rana-ai-roan.vercel.app").replace(/\/$/, "");
+  return (origin || process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://ranaai.in").replace(/\/$/, "");
 }
 
 /** Issues a numbered GST invoice and, when Razorpay is connected, a payment link for it. */

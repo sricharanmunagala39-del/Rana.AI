@@ -15,7 +15,7 @@ const INDUSTRIES = ["edtech", "realestate", "hospitality", "saas", "other"];
 export async function POST(req: Request) {
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "?";
   const hits = (recent.get(ip) || []).filter((t) => Date.now() - t < 3600e3);
-  if (hits.length >= 3) return Response.json({ error: "Too many sign-ups from this network. Write to support@getrana.in." }, { status: 429 });
+  if (hits.length >= 3) return Response.json({ error: "Too many sign-ups from this network. Write to support@ranaai.in." }, { status: 429 });
   const b = await req.json().catch(() => ({} as any));
   const company = String(b.company || "").trim().slice(0, 80);
   const name = String(b.name || "").trim().slice(0, 80);

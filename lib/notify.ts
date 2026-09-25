@@ -1,11 +1,11 @@
-// Email to clients and to RANA HQ, sent through Resend (getrana.in is verified there).
+// Email to clients and to RANA HQ, sent through Resend (ranaai.in is verified there).
 // Switches on when RESEND_API_KEY is set in Vercel; until then every message is logged as "not sent" so HQ can see it.
 import { sb } from "./db";
 import { hqEmails } from "./hq";
 
-export const APP_URL = () => (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://rana-ai-roan.vercel.app").replace(/\/$/, "");
+export const APP_URL = () => (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://ranaai.in").replace(/\/$/, "");
 export const emailConfigured = () => !!process.env.RESEND_API_KEY;
-const FROM = () => process.env.RANA_MAIL_FROM || "RANA AI <support@getrana.in>";
+const FROM = () => process.env.RANA_MAIL_FROM || "RANA AI <support@ranaai.in>";
 const esc = (s: any) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 
 /** Simple, readable HTML: a heading, paragraphs, an optional button, a small footer. */
@@ -18,7 +18,7 @@ export function emailHtml(o: { title: string; lines: string[]; button?: { label:
 ${o.lines.map((l) => `<p style="font-size:14.5px;line-height:1.55;margin:0 0 12px">${l}</p>`).join("")}
 ${o.button ? `<a href="${esc(o.button.url)}" style="display:inline-block;margin-top:8px;background:#1e6b4f;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 18px;border-radius:9px">${esc(o.button.label)}</a>` : ""}
 </div>
-<div style="font-size:12px;color:#6b716d;margin-top:14px">${esc(o.foot || "RANA AI · support@getrana.in")}</div>
+<div style="font-size:12px;color:#6b716d;margin-top:14px">${esc(o.foot || "RANA AI · support@ranaai.in")}</div>
 </div></body></html>`;
 }
 
@@ -32,7 +32,7 @@ export async function sendEmail(o: { to: string | string[]; subject: string; htm
       const r = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from: FROM(), to, subject: o.subject, html: o.html, reply_to: "support@getrana.in" }),
+        body: JSON.stringify({ from: FROM(), to, subject: o.subject, html: o.html, reply_to: "support@ranaai.in" }),
         signal: AbortSignal.timeout(15000),
       });
       ok = r.ok;

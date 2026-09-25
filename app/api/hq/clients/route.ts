@@ -78,5 +78,5 @@ export async function POST(req: Request) {
   // Email the owner their login (skipped quietly until email is set up; HQ still gets the WhatsApp-ready text).
   const m = tpl.welcome(name, email, password, PLANS[plan].name);
   const mail = b.sendEmail === false ? { ok: false, error: "not requested" } : await sendEmail({ to: email, subject: m.subject, html: m.html, clientId: client.id, kind: "welcome" });
-  return Response.json({ ok: true, client: { id: client.id, name }, owner: { email, password }, emailed: mail.ok, emailError: mail.ok ? null : mail.error, loginUrl: "https://rana-ai-roan.vercel.app/login" }, { status: 201 });
+  return Response.json({ ok: true, client: { id: client.id, name }, owner: { email, password }, emailed: mail.ok, emailError: mail.ok ? null : mail.error, loginUrl: "https://ranaai.in/login" }, { status: 201 });
 }

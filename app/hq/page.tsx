@@ -13,7 +13,7 @@ const ago = (iso: string | null) => {
 const INDUSTRIES: [string, string][] = [["edtech", "Education / coaching"], ["realestate", "Real estate"], ["hospitality", "Clinics, hotels & services"], ["saas", "Software / SaaS"], ["other", "Other"]];
 
 function welcomeText(name: string, email: string, password: string) {
-  return `Welcome to RANA AI, ${name}!\n\nSign in: https://rana-ai-roan.vercel.app/login\nEmail: ${email}\nOne-time password: ${password}\n\nYou'll set your own password when you first sign in. Your free trial includes 100 connected minutes for 14 days.`;
+  return `Welcome to RANA AI, ${name}!\n\nSign in: https://ranaai.in/login\nEmail: ${email}\nOne-time password: ${password}\n\nYou'll set your own password when you first sign in. Your free trial includes 100 connected minutes for 14 days.`;
 }
 
 function Status({ c }: { c: any }) {

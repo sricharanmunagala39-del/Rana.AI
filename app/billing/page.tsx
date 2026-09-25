@@ -97,7 +97,7 @@ export default function BillingPage() {
                 <div className="rounded-xl border border-miss/30 bg-miss-tint px-5 py-4 text-[13px] text-miss" data-testid="billing-block">
                   <b>Calling is paused.</b>{" "}
                   {u.status === "suspended" ? (u.suspendedReason === "billing" ? "An invoice is overdue. Pay it below and calling turns back on straight away." : "RANA has paused this workspace.") : trialOver ? `Your free trial ended on ${fmt(u.trialEndsAt)}.` : `You've used all ${u.minutesIncluded} minutes in this period.`}{" "}
-                  Your employees, scripts and results are safe. {u.suspendedReason === "billing" ? "" : "Pick a plan below, or write to support@getrana.in."}
+                  Your employees, scripts and results are safe. {u.suspendedReason === "billing" ? "" : "Pick a plan below, or write to support@ranaai.in."}
                 </div>
               )}
 
@@ -156,7 +156,7 @@ export default function BillingPage() {
                   </tbody>
                 </table>
               </div>
-              <div className="text-[12px] text-ink-soft">Prices exclude 18% GST. Minutes are counted per call, rounded up to the next 30 seconds. Unused minutes don't roll over. Annual prepay: 12 months for the price of 10, onboarding free. Enterprise and custom deals: <span className="font-semibold">support@getrana.in</span>.</div>
+              <div className="text-[12px] text-ink-soft">Prices exclude 18% GST. Minutes are counted per call, rounded up to the next 30 seconds. Unused minutes don't roll over. Annual prepay: 12 months for the price of 10, onboarding free. Enterprise and custom deals: <span className="font-semibold">support@ranaai.in</span>.</div>
 
               {b && (
                 <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-4" data-testid="choose-plan">
@@ -289,7 +289,7 @@ export default function BillingPage() {
                 {pending.offline.bank && <div className="mt-1">{pending.offline.bank}</div>}
                 <div className="mt-2 text-ink-soft">Put <b>{pending.invoice.number}</b> in the payment note.</div>
               </div>
-            ) : <div className="text-[12.5px] text-ink-soft">RANA will send you payment details for this invoice shortly. Questions: support@getrana.in.</div>}
+            ) : <div className="text-[12.5px] text-ink-soft">RANA will send you payment details for this invoice shortly. Questions: support@ranaai.in.</div>}
             <div className="text-[12px] text-ink-soft">Your plan switches on as soon as RANA confirms the payment.</div>
             <div className="flex justify-end gap-2">
               <a href={`/billing/invoices/${pending.invoice.id}`} target="_blank" className="border border-line rounded-lg px-4 py-2 text-[13px] font-semibold">View invoice</a>

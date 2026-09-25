@@ -124,7 +124,7 @@ export function sessionWsUrl(signedUrl: string, userId: string, sampleRate = 160
 }
 
 export function webhookUrl(clientSecret: string): string {
-  const base = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://rana-ai-roan.vercel.app").replace(/\/$/, "");
+  const base = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://ranaai.in").replace(/\/$/, "");
   return `${base}/api/webhooks/sarvam?key=${encodeURIComponent(clientSecret)}`;
 }
 

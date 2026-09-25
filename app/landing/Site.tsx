@@ -4,8 +4,8 @@ import Link from "next/link";
 import Orb from "@/components/Orb";
 import { Logo } from "@/components/Sidebar";
 
-// Swap to the new domain's mailbox once it is bought (e.g. hello@<new-domain>).
-const CONTACT_EMAIL = "support@getrana.in";
+// Public contact address (Zoho Mail inbox for ranaai.in).
+const CONTACT_EMAIL = "hello@ranaai.in";
 const DEMO = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("RANA AI demo")}&body=${encodeURIComponent("Hi RANA team, I'd like a demo.\n\nCompany:\nCalls we get / make:\nRough monthly call volume:\nPhone:")}`;
 
 const NAV = [["Product", "#product"], ["How it works", "#how"], ["Pricing", "#pricing"], ["FAQ", "#faq"]];
