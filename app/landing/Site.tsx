@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Orb from "@/components/Orb";
 import { Logo } from "@/components/Sidebar";
+import { PLANS, FAQ } from "./content";
 import { LEGAL_LINKS } from "@/app/legal/legal";
 
 // Public contact address (Zoho Mail inbox for ranaai.in).
@@ -216,11 +217,14 @@ export default function Site() {
             <div className="inline-flex items-center gap-2 font-mono text-[11.5px] text-signal border border-signal/25 bg-signal/10 rounded-full px-3 py-1.5 mb-7">
               <span className="w-1.5 h-1.5 rounded-full bg-signal live-dot" /> STATUS: ANSWERING CALLS, RIGHT NOW
             </div>
-            <h1 className="font-display font-semibold tracking-[-0.035em] leading-[0.98] text-[46px] sm:text-[64px] lg:text-[72px]">
-              We build what<br /><span className="text-gradient">answers back.</span>
+            <h1>
+              <span className="block eyebrow uppercase mb-4">AI voice agents for Indian businesses</span>
+              <span className="block font-display font-semibold tracking-[-0.035em] leading-[0.98] text-[46px] sm:text-[64px] lg:text-[72px]">
+                We build what<br /><span className="text-gradient">answers back.</span>
+              </span>
             </h1>
             <p className="text-ink-soft text-[16.5px] sm:text-[18px] leading-relaxed mt-6 max-w-[540px] mx-auto lg:mx-0">
-              AI employees that pick up every call, understand what the caller needs in their own language, and hand your team only the leads worth calling back.
+              AI calling agents that answer and make your business calls in Telugu, Hindi, Tamil and 8 more Indian languages, understand what each caller needs, and hand your team only the leads worth calling back.
             </p>
             <div className="flex flex-wrap gap-3 mt-9 justify-center lg:justify-start">
               <Link href="/signup" className="btn-glow rounded-full px-6 py-3.5 text-[15px] font-semibold" data-testid="hero-trial">Start free — 14 days</Link>
@@ -334,7 +338,7 @@ export default function Site() {
           <div className="reveal text-center max-w-[640px] mx-auto">
             <div className="eyebrow">// PRICING</div>
             <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] mt-3">Plans that pay for themselves.</h2>
-            <p className="text-ink-soft text-[16px] mt-3">Start free for 14 days with 100 minutes. Prices exclude GST. Pay annually and the setup fee is waived.</p>
+            <p className="text-ink-soft text-[16px] mt-3">Start free for 14 days with 100 minutes. Prices exclude GST, which is added where applicable. Pay annually and the setup fee is waived.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-3 mt-12">
             {PLANS.map((p) => (

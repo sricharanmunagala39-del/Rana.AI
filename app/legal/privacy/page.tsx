@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Doc, Sec, LEGAL } from "../legal";
 
-export const metadata: Metadata = { title: "Privacy Policy" };
+export const metadata: Metadata = { title: "Privacy Policy", description: "How RANA AI collects, uses, shares and protects personal data under India's DPDP Act, 2023 — your rights and our grievance officer.", alternates: { canonical: "/legal/privacy" } };
 
 export default function Privacy() {
   return (
@@ -38,8 +38,11 @@ export default function Privacy() {
       <Sec h="Security">
         <p>Data is encrypted in transit, access is limited to people who need it, logins are protected with signed sessions and optional two-step verification, and support access to a customer workspace is logged.</p>
       </Sec>
+      <Sec h="Cookies and similar technology">
+        <p>We use only what the service needs to work: a sign-in cookie that keeps you logged in, and a setting saved in your browser for light or dark mode. We do not use advertising cookies or sell browsing data. If we add analytics in future, we will update this section and ask for consent where the law requires it.</p>
+      </Sec>
       <Sec h="Your rights">
-        <p>You can ask to access, correct or delete your personal data, withdraw consent, or nominate someone to act for you, by emailing <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>. We reply within 30 days.</p>
+        <p>You can ask to access, correct or delete your personal data, withdraw consent, or nominate someone to act for you, by emailing <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>. We reply within 30 days. If you are not satisfied with our response, you may complain to the Data Protection Board of India.</p>
       </Sec>
       <Sec h="Grievance officer">
         <p>{LEGAL.owner}, {LEGAL.brand}, {LEGAL.city}. Email: <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>. We acknowledge complaints within 48 hours and aim to resolve them within 30 days.</p>

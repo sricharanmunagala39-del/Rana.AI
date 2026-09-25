@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Doc, Sec, LEGAL } from "../legal";
 
-export const metadata: Metadata = { title: "Terms & Conditions" };
+export const metadata: Metadata = { title: "Terms & Conditions", description: "Terms & Conditions for RANA AI, the AI voice calling service for Indian businesses: plans, payments, calling responsibilities, data and liability.", alternates: { canonical: "/legal/terms" } };
 
 export default function Terms() {
   return (

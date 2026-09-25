@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Doc, Sec, LEGAL } from "../legal";
 
-export const metadata: Metadata = { title: "Shipping & Delivery Policy" };
+export const metadata: Metadata = { title: "Shipping & Delivery Policy", description: "How RANA AI's online AI voice calling service is delivered: instant access, plan activation and onboarding timelines.", alternates: { canonical: "/legal/delivery" } };
 
 export default function Delivery() {
   return (
