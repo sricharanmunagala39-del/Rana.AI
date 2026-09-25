@@ -3,7 +3,7 @@ import { getClientById } from "@/lib/supabase";
 import { clearSessionCookie, roleOf, ROLE_INFO } from "@/lib/auth";
 import { getSession } from "@/lib/session";
 import { HQ_ROLES } from "@/lib/hq";
-import { usageOf } from "@/lib/plans";
+import { usageOf, employeeBlock } from "@/lib/plans";
 
 export async function GET(req: Request) {
   const session = await getSession(req);
@@ -20,6 +20,8 @@ export async function GET(req: Request) {
     actingAsHq: !!session.hqFrom,
     hqSession: session.hqFrom ? { readOnly: !!session.hqRO, expiresAt: session.hqExp || null, reason: session.hqReason || null } : null,
     pending: c.status === "pending",
+    // Why a new employee can't be added right now (plan limit), so the builder can say so before any work is done.
+    employeeBlock: c.is_hq ? null : await employeeBlock(c).catch(() => null),
     plan: u ? { key: u.plan.key, name: u.plan.name, status: u.status, trialDaysLeft: u.trialDaysLeft, minutesUsed: u.minutesUsed, minutesIncluded: u.minutesIncluded } : null,
     user: { id: session.userId ?? null, email: session.email, name: session.name ?? null, role, roleLabel: ROLE_INFO[role].label, personal: !!session.userId },
   });

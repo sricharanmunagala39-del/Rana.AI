@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
   const denied = forbidUnless(session, "manager"); if (denied) return denied;
   const cfg = sarvamConfig();
-  if (!cfg) return Response.json({ error: `Sarvam isn't configured: set ${sarvamMissing().join(", ")} in Vercel.` }, { status: 500 });
+  if (!cfg) return Response.json({ error: "Calling isn't switched on for your account yet — RANA support has been notified." }, { status: 500 });
   const b = await req.json().catch(() => ({}));
   const script: any = b.scriptId ? await getScriptById(String(b.scriptId)) : null;
   if (!script || script.client_id !== session.clientId) return Response.json({ error: "Employee not found" }, { status: 404 });
@@ -36,6 +36,7 @@ export async function POST(req: Request) {
       voice: voiceFor(script.voice_name).name, language: p.initial_language_name,
     });
   } catch (e: any) {
-    return Response.json({ error: e?.message || "Couldn't start a Sarvam session." }, { status: 502 });
+    console.error("[talk session]", e?.message || e);
+    return Response.json({ error: "Couldn't start the test call. Please try again in a minute." }, { status: 502 });
   }
 }

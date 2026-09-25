@@ -15,6 +15,7 @@ export async function POST(req: Request) {
     const out = await chat(msgs, { maxTokens: b.mode === "transliterate" ? 200 : 800, temperature: 0.1 });
     return Response.json({ text: out.replace(/^["']|["']$/g, "").trim() });
   } catch (e: any) {
-    return Response.json({ error: `Translation failed: ${e?.message || e}` }, { status: 502 });
+    console.error("[studio translate]", e?.message || e);
+    return Response.json({ error: "Translation didn't work this time. Please try again in a minute." }, { status: 502 });
   }
 }

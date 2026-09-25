@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { isHqClient } from "@/lib/session";
 import { getSession, forgetUser } from "@/lib/session";
 import { unauthorized, forbidUnless, roleOf, outranks, ROLES, type Role } from "@/lib/auth";
 import { getUser, updateUser, countActiveOwners, tempPassword, publicUser } from "@/lib/users";
@@ -10,6 +11,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const session = await getSession(req);
   if (!session) return unauthorized();
   const denied = forbidUnless(session, "admin"); if (denied) return denied;
+  if (!session.hqFrom && (await isHqClient(session.clientId))) return Response.json({ error: "Manage RANA HQ staff on HQ → Team & security." }, { status: 403 });
   const target = await getUser(session.clientId, params.id);
   if (!target) return Response.json({ error: "Teammate not found" }, { status: 404 });
   const myRole = roleOf(session);

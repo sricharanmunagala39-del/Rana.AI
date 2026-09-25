@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
   const denied = forbidUnless(session, "manager"); if (denied) return denied;
   const base = sarvamConfig();
-  if (!base) return Response.json({ error: `Sarvam isn't configured: set ${sarvamMissing().join(", ")} in Vercel.` }, { status: 500 });
+  if (!base) return Response.json({ error: "Calling isn't switched on for your account yet — RANA support has been notified." }, { status: 500 });
   const b = await req.json().catch(() => ({}));
   const script: any = b.scriptId ? await getScriptById(String(b.scriptId)) : null;
   if (!script || script.client_id !== session.clientId) return Response.json({ error: "Employee not found" }, { status: 404 });
@@ -35,6 +35,7 @@ export async function POST(req: Request) {
     await audit(session, "number_test_call", { req, targetType: "employee", targetId: script.id, detail: { phone, engine: "sarvam", attemptId: r.attempt_id } }).catch(() => {});
     return Response.json({ ok: true, attemptId: r.attempt_id, from: cfg.agentNumber });
   } catch (e: any) {
-    return Response.json({ error: e?.message || "Sarvam couldn't place the call." }, { status: 502 });
+    console.error("[call me]", e?.message || e);
+    return Response.json({ error: "Couldn't place the call right now. Please try again in a minute." }, { status: 502 });
   }
 }

@@ -25,8 +25,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   try {
     if (onSarvam && (action === "cancel" || action === "retry")) {
       const cfg = sarvamConfig();
-      if (!cfg) return Response.json({ error: "Sarvam isn't configured." }, { status: 500 });
-      if (action === "retry") return Response.json({ error: "Sarvam already re-dials busy and unanswered numbers twice, an hour apart. To try the rest again, start a new campaign with the numbers that didn't connect (Export CSV → filter DNP)." }, { status: 400 });
+      if (!cfg) return Response.json({ error: "Calling isn't switched on for your account yet — RANA support has been notified." }, { status: 500 });
+      if (action === "retry") return Response.json({ error: "RANA already re-dials busy and unanswered numbers twice, an hour apart. To try the rest again, start a new campaign with the numbers that didn't connect (Export CSV → filter DNP)." }, { status: 400 });
       await setSarvamCampaignStatus(cfg, (c as any).sarvam_campaign_id || c.cartesia_batch_id, "cancel");
       await updateCampaignRow(c.id, { status: "paused" });
     }

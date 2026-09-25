@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { isHqClient } from "@/lib/session";
 import { getSession } from "@/lib/session";
 import { unauthorized, forbidUnless, roleOf, outranks, ROLES, ROLE_INFO, type Role } from "@/lib/auth";
 import { listUsers, createUser, getUserByEmail, normaliseEmail, validEmail, tempPassword } from "@/lib/users";
@@ -20,6 +21,7 @@ export async function POST(req: Request) {
   const session = await getSession(req);
   if (!session) return unauthorized();
   const denied = forbidUnless(session, "admin"); if (denied) return denied;
+  if (!session.hqFrom && (await isHqClient(session.clientId))) return Response.json({ error: "Manage RANA HQ staff on HQ → Team & security." }, { status: 403 });
   const body = await req.json().catch(() => ({}));
   const email = normaliseEmail(body.email);
   const role = (ROLES.includes(body.role) ? body.role : "viewer") as Role;
