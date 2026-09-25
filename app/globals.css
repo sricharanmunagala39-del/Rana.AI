@@ -2,13 +2,136 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --font-space-grotesk: "Space Grotesk";
-  --font-plex-sans: "IBM Plex Sans";
+/* ============================================================
+   RANA design tokens — "Night" (default) and "Day" themes.
+   Values are RGB triplets so Tailwind opacity modifiers work (bg-signal/20).
+   ============================================================ */
+:root, .theme-night {
+  --c-paper: 9 12 19;          /* app background  #090C13 */
+  --c-sunken: 13 17 26;        /* inputs, wells   #0D111A */
+  --c-raised: 17 21 31;        /* cards, panels   #11151F */
+  --c-stage: 8 11 18;          /* always-dark stages (Talk) */
+  --c-ink: 236 238 243;        /* primary text    #ECEEF3 */
+  --c-ink-soft: 142 150 167;   /* secondary text  #8E96A7 */
+  --c-line: 33 40 54;          /* hairlines       #212836 */
+  --c-signal: 45 225 194;      /* brand teal      #2DE1C2 */
+  --c-signal-tint: 13 42 40;
+  --c-on-accent: 4 16 14;      /* text on teal    #04100E */
+  --c-violet: 146 132 255;     /* second accent   #9284FF */
+  --c-violet-tint: 29 26 56;
+  --c-hot: 245 179 86;         /* amber           #F5B356 */
+  --c-hot-tint: 44 34 20;
+  --c-warm: 232 204 110;
+  --c-warm-tint: 40 36 20;
+  --c-miss: 255 110 110;       /* coral red       #FF6E6E */
+  --c-miss-tint: 48 22 26;
+  --grid: rgb(255 255 255 / 0.028);
+  --glow-a: rgb(45 225 194 / 0.10);
+  --glow-b: rgb(146 132 255 / 0.09);
+  color-scheme: dark;
 }
+
+:root[data-theme="light"] {
+  --c-paper: 244 246 249;
+  --c-sunken: 238 241 245;
+  --c-raised: 255 255 255;
+  --c-stage: 10 13 20;
+  --c-ink: 12 18 32;
+  --c-ink-soft: 88 97 114;
+  --c-line: 222 227 234;
+  --c-signal: 11 150 128;      /* deeper teal for contrast on white */
+  --c-signal-tint: 222 245 240;
+  --c-on-accent: 255 255 255;
+  --c-violet: 104 88 238;
+  --c-violet-tint: 236 233 254;
+  --c-hot: 182 116 20;
+  --c-hot-tint: 250 238 214;
+  --c-warm: 138 109 30;
+  --c-warm-tint: 243 236 212;
+  --c-miss: 196 56 44;
+  --c-miss-tint: 250 228 225;
+  --grid: rgb(12 18 32 / 0.035);
+  --glow-a: rgb(11 150 128 / 0.08);
+  --glow-b: rgb(104 88 238 / 0.06);
+  color-scheme: light;
+}
+
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 
 body {
   margin: 0;
-  background-color: #EFF1EC;
-  color: #16211C;
+  color: rgb(var(--c-ink));
+  background-color: rgb(var(--c-paper));
+  background-image:
+    radial-gradient(900px 480px at 12% -8%, var(--glow-a), transparent 60%),
+    radial-gradient(800px 500px at 100% 0%, var(--glow-b), transparent 60%),
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: auto, auto, 56px 56px, 56px 56px;
+  background-attachment: fixed;
+  font-feature-settings: "cv11", "ss01", "ss03";
+}
+
+/* Page roots painted bg-paper let the body's glow + grid show through. */
+.min-h-screen.bg-paper, .h-screen.bg-paper { background-color: transparent; }
+
+::selection { background: rgb(var(--c-signal) / 0.3); color: rgb(var(--c-ink)); }
+
+/* Slim, quiet scrollbars */
+* { scrollbar-width: thin; scrollbar-color: rgb(var(--c-line)) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: rgb(var(--c-line)); border-radius: 99px; border: 3px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* Form controls follow the theme */
+input, textarea, select { color: rgb(var(--c-ink)); }
+input::placeholder, textarea::placeholder { color: rgb(var(--c-ink-soft) / 0.6); }
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select {
+  background-color: rgb(var(--c-sunken));
+}
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: none;
+  border-color: rgb(var(--c-signal)) !important;
+  box-shadow: 0 0 0 3px rgb(var(--c-signal) / 0.18);
+}
+input:-webkit-autofill { -webkit-box-shadow: 0 0 0 40px rgb(var(--c-sunken)) inset; -webkit-text-fill-color: rgb(var(--c-ink)); }
+select option { background: rgb(var(--c-raised)); }
+input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color: rgb(var(--c-signal)); }
+
+/* Buttons: tactile press + smooth hovers everywhere */
+:where(button, a) { transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .2s ease, opacity .18s ease, transform .12s ease; }
+:where(button:not(:disabled)):active { transform: translateY(1px) scale(.99); }
+.bg-signal:not(:disabled):hover { box-shadow: 0 0 0 1px rgb(var(--c-signal) / .4), 0 6px 24px -6px rgb(var(--c-signal) / .55); }
+:focus-visible { outline: 2px solid rgb(var(--c-signal)); outline-offset: 2px; }
+
+/* Cards: hairline top highlight in the dark theme */
+:where(.bg-raised) { box-shadow: 0 1px 0 0 rgb(255 255 255 / 0.03) inset; }
+:root[data-theme="light"] :where(.bg-raised) { box-shadow: 0 1px 2px rgb(12 18 32 / 0.04); }
+
+/* Brand helpers */
+.text-gradient {
+  background: linear-gradient(90deg, rgb(var(--c-signal)), rgb(var(--c-violet)));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.brand-mark {
+  background: conic-gradient(from 210deg, rgb(var(--c-signal)), rgb(var(--c-violet)), rgb(var(--c-signal)));
+  box-shadow: 0 0 22px -4px rgb(var(--c-signal) / 0.6);
+}
+.glass {
+  background: rgb(var(--c-raised) / 0.72);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+.stage-glow {
+  background:
+    radial-gradient(420px 260px at 50% 0%, rgb(45 225 194 / 0.16), transparent 70%),
+    radial-gradient(380px 260px at 90% 100%, rgb(146 132 255 / 0.14), transparent 70%),
+    rgb(var(--c-stage));
+  border: 1px solid rgb(255 255 255 / 0.06);
+}
+.live-dot { box-shadow: 0 0 0 0 rgb(var(--c-signal) / .6); animation: live 1.8s ease-out infinite; }
+@keyframes live { 0% { box-shadow: 0 0 0 0 rgb(var(--c-signal) / .55); } 100% { box-shadow: 0 0 0 8px rgb(var(--c-signal) / 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }
