@@ -3,6 +3,7 @@ import { getClientByEmail, getClientById } from "@/lib/supabase";
 import { verifyPassword, createSessionCookie } from "@/lib/auth";
 import { getUserByEmail, createUser, updateUser, normaliseEmail, type UserRow } from "@/lib/users";
 import { audit } from "@/lib/audit";
+import { makeTicket } from "@/lib/totp";
 
 // Slows down password guessing: 8 failures per email+IP in 15 minutes locks that pair for the rest of the window.
 const failures = new Map<string, { n: number; first: number }>();
@@ -55,6 +56,10 @@ export async function POST(req: Request) {
     if (!client || !client.is_active) return Response.json({ error: "Account disabled" }, { status: 403 });
 
     failures.delete(key);
+    // Two-step login: password was right, now ask for the authenticator code.
+    if ((user as any).totp_enabled && (user as any).totp_secret) {
+      return Response.json({ twoFactor: true, ticket: makeTicket(user.id), email: user.email });
+    }
     await updateUser(user.id, { last_login_at: new Date().toISOString() } as any).catch(() => null);
     await audit({ clientId: client.id, email, userId: user.id }, "login", { req });
 

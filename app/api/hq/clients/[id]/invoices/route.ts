@@ -28,7 +28,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const session = await getSession(req);
-  const denied = requireHq(session); if (denied) return denied;
+  const denied = requireHq(session, "billing"); if (denied) return denied;
   const c = await load(params.id);
   if (!c) return Response.json({ error: "Client not found" }, { status: 404 });
   const b = await req.json().catch(() => ({} as any));
