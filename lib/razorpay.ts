@@ -58,6 +58,13 @@ export async function listPaymentLinks(count = 1): Promise<any> {
   return rzp(`/payment_links?count=${count}`);
 }
 
+/** Fee and GST-on-fee Razorpay kept for a payment, in rupees. */
+export async function fetchPaymentFee(paymentId: string): Promise<{ fee: number; tax: number } | null> {
+  const p: any = await rzp(`/payments/${encodeURIComponent(paymentId)}`);
+  if (p?.fee === undefined || p?.fee === null) return null;
+  return { fee: Number(p.fee) / 100, tax: Number(p.tax || 0) / 100 };
+}
+
 export async function fetchPaymentLink(id: string): Promise<PaymentLink> {
   return rzp<PaymentLink>(`/payment_links/${encodeURIComponent(id)}`);
 }

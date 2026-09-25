@@ -1,6 +1,6 @@
 // Shared money formatting (client + server safe).
 export const inr = (n: number | null | undefined, paise = false) =>
-  n === null || n === undefined ? "Custom" : `₹${Number(n).toLocaleString("en-IN", { minimumFractionDigits: paise ? 2 : 0, maximumFractionDigits: paise ? 2 : 0 })}`;
+  n === null || n === undefined ? "Custom" : `${Number(n) < 0 ? "−" : ""}₹${Math.abs(Number(n)).toLocaleString("en-IN", { minimumFractionDigits: paise ? 2 : 0, maximumFractionDigits: paise ? 2 : 0 })}`;
 
 const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
 const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
