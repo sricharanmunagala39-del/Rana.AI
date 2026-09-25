@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Doc, Sec, LEGAL } from "../legal";
 
-export const metadata: Metadata = { title: "Contact Us" };
+export const metadata: Metadata = { title: "Contact Us", description: "Contact RANA AI — sales, customer support and billing emails, business details and grievance officer.", alternates: { canonical: "/legal/contact" } };
 
 export default function Contact() {
   const rows: [string, string, string][] = [

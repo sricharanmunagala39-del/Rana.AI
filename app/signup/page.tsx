@@ -44,6 +44,7 @@ export default function SignupPage() {
           <input id="su-password" className={field} placeholder="Choose a password (8+ characters)" type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
           {err && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-xl px-3 py-2">{err}</div>}
           <button disabled={busy} className="bg-signal text-on-accent rounded-xl py-3 text-[14px] font-semibold disabled:opacity-50 mt-1" data-testid="signup-submit">{busy ? "Creating…" : "Create my workspace →"}</button>
+          <p className="text-[11.5px] text-ink-soft leading-relaxed text-center">By creating a workspace you agree to our <a href="/legal/terms" className="text-signal">Terms</a> and <a href="/legal/privacy" className="text-signal">Privacy Policy</a>, and confirm you will only call people who have enquired with you or agreed to be contacted.</p>
         </form>
       )}
     </AuthShell>

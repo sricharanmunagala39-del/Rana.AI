@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Doc, Sec, LEGAL } from "../legal";
 
-export const metadata: Metadata = { title: "Refund & Cancellation Policy" };
+export const metadata: Metadata = { title: "Refund & Cancellation Policy", description: "RANA AI refund and cancellation policy: 14-day free trial, monthly and annual plans, onboarding fees, wallet balance and refund timelines.", alternates: { canonical: "/legal/refunds" } };
 
 export default function Refunds() {
   return (
