@@ -10,7 +10,8 @@ export type UserRow = {
 export type PublicUser = Omit<UserRow, "password_hash">;
 
 export function publicUser(u: UserRow): PublicUser {
-  const { password_hash: _drop, ...rest } = u;
+  // Never send password hashes or two-step secrets to the browser.
+  const { password_hash: _drop, totp_secret: _t, ...rest } = u as any;
   return rest;
 }
 

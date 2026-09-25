@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { inr } from "@/lib/money";
+import WalletCard from "@/components/WalletCard";
 
 const SELF = ["starter", "growth", "scale"];
 const STATUS: Record<string, string> = { issued: "Due", paid: "Paid", void: "Cancelled" };
@@ -70,7 +71,7 @@ export default function BillingPage() {
   const pct = u ? Math.min(100, (u.minutesUsed / Math.max(1, u.minutesIncluded)) * 100) : 0;
   const plans = d ? Object.values(d.plans) as any[] : [];
   const trialOver = u?.plan.key === "trial" && u.trialEndsAt && Date.parse(u.trialEndsAt) < Date.now();
-  const outOfMinutes = u && u.minutesUsed >= u.minutesIncluded && !u.limits.allowOverage;
+  const outOfMinutes = u && u.minutesUsed >= u.minutesIncluded && !u.limits.allowOverage && !(b?.wallet?.enabled && b.wallet.balance > 0);
 
   return (
     <div className="flex min-h-screen bg-paper">
@@ -124,9 +125,13 @@ export default function BillingPage() {
                   <div className="flex justify-between"><span className="text-ink-soft">Calls at once</span><b>{u.limits.concurrency}</b></div>
                   <div className="flex justify-between"><span className="text-ink-soft">Numbers per campaign</span><b>{u.limits.campaignSize.toLocaleString("en-IN")}</b></div>
                   <div className="flex justify-between"><span className="text-ink-soft">Calling number</span><b>{d.number || "Shared RANA number"}</b></div>
-                  <div className="flex justify-between"><span className="text-ink-soft">Extra minutes</span><b>{u.limits.allowOverage ? `${inr(u.plan.overagePerMin)}/min` : "Pause at limit"}</b></div>
+                  <div className="flex justify-between"><span className="text-ink-soft">Extra minutes</span><b>{b?.wallet?.enabled ? `From balance · ${inr(u.plan.overagePerMin)}/min` : u.limits.allowOverage ? `${inr(u.plan.overagePerMin)}/min` : "Pause at limit"}</b></div>
                 </div>
               </div>
+
+              {b?.wallet && (
+                <WalletCard w={b.wallet} canPay={b.canPay} onOffline={(j) => setPending(j)} onNeedDetails={() => { setMsg(""); setDetails({ ...(b.profile || {}) }); }} onChanged={() => { loadBilling(); loadUsage(); }} />
+              )}
 
               <div className="border border-line rounded-xl bg-white overflow-x-auto" data-testid="plans-table">
                 <table className="w-full text-[13px] min-w-[680px]">

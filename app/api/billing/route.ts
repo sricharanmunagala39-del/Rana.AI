@@ -5,6 +5,7 @@ import { getClientById } from "@/lib/supabase";
 import { sb } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { razorpayConfigured, razorpayMode } from "@/lib/razorpay";
+import { walletOf, RECHARGE_PACKS, MIN_RECHARGE } from "@/lib/wallet";
 import { listInvoices, billingState, offlinePayment, seller, checkoutQuote, taxFor, buyerOf, r2, SELF_SERVE, STATE_NAMES, GSTIN_RE, stateOfGstin } from "@/lib/billing";
 
 const profileOf = (c: any) => ({
@@ -27,7 +28,9 @@ export async function GET(req: Request) {
     const sub = r2(q.items.reduce((a, i) => a + i.amount, 0));
     quotes[`${plan}:${interval}`] = q.error ? { error: q.error } : { items: q.items, subtotal: sub, ...taxFor(sub, s, buyer.state) };
   }
+  const w = c.plan === "trial" ? null : await walletOf(c).catch(() => null);
   return Response.json({
+    wallet: w ? { ...w, packs: RECHARGE_PACKS, min: MIN_RECHARGE } : null,
     profile: profileOf(c), invoices, state: billingState(c, invoices), quotes,
     canPay: hasRole(session, "admin"), plan: c.plan,
     razorpay: { enabled: razorpayConfigured(), mode: razorpayMode() },

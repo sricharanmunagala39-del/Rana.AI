@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 import { getClientById } from "@/lib/supabase";
 import { clearSessionCookie, roleOf, ROLE_INFO } from "@/lib/auth";
 import { getSession } from "@/lib/session";
-import { isHqEmail } from "@/lib/hq";
+import { HQ_ROLES } from "@/lib/hq";
 import { usageOf } from "@/lib/plans";
 
 export async function GET(req: Request) {
@@ -15,8 +15,11 @@ export async function GET(req: Request) {
   const u = c.is_hq ? null : await usageOf(c).catch(() => null);
   return Response.json({
     id: client.id, name: client.name, industry: client.industry, sarvam_app_id: client.sarvam_app_id,
-    hq: isHqEmail(session.email) && !session.hqFrom && !!c.is_hq,
+    hq: !!session.hqRole && !session.hqFrom && !!c.is_hq,
+    hqRole: session.hqRole ? { key: session.hqRole, label: HQ_ROLES[session.hqRole].label, perms: HQ_ROLES[session.hqRole].perms } : null,
     actingAsHq: !!session.hqFrom,
+    hqSession: session.hqFrom ? { readOnly: !!session.hqRO, expiresAt: session.hqExp || null, reason: session.hqReason || null } : null,
+    pending: c.status === "pending",
     plan: u ? { key: u.plan.key, name: u.plan.name, status: u.status, trialDaysLeft: u.trialDaysLeft, minutesUsed: u.minutesUsed, minutesIncluded: u.minutesIncluded } : null,
     user: { id: session.userId ?? null, email: session.email, name: session.name ?? null, role, roleLabel: ROLE_INFO[role].label, personal: !!session.userId },
   });

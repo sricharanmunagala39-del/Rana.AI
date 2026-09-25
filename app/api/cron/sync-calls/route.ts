@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const maxDuration = 300;
 import { syncAllClients } from "@/lib/callSync";
+import { recordCron } from "@/lib/lifecycle";
 
 /**
  * Vercel Cron (see vercel.json). Hobby plan crons run once a day, so this is the safety net;
@@ -13,6 +14,9 @@ export async function GET(req: Request) {
   const ua = req.headers.get("user-agent") || "";
   const allowed = secret ? auth === `Bearer ${secret}` : ua.startsWith("vercel-cron/");
   if (!allowed) return Response.json({ error: "Forbidden" }, { status: 403 });
-  const results = await syncAllClients();
+  let results;
+  try { results = await syncAllClients(); }
+  catch (e: any) { await recordCron("sync-calls", false, { error: String(e?.message || e).slice(0, 500) }); throw e; }
+  await recordCron("sync-calls", true, { clients: results.length, errors: results.reduce((a: number, r: any) => a + (r.errors?.length || 0), 0) });
   return Response.json({ ok: true, results: results.map((r) => ({ ...r, errors: r.errors.slice(0, 5) })) });
 }

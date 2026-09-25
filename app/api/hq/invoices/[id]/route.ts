@@ -7,7 +7,7 @@ import { getInvoice, markPaid, voidInvoice } from "@/lib/billing";
 /** POST { action: "mark_paid", via?, ref? } | { action: "void" } — for bank transfers, cheques and mistakes. */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const session = await getSession(req);
-  const denied = requireHq(session); if (denied) return denied;
+  const denied = requireHq(session, "billing"); if (denied) return denied;
   const inv = await getInvoice(params.id);
   if (!inv) return Response.json({ error: "Invoice not found" }, { status: 404 });
   const b = await req.json().catch(() => ({} as any));

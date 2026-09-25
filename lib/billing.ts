@@ -134,7 +134,7 @@ export function checkoutQuote(c: any, plan: PlanKey, interval: Interval, today =
 }
 
 type NewInvoice = {
-  kind: "plan" | "renewal" | "overage" | "custom"; items: Item[]; plan?: PlanKey | null; interval?: Interval | null;
+  kind: "plan" | "renewal" | "overage" | "custom" | "recharge"; items: Item[]; plan?: PlanKey | null; interval?: Interval | null;
   periodStart?: string | null; periodEnd?: string | null; dueDate?: string | null; notes?: string | null;
   createdBy?: string; notify?: boolean; origin?: string; now?: Date;
 };
@@ -210,17 +210,33 @@ export async function markPaid(invoiceId: string, p: { via: string; paymentId?: 
     Object.assign(patch, { plan: inv.plan, billing_interval: inv.interval || "monthly", plan_paid_until: end });
     if (!samePlan || !c.billing_cycle_start || c.plan === "trial") patch.billing_cycle_start = base;
     if (!samePlan || c.plan === "trial") {
-      // New paid plan: plan defaults apply (clear trial-era overrides) and extra minutes are billed rather than blocked.
-      Object.assign(patch, { minutes_included: null, max_employees: null, max_concurrency: null, max_campaign_size: null, allow_overage: true });
+      // New paid plan: plan defaults apply (clear trial-era overrides); minutes beyond the plan come from the prepaid wallet.
+      Object.assign(patch, { minutes_included: null, max_employees: null, max_concurrency: null, max_campaign_size: null, allow_overage: false, wallet_enabled: true });
     }
     if ((inv.items || []).some((i: any) => i.onboarding)) patch.onboarding_paid = true;
     await sb(`/invoices?id=eq.${inv.id}`, { method: "PATCH", body: JSON.stringify({ period_start: base, period_end: end }) });
+  }
+  if (inv.kind === "recharge" && c) {
+    // Prepaid calling credit: the amount before GST goes into the wallet (once per invoice — unique index).
+    await sb(`/wallet_ledger`, { method: "POST", prefer: "return=minimal", body: JSON.stringify({ client_id: c.id, kind: "credit", amount: Number(inv.subtotal), invoice_id: inv.id, note: `Recharge ${inv.number}`, created_by: p.via }) }).catch(() => {});
+    if (!c.wallet_enabled) patch.wallet_enabled = true;
+    // A fresh recharge re-arms the low-balance email.
+    const notified = { ...(c.notified || {}) }; for (const k of Object.keys(notified)) if (k.startsWith("wallet_")) delete notified[k];
+    patch.notified = notified;
   }
   if (c && c.status === "suspended" && c.suspended_reason === "billing") {
     const stillOverdue = (await sb<any[]>(`/invoices?client_id=eq.${c.id}&status=eq.issued&due_date=lt.${addDays(todayIST(now), -GRACE_DAYS)}&select=id`)) || [];
     if (!stillOverdue.length) Object.assign(patch, { status: "active", suspended_reason: null });
   }
   if (c && Object.keys(patch).length) await sb(`/clients?id=eq.${c.id}`, { method: "PATCH", body: JSON.stringify(patch) });
+  if (c) {
+    // Receipt email (quietly skipped until email is set up).
+    import("./notify").then(async (n) => {
+      const what = inv.kind === "recharge" ? "prepaid calling credit" : inv.plan ? `the ${inv.plan} plan` : "your invoice";
+      const m = n.tpl.paymentReceived(c.name, inv.number, Number(inv.total), what);
+      await n.sendEmail({ to: await n.ownerEmails(c.id, c.billing_email || c.login_email), subject: m.subject, html: m.html, clientId: c.id, kind: "payment_received" });
+    }).catch(() => {});
+  }
   return { already: false, invoice: inv, client: c ? { ...c, ...patch } : null };
 }
 
@@ -235,7 +251,7 @@ export async function voidInvoice(inv: any) {
 export function billingState(c: any, invoices: any[], now = new Date()) {
   const today = todayIST(now);
   const open = invoices.filter((i) => i.status === "issued");
-  const overdue = open.filter((i) => i.due_date && i.due_date < today);
+  const overdue = open.filter((i) => i.kind !== "recharge" && i.due_date && i.due_date < today);
   const paidUntil: string | null = c?.plan_paid_until || null;
   return {
     paidUntil, interval: c?.billing_interval || null, autoBilled: !!paidUntil,
@@ -273,9 +289,21 @@ export async function runBilling(now = new Date()) {
           log.push({ client: c.name, did: "renewal", number: r.invoice.number, linkError: r.linkError });
         }
       }
-      // 2) Overage for the last full month
+      // 2) Overage for the last full month: prepaid clients → wallet debit; postpaid (overage allowed) → invoice
       const lim = limitsOf(c);
-      if (lim.allowOverage && lim.plan.overagePerMin && c.billing_cycle_start) {
+      if (c.wallet_enabled && lim.plan.overagePerMin && c.billing_cycle_start) {
+        const cur = cycleStart(c, now);
+        const prev = cycleStart(c, new Date(cur.getTime() - 1000));
+        const prevYmd = prev.toISOString().slice(0, 10);
+        if (prevYmd >= String(c.billing_cycle_start).slice(0, 10) && prev < cur) {
+          const used = await minutesBetween(c.id, prev, cur);
+          const over = Math.max(0, used - lim.minutes);
+          if (over > 0) {
+            const ok = await sb(`/wallet_ledger`, { method: "POST", prefer: "return=minimal", body: JSON.stringify({ client_id: c.id, kind: "debit", amount: r2(over * lim.plan.overagePerMin), minutes: over, period_start: prevYmd, note: `Minutes beyond plan, ${prevYmd} to ${cur.toISOString().slice(0, 10)}`, created_by: "auto" }) }).then(() => true).catch(() => false);
+            if (ok) log.push({ client: c.name, did: "wallet-debit", minutes: over });
+          }
+        }
+      } else if (lim.allowOverage && lim.plan.overagePerMin && c.billing_cycle_start) {
         const cur = cycleStart(c, now);
         const prev = cycleStart(c, new Date(cur.getTime() - 1000));
         const prevYmd = prev.toISOString().slice(0, 10);
@@ -292,7 +320,12 @@ export async function runBilling(now = new Date()) {
         }
       }
       // 3) Pause for non-payment
-      const late = (await listInvoices(c.id, 100)).filter((i) => i.status === "issued" && i.due_date && daysBetween(i.due_date, today) > GRACE_DAYS);
+      const fresh = await listInvoices(c.id, 100);
+      // Unpaid recharge requests never pause an account (an empty wallet already stops calls); cancel them after 10 days.
+      for (const i of fresh.filter((i) => i.kind === "recharge" && i.status === "issued" && daysBetween(String(i.created_at).slice(0, 10), today) > 10)) {
+        await voidInvoice(i).catch(() => {}); log.push({ client: c.name, did: "void-stale-recharge", number: i.number });
+      }
+      const late = fresh.filter((i) => i.kind !== "recharge" && i.status === "issued" && i.due_date && daysBetween(i.due_date, today) > GRACE_DAYS);
       const lapsed = SELF_SERVE.includes(plan) && daysBetween(c.plan_paid_until, today) > GRACE_DAYS;
       if ((late.length || lapsed) && c.status !== "suspended") {
         await sb(`/clients?id=eq.${c.id}`, { method: "PATCH", body: JSON.stringify({ status: "suspended", suspended_reason: "billing" }) });
