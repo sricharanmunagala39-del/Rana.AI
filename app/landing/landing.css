@@ -6,7 +6,7 @@
   background-size: 64px 64px;
   mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
 }
-.site > * { position: relative; z-index: 1; }
+.site > *:not(.fixed) { position: relative; z-index: 1; }
 .aurora { position: absolute; inset: -20% -10% auto; height: 900px; pointer-events: none; z-index: 0;
   background: radial-gradient(40% 50% at 30% 30%, rgb(45 225 194 / .18), transparent 70%), radial-gradient(35% 45% at 75% 20%, rgb(146 132 255 / .16), transparent 70%);
   filter: blur(20px); animation: drift 18s ease-in-out infinite alternate; }
@@ -48,3 +48,4 @@ details[open] .plus { transform: rotate(45deg); }
   .aurora, .marquee-track, .wave i, .flow-dot { animation: none !important; }
   .js .reveal { opacity: 1; transform: none; }
 }
+.dialog-solid { background: linear-gradient(180deg, rgb(45 225 194 / .08), rgb(146 132 255 / .05)), rgb(var(--c-paper)); }

@@ -53,6 +53,7 @@ export async function hqOverview(now = new Date()) {
     sb<any[]>(`/notifications?ok=eq.false&created_at=gte.${encodeURIComponent(new Date(now.getTime() - DAY).toISOString())}&select=kind,error&limit=50`).catch(() => []),
     sb<any[]>(`/rana_diagnostics?order=created_at.desc&limit=1&select=created_at,result`).catch(() => []),
   ]);
+  const newDemos = (await sb<any[]>(`/demo_requests?status=eq.new&select=id,company,created_at&order=created_at.asc`).catch(() => [])) || [];
   const today = todayIST(now);
   const alerts: Alert[] = [];
   const rows = await Promise.all((clients || []).map(async (c) => {
@@ -107,6 +108,10 @@ export async function hqOverview(now = new Date()) {
   if (live && !live.ok) alerts.unshift({ level: "red", kind: "sarvam_down", text: `STOPPED: ${live.reason || "Sarvam is refusing requests"}${live.since ? ` since ${new Date(live.since).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}` : ""}. Client calls, Talk page, voice previews and AI tools are stopped until it's fixed.`, action: { label: "Top up Sarvam", href: "https://indus.sarvam.ai/billing" } });
   if (sarvam?.lowWarning) alerts.push({ level: "red", kind: "sarvam", text: `Sarvam credits low: ≈₹${Math.round(sarvam.balance || 0).toLocaleString("en-IN")} left${sarvam.daysLeft !== null ? `, about ${sarvam.daysLeft} days` : ""}. Top up ₹${sarvam.suggestTopUp.toLocaleString("en-IN")} + GST.`, action: { label: "Money page", href: "/hq/money" } });
   else if (sarvam && !sarvam.tracked) alerts.push({ level: "info", kind: "sarvam_untracked", text: "Enter your Sarvam balance on the Money page so RANA can warn you before it runs out.", action: { label: "Money page", href: "/hq/money" } });
+  if (newDemos.length) {
+    const oldestH = Math.floor((now.getTime() - Date.parse(newDemos[0].created_at)) / 3600e3);
+    alerts.unshift({ level: oldestH >= 24 ? "red" : "orange", kind: "demo", text: `${newDemos.length} new demo request${newDemos.length > 1 ? "s" : ""} from the website (${newDemos.slice(0, 3).map((d) => d.company).join(", ")}${newDemos.length > 3 ? "…" : ""})${oldestH >= 1 ? ` — oldest waiting ${oldestH} h` : ""}. Call them back.`, action: { label: "Demo requests", href: "/hq/demos" } });
+  }
   const lastCron = (job: string) => (crons || []).find((r) => r.job === job) || null;
   for (const job of ["billing", "sync-calls"]) {
     const r = lastCron(job);

@@ -13,7 +13,8 @@ export const metadata: Metadata = {
   keywords: [
     "AI voice agent India", "AI calling agent", "AI voice agent for business", "AI telecaller",
     "Telugu AI voice agent", "Hindi AI voice agent", "AI receptionist India", "lead qualification calls",
-    "outbound AI calling", "inbound call answering AI",
+    "outbound AI calling", "inbound call answering AI", "AI receptionist for clinics", "AI calling for real estate",
+    "COD order confirmation calls", "AI calling for insurance renewals", "AI telecaller for education",
   ],
   alternates: { canonical: "/" },
   openGraph: { title: TITLE, description: DESCRIPTION, url: "/", type: "website", images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "RANA AI — AI voice agents for Indian businesses" }] },
