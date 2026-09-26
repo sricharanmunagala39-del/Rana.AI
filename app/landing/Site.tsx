@@ -3,21 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Orb from "@/components/Orb";
 import { Logo } from "@/components/Sidebar";
-import { PLANS, FAQ } from "./content";
+import { PLANS, FAQ, INDUSTRY_CALLS, USE_CASES, type Line } from "./content";
+import DemoForm from "./DemoForm";
 import { LEGAL_LINKS } from "@/app/legal/legal";
 
 // Public contact address (Zoho Mail inbox for ranaai.in).
 const CONTACT_EMAIL = "hello@ranaai.in";
-const DEMO = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("RANA AI demo")}&body=${encodeURIComponent("Hi RANA team, I'd like a demo.\n\nCompany:\nCalls we get / make:\nRough monthly call volume:\nPhone:")}`;
 
-const NAV = [["Product", "#product"], ["How it works", "#how"], ["Pricing", "#pricing"], ["FAQ", "#faq"]];
-
-const SCRIPT: { who: "caller" | "ai"; text: string; tag?: string }[] = [
-  { who: "caller", text: "Hello, NEET long-term batch fees enti? Weekend classes unnaya?" },
-  { who: "ai", text: "Namaskaram! Undi — weekend batch Saturday, Sunday. Fees EMI lo kuda kattochu. Mee peru cheppandi?" },
-  { who: "caller", text: "Sneha. Naku repu demo class kavali." },
-  { who: "ai", text: "Done Sneha garu — repu 11 AM demo book chesa. Details WhatsApp ki pampistha.", tag: "HOT LEAD · demo booked → sent to your team" },
-];
+const NAV = [["Product", "#product"], ["Industries", "#industries"], ["How it works", "#how"], ["Pricing", "#pricing"], ["FAQ", "#faq"]];
 
 const FEATURES = [
   { k: "INBOUND", t: "Answers every call, 24×7", d: "After hours, during the rush, on Sundays. It picks up in the caller's language, answers questions from your own knowledge, and captures their details.", big: true },
@@ -52,47 +45,57 @@ function useReveal() {
 }
 
 function LiveCall() {
-  const [lines, setLines] = useState<{ who: string; text: string; tag?: string }[]>([]);
+  const [ind, setInd] = useState(0);
+  const [round, setRound] = useState(0);
+  const pinned = useRef(false); // once the visitor picks a business, keep replaying that one
+  const [lines, setLines] = useState<Line[]>([]);
   const [typing, setTyping] = useState("");
+  const call = INDUSTRY_CALLS[ind];
   useEffect(() => {
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) { setLines(SCRIPT); return; }
+    if (reduce) { setLines(call.lines); return; }
     let alive = true;
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     (async () => {
-      while (alive) {
-        setLines([]);
-        for (const l of SCRIPT) {
-          for (let i = 1; i <= l.text.length && alive; i += 2) { setTyping(l.text.slice(0, i)); await sleep(22); }
-          if (!alive) return;
-          setTyping(""); setLines((x) => [...x, l]); await sleep(900);
-        }
-        await sleep(4200);
+      setLines([]);
+      for (const l of call.lines) {
+        for (let i = 1; i <= l.text.length && alive; i += 2) { setTyping(l.text.slice(0, i)); await sleep(22); }
+        if (!alive) return;
+        setTyping(""); setLines((x) => [...x, l]); await sleep(900);
       }
+      await sleep(4200);
+      // Keep cycling through businesses until the visitor picks one; then replay theirs.
+      if (alive) { if (pinned.current) setRound((r) => r + 1); else setInd((i) => (i + 1) % INDUSTRY_CALLS.length); }
     })();
     return () => { alive = false; };
-  }, []);
-  const next = SCRIPT[lines.length];
+  }, [ind, round]); // eslint-disable-line react-hooks/exhaustive-deps
+  const next = call.lines[lines.length];
+  const who = (l: Line) => (l.who === "ai" ? "RANA · AI EMPLOYEE" : call.dir === "OUTBOUND" ? "CUSTOMER" : "CALLER");
   return (
     <div className="card p-5 sm:p-6 font-mono text-[12.5px]" data-testid="live-call">
+      <div className="flex flex-wrap gap-1.5 mb-4 font-sans" role="tablist" aria-label="Pick a business">
+        {INDUSTRY_CALLS.map((c, i) => (
+          <button key={c.key} role="tab" aria-selected={i === ind} onClick={() => { pinned.current = true; setTyping(""); setInd(i); if (i === ind) setRound((r) => r + 1); }} className={`rounded-full border px-2.5 py-1 text-[11.5px] transition-colors ${i === ind ? "border-signal/60 bg-signal/10 text-signal" : "border-white/10 text-ink-soft hover:text-ink"}`}>{c.label}</button>
+        ))}
+      </div>
       <div className="flex justify-between items-center text-ink-soft text-[11px] mb-4">
-        <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-signal live-dot" /> LIVE · INBOUND · +91 ••••• 42118</span>
-        <span>TELUGU ⇄ ENGLISH</span>
+        <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-signal live-dot" /> LIVE · {call.dir} · {call.number}</span>
+        <span>{call.lang}</span>
       </div>
       <div className="wave flex items-end gap-[3px] h-12 mb-5" aria-hidden>
         {Array.from({ length: 44 }, (_, i) => <i key={i} style={{ animationDelay: `${(i % 11) * 0.08}s` }} />)}
       </div>
-      <div className="flex flex-col gap-3 min-h-[228px]">
+      <div className="flex flex-col gap-3 min-h-[250px]">
         {lines.map((l, i) => (
-          <div key={i} className="animate-rise">
-            <div className={`text-[10.5px] mb-0.5 ${l.who === "ai" ? "text-signal" : "text-ink-soft"}`}>{l.who === "ai" ? "RANA · AI EMPLOYEE" : "CALLER"}</div>
+          <div key={`${call.key}-${i}`} className="animate-rise">
+            <div className={`text-[10.5px] mb-0.5 ${l.who === "ai" ? "text-signal" : "text-ink-soft"}`}>{who(l)}</div>
             <div className="text-ink/90 font-sans text-[13.5px] leading-snug">{l.text}</div>
             {l.tag && <div className="mt-2.5 inline-block text-[10.5px] text-hot border border-hot/60 bg-hot/10 rounded px-2 py-0.5">{l.tag}</div>}
           </div>
         ))}
         {typing && next && (
           <div>
-            <div className={`text-[10.5px] mb-0.5 ${next.who === "ai" ? "text-signal" : "text-ink-soft"}`}>{next.who === "ai" ? "RANA · AI EMPLOYEE" : "CALLER"}</div>
+            <div className={`text-[10.5px] mb-0.5 ${next.who === "ai" ? "text-signal" : "text-ink-soft"}`}>{who(next)}</div>
             <div className="text-ink/90 font-sans text-[13.5px] leading-snug caret">{typing}</div>
           </div>
         )}
@@ -160,12 +163,94 @@ function DashboardPreview() {
   );
 }
 
+function Industries({ onDemo }: { onDemo: () => void }) {
+  const [k, setK] = useState(USE_CASES[0].key);
+  const u = USE_CASES.find((x) => x.key === k) || USE_CASES[0];
+  return (
+    <section id="industries" className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24 scroll-mt-20">
+      <div className="reveal max-w-[720px]">
+        <div className="eyebrow">// WHO IT&apos;S FOR</div>
+        <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] leading-[1.05] mt-3">Any business that runs<br /><span className="text-ink-soft">on phone calls.</span></h2>
+        <p className="text-ink-soft text-[16px] leading-relaxed mt-4">Missed calls, slow follow-ups and leads that go cold look the same in every industry. Pick yours and see which calls RANA takes off your team.</p>
+      </div>
+      <div className="reveal flex flex-wrap gap-2 mt-8" role="tablist" aria-label="Industries">
+        {USE_CASES.map((x) => (
+          <button key={x.key} role="tab" aria-selected={x.key === k} onClick={() => setK(x.key)} data-testid={`ind-${x.key}`}
+            className={`rounded-full border px-4 py-2 text-[13.5px] transition-colors ${x.key === k ? "border-signal/60 bg-signal/10 text-signal font-semibold" : "border-white/10 text-ink-soft hover:text-ink hover:border-white/25"}`}>{x.label}</button>
+        ))}
+      </div>
+      <div className="grid lg:grid-cols-[1fr_1fr_1fr] gap-3 mt-5" data-testid="industry-panel">
+        <div className="card p-6 flex flex-col">
+          <div className="font-mono text-[11px] text-hot">THE PROBLEM</div>
+          <div className="font-display text-[20px] font-semibold mt-3 leading-snug">{u.pain}</div>
+          <div className="mt-auto pt-6"><div className="font-mono text-[11px] text-signal">THE RESULT</div><div className="font-display text-[18px] font-semibold mt-1 text-gradient">{u.result}</div></div>
+        </div>
+        <div className="card p-6">
+          <div className="font-mono text-[11px] text-signal">INCOMING CALLS · RANA ANSWERS</div>
+          <ul className="mt-4 flex flex-col gap-2.5 text-[14.5px]">{u.inbound.map((t) => <li key={t} className="flex gap-2.5"><span className="text-signal">✓</span>{t}</li>)}</ul>
+        </div>
+        <div className="card p-6">
+          <div className="font-mono text-[11px] text-violet">OUTGOING CALLS · RANA DIALS</div>
+          <ul className="mt-4 flex flex-col gap-2.5 text-[14.5px]">{u.outbound.map((t) => <li key={t} className="flex gap-2.5"><span className="text-violet">✓</span>{t}</li>)}</ul>
+        </div>
+      </div>
+      <div className="reveal card mt-3 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="text-[14.5px]"><b>Don&apos;t see your business?</b> <span className="text-ink-soft">If your team answers or makes calls, RANA can take the repetitive ones — in 11 Indian languages.</span></div>
+        <button onClick={onDemo} className="btn-ghost rounded-full px-5 py-2.5 text-[14px] font-semibold whitespace-nowrap">Show me for my business →</button>
+      </div>
+    </section>
+  );
+}
+
+/** Honest back-of-the-envelope: the visitor's own numbers, the visitor's own estimate. */
+function MissedCalls({ onDemo }: { onDemo: () => void }) {
+  const [missed, setMissed] = useState(15);
+  const [conv, setConv] = useState(10);
+  const [value, setValue] = useState(10000);
+  const perMonth = missed * 26;
+  const lost = Math.round(perMonth * (conv / 100) * value);
+  const inr = (n: number) => "₹" + n.toLocaleString("en-IN");
+  const slider = "w-full accent-[rgb(45,225,194)]";
+  return (
+    <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24">
+      <div className="card card-hi reveal p-6 sm:p-10 grid lg:grid-cols-[1.1fr_1fr] gap-10 items-center" data-testid="missed-calc">
+        <div>
+          <div className="eyebrow">// WHAT MISSED CALLS COST YOU</div>
+          <h2 className="font-display text-[28px] sm:text-[38px] font-semibold tracking-[-0.025em] leading-[1.08] mt-3">Every unanswered call<br />is a customer who called someone else.</h2>
+          <div className="flex flex-col gap-6 mt-8 text-[14px]">
+            <label className="block"><div className="flex justify-between mb-2"><span className="text-ink-soft">Calls you miss or can&apos;t call back, per day</span><b className="font-mono">{missed}</b></div>
+              <input type="range" min={1} max={200} value={missed} onChange={(e) => setMissed(+e.target.value)} className={slider} aria-label="Missed calls per day" /></label>
+            <label className="block"><div className="flex justify-between mb-2"><span className="text-ink-soft">Of those, how many would have bought</span><b className="font-mono">{conv}%</b></div>
+              <input type="range" min={1} max={50} value={conv} onChange={(e) => setConv(+e.target.value)} className={slider} aria-label="Conversion percent" /></label>
+            <label className="block"><div className="flex justify-between mb-2"><span className="text-ink-soft">What one customer is worth to you</span><b className="font-mono">{inr(value)}</b></div>
+              <input type="range" min={500} max={200000} step={500} value={value} onChange={(e) => setValue(+e.target.value)} className={slider} aria-label="Customer value" /></label>
+          </div>
+        </div>
+        <div className="text-center lg:text-left">
+          <div className="font-mono text-[11.5px] text-ink-soft">BUSINESS YOU MAY BE LOSING EACH MONTH</div>
+          <div className="font-display text-[46px] sm:text-[60px] font-semibold tracking-tight text-gradient leading-none mt-3" data-testid="calc-lost">{inr(lost)}</div>
+          <div className="text-[13.5px] text-ink-soft mt-3">{perMonth.toLocaleString("en-IN")} missed calls × {conv}% × {inr(value)}, over 26 working days. Your numbers — change the sliders.</div>
+          <div className="mt-6 rounded-xl border border-white/10 bg-white/[.03] p-4 text-[14px]">RANA answers every one of those calls, day and night, from <b>₹9,999 a month</b>.</div>
+          <div className="flex flex-wrap gap-3 mt-6 justify-center lg:justify-start">
+            <Link href="/signup" className="btn-glow rounded-full px-6 py-3 text-[14px] font-semibold">Start free — 14 days</Link>
+            <button onClick={onDemo} className="btn-ghost rounded-full px-6 py-3 text-[14px] font-medium">Book a demo</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Site() {
   useReveal();
   const [menu, setMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => { const f = () => setScrolled(window.scrollY > 12); f(); window.addEventListener("scroll", f, { passive: true }); return () => window.removeEventListener("scroll", f); }, []);
   useEffect(() => { document.body.style.overflow = menu ? "hidden" : ""; }, [menu]);
+  // "Book a demo" opens the form. Links like ranaai.in/?demo=1 or ranaai.in/#demo open it straight away (for ads, WhatsApp, email).
+  const [demo, setDemo] = useState<string | null>(null);
+  const openDemo = (from: string) => () => { setMenu(false); setDemo(from); };
+  useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get("demo") === "1" || window.location.hash === "#demo") setDemo("link"); }, []);
 
   return (
     <div className="site theme-night min-h-screen font-sans">
@@ -180,6 +265,7 @@ export default function Site() {
           </nav>
           <div className="hidden md:flex items-center gap-3">
             <Link href="/login" className="text-[13.5px] font-medium text-ink-soft hover:text-ink px-3 py-2">Sign in</Link>
+            <button onClick={openDemo("nav")} className="btn-ghost rounded-full px-4 py-2 text-[13.5px] font-medium" data-testid="nav-demo">Book a demo</button>
             <Link href="/signup" className="btn-glow rounded-full px-4 py-2 text-[13.5px] font-semibold" data-testid="nav-trial">Start free trial</Link>
           </div>
           <button onClick={() => setMenu(true)} className="md:hidden font-mono text-[12px] border border-signal/60 text-signal rounded-full px-4 py-2" aria-label="Open menu" data-testid="menu-btn">MENU +</button>
@@ -189,8 +275,9 @@ export default function Site() {
         <div className="fixed inset-0 z-[60] bg-paper/95 backdrop-blur-xl flex flex-col items-center justify-center gap-6 animate-rise" data-testid="menu">
           <button onClick={() => setMenu(false)} className="absolute top-5 right-6 text-[32px] leading-none text-ink-soft" aria-label="Close menu">×</button>
           {NAV.map(([l, h]) => <a key={h} href={h} onClick={() => setMenu(false)} className="font-display text-[36px] font-semibold tracking-tight hover:text-signal">{l}</a>)}
-          <div className="flex gap-3 mt-4">
+          <div className="flex flex-wrap justify-center gap-3 mt-4">
             <Link href="/login" className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Sign in</Link>
+            <button onClick={openDemo("menu")} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Book a demo</button>
             <Link href="/signup" className="btn-glow rounded-full px-5 py-3 text-[14px] font-semibold">Start free trial</Link>
           </div>
         </div>
@@ -210,11 +297,11 @@ export default function Site() {
               </span>
             </h1>
             <p className="text-ink-soft text-[16.5px] sm:text-[18px] leading-relaxed mt-6 max-w-[540px] mx-auto lg:mx-0">
-              AI calling agents that answer and make your business calls in Telugu, Hindi, Tamil and 8 more Indian languages, understand what each caller needs, and hand your team only the leads worth calling back.
+              AI calling agents for any business that runs on phone calls — clinics, real estate, education, e-commerce, finance, hospitality and more. They answer and make your calls in Telugu, Hindi, Tamil and 8 more Indian languages, and hand your team only the leads worth calling back.
             </p>
             <div className="flex flex-wrap gap-3 mt-9 justify-center lg:justify-start">
               <Link href="/signup" className="btn-glow rounded-full px-6 py-3.5 text-[15px] font-semibold" data-testid="hero-trial">Start free — 14 days</Link>
-              <a href={DEMO} className="btn-ghost rounded-full px-6 py-3.5 text-[15px] font-medium">Book a demo →</a>
+              <button onClick={openDemo("hero")} className="btn-ghost rounded-full px-6 py-3.5 text-[15px] font-medium" data-testid="hero-demo">Book a demo →</button>
             </div>
             <div className="text-[12.5px] text-ink-soft/80 mt-4">100 free minutes · no card needed · cancel anytime</div>
           </div>
@@ -241,7 +328,7 @@ export default function Site() {
           <div className="marquee-track font-mono text-[13px] text-ink-soft">
             {[0, 1].map((k) => (
               <div key={k} className="flex">
-                {["ANSWER EVERY CALL", "CAPTURE EVERY LEAD", "NEVER GO COLD", "11 INDIAN LANGUAGES", "INBOUND + OUTBOUND", "LIVE IN DAYS", "PAY BY UPI", "YOUR OWN VOICE"].map((t) => (
+                {["ANSWER EVERY CALL", "CAPTURE EVERY LEAD", "ANY INDUSTRY", "11 INDIAN LANGUAGES", "INBOUND + OUTBOUND", "LIVE IN DAYS", "PAY BY UPI", "YOUR OWN VOICE"].map((t) => (
                   <span key={t} className="px-8 whitespace-nowrap"><b className="text-signal mr-2">●</b>{t}</span>
                 ))}
               </div>
@@ -257,7 +344,7 @@ export default function Site() {
               CALL <b className="text-signal">→</b> DATA <b className="text-signal">→</b> AI <b className="text-signal">→</b> ACTION <b className="text-signal">→</b> <span className="text-gradient">RESULT</span>
             </p>
             <p className="text-ink-soft text-[16px] leading-relaxed mt-5 max-w-[480px]">
-              Every conversation becomes structured data. Every signal becomes an action your team doesn&apos;t have to chase. Watch a real-style call on the right — Telugu in, qualified lead out.
+              Every conversation becomes structured data. Every signal becomes an action your team doesn&apos;t have to chase. Pick a business on the right and watch a real-style call — their language in, a qualified lead out.
             </p>
             <div className="mt-8 card p-5">
               <div className="eyebrow">// THE GAP</div>
@@ -289,6 +376,8 @@ export default function Site() {
           </div>
         </section>
 
+        <Industries onDemo={openDemo("industries")} />
+
         {/* ---------- Dashboard preview ---------- */}
         <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24 grid lg:grid-cols-[1fr_1.35fr] gap-12 items-center">
           <div className="reveal">
@@ -301,6 +390,8 @@ export default function Site() {
           </div>
           <div className="reveal"><DashboardPreview /></div>
         </section>
+
+        <MissedCalls onDemo={openDemo("calculator")} />
 
         {/* ---------- How it works ---------- */}
         <section id="how" className="border-y border-white/[.06] bg-white/[.012]">
@@ -345,27 +436,23 @@ export default function Site() {
           </div>
           <div className="reveal card mt-3 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div><div className="font-display text-[20px] font-semibold">Enterprise</div><div className="text-ink-soft text-[14px] mt-1">35,000+ minutes a month, unlimited AI employees, 50 calls at once, and custom per-minute rates.</div></div>
-            <a href={DEMO} className="btn-ghost rounded-full px-6 py-3 text-[14px] font-semibold whitespace-nowrap">Talk to us →</a>
+            <button onClick={openDemo("enterprise")} className="btn-ghost rounded-full px-6 py-3 text-[14px] font-semibold whitespace-nowrap">Talk to us →</button>
           </div>
         </section>
 
-        {/* ---------- Field report + industries ---------- */}
+        {/* ---------- Field report + who built it ---------- */}
         <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24 grid lg:grid-cols-[1.3fr_1fr] gap-3">
           <div className="card reveal p-8">
-            <div className="eyebrow">// FIELD REPORT</div>
+            <div className="eyebrow">// FIELD REPORT · FIRST DEPLOYMENT</div>
             <p className="font-display text-[22px] sm:text-[26px] font-medium leading-snug mt-4 tracking-tight">
-              RANA AI is live inside a leading NEET &amp; medical-entrance coaching network across South India — answering admission enquiries and running outbound campaigns end to end.
+              RANA AI is live with a leading medical-entrance coaching network across South India — answering enquiries and running outbound campaigns end to end, in Telugu and English.
             </p>
             <div className="font-mono text-[11.5px] text-ink-soft mt-5">Full results will be published here as the numbers come in.</div>
           </div>
           <div className="card reveal p-8">
-            <div className="eyebrow">// BUILT FOR</div>
-            <div className="flex flex-wrap gap-2 mt-4">
-              {["Coaching & test-prep", "Colleges & admissions", "Clinics & diagnostics", "Real estate", "Hospitality", "Local services & franchises"].map((t, i) => (
-                <span key={t} className={`rounded-full px-3.5 py-2 text-[13px] border ${i === 0 ? "border-signal/40 bg-signal/10 text-signal" : "border-white/10 text-ink-soft"}`}>{t}</span>
-              ))}
-            </div>
-            <p className="text-ink-soft text-[14px] leading-relaxed mt-5">Built by someone who ran admissions and franchise sales operations inside a coaching network — not a generic AI vendor.</p>
+            <div className="eyebrow">// WHO BUILT IT</div>
+            <p className="font-display text-[20px] font-semibold leading-snug mt-4">Built in Hyderabad by people who have run sales teams, admissions and franchise operations.</p>
+            <p className="text-ink-soft text-[14px] leading-relaxed mt-3">We know what a missed call costs, because we have chased those leads ourselves. RANA is the teammate we wanted: one that picks up every time, in the customer&apos;s language.</p>
           </div>
         </section>
 
@@ -390,11 +477,14 @@ export default function Site() {
             <p className="text-ink-soft text-[16px] mt-5">Hire your first AI employee in minutes. It starts answering today.</p>
             <div className="flex flex-wrap gap-3 justify-center mt-9">
               <Link href="/signup" className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold">Start free — 14 days</Link>
-              <a href={`mailto:${CONTACT_EMAIL}`} className="btn-ghost rounded-full px-7 py-3.5 text-[15px] font-medium">{CONTACT_EMAIL}</a>
+              <button onClick={openDemo("footer-cta")} className="btn-ghost rounded-full px-7 py-3.5 text-[15px] font-medium">Book a demo</button>
             </div>
+            <div className="text-[13px] text-ink-soft mt-5">or write to <a href={`mailto:${CONTACT_EMAIL}`} className="text-signal">{CONTACT_EMAIL}</a></div>
           </div>
         </section>
       </main>
+
+      <DemoForm open={!!demo} onClose={() => setDemo(null)} source={demo || ""} />
 
       <footer className="border-t border-white/[.06]">
         <div className="max-w-[1160px] mx-auto px-5 sm:px-8 py-10 flex flex-col md:flex-row gap-6 items-center justify-between text-[13px] text-ink-soft">
