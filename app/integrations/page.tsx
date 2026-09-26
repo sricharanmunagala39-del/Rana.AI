@@ -9,6 +9,16 @@ const KINDS: { k: string; name: string; icon: string; blurb: string }[] = [
   { k: "webhook", name: "Webhook", icon: "🔗", blurb: "Send leads to Zapier, Make, Google Sheets, your CRM — anything with a webhook URL." },
 ];
 const field = "w-full border border-line rounded-lg px-3 py-2 text-[13px] bg-sunken";
+// Free Google Sheets receiver: paste into Extensions → Apps Script, deploy as a Web app, paste its URL into RANA.
+const SHEETS_SCRIPT = `function doPost(e) {
+  var d = JSON.parse(e.postData.contents), l = d.lead || {};
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName("RANA leads") || ss.insertSheet("RANA leads");
+  var cols = ["name", "phone", "lead", "reason", "summary", "campaign", "direction", "when", "talk", "needs_person", "recording"];
+  if (sh.getLastRow() === 0) sh.appendRow(["Received"].concat(cols));
+  sh.appendRow([new Date()].concat(cols.map(function (c) { return l[c] || ""; })));
+  return ContentService.createTextOutput("ok");
+}`;
 const when = (d: string | null) => (d ? new Date(d).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: true }) : "never");
 
 /** Lead alerts: the client decides where leads go (Slack, WhatsApp, email, webhook), which leads, and what's in them. */
@@ -152,6 +162,19 @@ export default function IntegrationsPage() {
                 <input value={form.recipients} onChange={(e) => setForm({ ...form, recipients: e.target.value })} placeholder="https://hooks.zapier.com/hooks/catch/…" className={`${field} mt-1 font-mono`} />
                 <span className="font-normal block mt-1">RANA POSTs JSON <code>{`{ event: "rana.lead", title, lead: {…} }`}</code> for each lead. Works with Zapier, Make, n8n, Google Apps Script and most CRMs.</span>
               </label>
+            )}
+            {form.kind === "webhook" && (
+              <details className="text-[12.5px] bg-sunken rounded-lg p-3" data-testid="sheets-help">
+                <summary className="cursor-pointer font-semibold">📊 Send leads straight into a Google Sheet (free, 2 minutes)</summary>
+                <ol className="list-decimal pl-5 mt-2 flex flex-col gap-1 text-ink-soft">
+                  <li>Open a new Google Sheet → <b>Extensions → Apps Script</b>.</li>
+                  <li>Delete what&apos;s there, paste the script below, press <b>Save</b>.</li>
+                  <li><b>Deploy → New deployment</b> → type <b>Web app</b> → Execute as <b>Me</b>, Who has access <b>Anyone</b> → <b>Deploy</b> → allow access.</li>
+                  <li>Copy the <b>Web app URL</b> (https://script.google.com/macros/s/…/exec), paste it above, add the alert, press <b>Send test</b>. A row appears in the “RANA leads” tab.</li>
+                </ol>
+                <pre className="mt-2 text-[11px] font-mono bg-raised border border-line rounded-md p-2 overflow-x-auto whitespace-pre">{SHEETS_SCRIPT}</pre>
+                <button type="button" onClick={() => navigator.clipboard?.writeText(SHEETS_SCRIPT)} className="mt-1.5 text-[12px] font-semibold text-signal">Copy script</button>
+              </details>
             )}
             {form.kind === "whatsapp" && (<>
               <div className="text-[12px] text-ink-soft bg-sunken rounded-lg p-3">Uses your own <b>WhatsApp Business (Meta Cloud API)</b> number. In Meta Business → WhatsApp → API setup, copy the <b>Phone number ID</b> and a <b>permanent access token</b>. For messages to start a chat, WhatsApp requires an <b>approved template</b> — its {"{{1}}, {{2}}…"} are filled with the details below, in order.</div>
