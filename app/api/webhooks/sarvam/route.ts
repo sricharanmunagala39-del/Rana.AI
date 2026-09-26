@@ -8,6 +8,7 @@
 export const runtime = "nodejs";
 import { getClientByWebhookSecret, getClientByAppId, upsertCall, payloadToCall, existingCall } from "@/lib/calls";
 import { handoffAfterCall } from "@/lib/handoffAlert";
+import { leadAlertsAfterCall } from "@/lib/leadAlerts";
 import crypto from "crypto";
 import { sarvamConfig, recordingUrl, SARVAM_VOICES } from "@/lib/sarvamAgent";
 import { optOutPhrase, addDnc } from "@/lib/compliance";
@@ -88,7 +89,9 @@ export async function POST(req: Request) {
     if (!handoff && row.source !== "manual" && (row.duration_seconds ?? 0) > 0) {
       handoff = await handoffAfterCall(client, saved, payload).catch((e: any) => { console.error("[webhook] handoff", e?.message); return null; });
     }
-    return Response.json({ ok: true, id: saved.id, lead_status: saved.lead_status, handoff: handoff ? handoff.rule : null });
+    // The client's own lead alerts (Slack, WhatsApp, email, webhook) — each call to each channel once.
+    const alerts = await leadAlertsAfterCall(client, { ...saved, handoff: handoff || saved.handoff || null, follow_up: saved.follow_up || !!handoff });
+    return Response.json({ ok: true, id: saved.id, lead_status: saved.lead_status, handoff: handoff ? handoff.rule : null, alerts });
   } catch (err: any) {
     console.error("[webhook] failed", err?.message);
     return Response.json({ error: err?.message || "Failed to store call" }, { status: 500 });

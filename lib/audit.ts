@@ -8,7 +8,7 @@ export type AuditAction =
   | "number_provisioned" | "number_imported" | "number_released" | "number_assigned" | "number_test_call"
   | "employee_published" | "employee_deleted"
   | "campaign_launched" | "campaign_cancelled" | "campaign_retried" | "campaign_exported"
-  | "lead_updated" | "dnc_added" | "dnc_removed" | "calling_rules_changed"
+  | "lead_updated" | "dnc_added" | "dnc_removed" | "calling_rules_changed" | "report_downloaded" | "integration_added" | "integration_changed" | "integration_removed"
   | "voice_cloned" | "voice_deleted"
   | "hq_client_created" | "hq_client_updated" | "hq_workspace_opened" | "hq_owner_password_reset"
   | "billing_details_changed" | "invoice_created" | "invoice_paid" | "invoice_voided";
@@ -26,7 +26,8 @@ export const AUDIT_LABEL: Record<AuditAction, string> = {
   campaign_launched: "Launched a campaign", campaign_cancelled: "Stopped a campaign",
   campaign_retried: "Re-dialled a campaign", campaign_exported: "Downloaded campaign results",
   lead_updated: "Changed a lead", dnc_added: "Added to do-not-call", dnc_removed: "Removed from do-not-call",
-  calling_rules_changed: "Changed calling rules",
+  calling_rules_changed: "Changed calling rules", report_downloaded: "Downloaded a calls report",
+  integration_added: "Connected a lead-alert channel", integration_changed: "Changed a lead-alert channel", integration_removed: "Removed a lead-alert channel",
   voice_cloned: "Cloned a voice", voice_deleted: "Deleted a cloned voice",
   hq_client_created: "RANA created this workspace", hq_client_updated: "RANA changed the plan or limits",
   hq_workspace_opened: "RANA support opened this workspace", hq_owner_password_reset: "RANA reset the owner's password",
