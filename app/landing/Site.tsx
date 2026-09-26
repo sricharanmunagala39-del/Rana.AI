@@ -372,7 +372,7 @@ export default function Site() {
           </div>
           <div className="reveal flex flex-wrap items-center gap-2 mt-5 text-[12.5px]">
             <span className="font-mono text-ink-soft mr-1">COMING NEXT →</span>
-            {["WhatsApp follow-ups", "Slack & WhatsApp hot-lead alerts", "CRM sync", "Predictive lead scoring"].map((t) => <span key={t} className="rounded-full border border-white/10 px-3 py-1 text-ink-soft">{t}</span>)}
+            {["WhatsApp follow-ups to customers", "Two-way CRM sync", "Predictive lead scoring"].map((t) => <span key={t} className="rounded-full border border-white/10 px-3 py-1 text-ink-soft">{t}</span>)}
           </div>
         </section>
 
@@ -385,7 +385,7 @@ export default function Site() {
             <h2 className="font-display text-[32px] sm:text-[42px] font-semibold tracking-[-0.025em] leading-[1.05] mt-3">Open it once.<br />Know everything.</h2>
             <p className="text-ink-soft text-[16px] leading-relaxed mt-4">Calls, connect rate, talk time, hot leads and every transcript — live. Filter by today, campaign or direction, and see exactly why a call didn&apos;t connect.</p>
             <ul className="mt-6 flex flex-col gap-2.5 text-[14.5px]">
-              {["Hot leads ranked so sales calls the right people first", "Campaign-by-campaign results", "Plan minutes and prepaid balance at a glance"].map((t) => <li key={t} className="flex gap-2.5"><span className="text-signal">✓</span>{t}</li>)}
+              {["Hot leads ranked so sales calls the right people first", "Hot leads sent to Slack, WhatsApp or email the moment a call ends", "Excel reports with exactly the columns you choose", "Campaign-by-campaign results"].map((t) => <li key={t} className="flex gap-2.5"><span className="text-signal">✓</span>{t}</li>)}
             </ul>
           </div>
           <div className="reveal"><DashboardPreview /></div>

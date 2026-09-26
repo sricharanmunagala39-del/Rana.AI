@@ -49,7 +49,8 @@ const GROUPS: { label: string; items: { key: string; label: string; href: string
   {
     label: "Results & Setup",
     items: [
-      { key: "leads-results", label: "Leads & Results", href: "/coming-soon?feature=Leads+%26+Results", icon: "table" },
+      { key: "leads-results", label: "Leads & Reports", href: "/reports", icon: "table" },
+      { key: "alerts", label: "Lead alerts", href: "/integrations", icon: "bolt" },
       { key: "conversations", label: "All Conversations", href: "/coming-soon?feature=All+Conversations", icon: "chat" },
       { key: "phone-numbers", label: "Phone Numbers", href: "/phone-numbers", icon: "phone" },
       { key: "performance", label: "Performance", href: "/coming-soon?feature=Performance", icon: "bars" },
