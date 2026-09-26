@@ -105,6 +105,9 @@ export default function Sidebar({ active, client: clientProp }: { active: string
           <Link href="/hq/team" className="flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium text-ink-soft hover:bg-raised hover:text-ink" data-testid="hq-team-nav">
             <span className="w-2 text-center text-[11px]">◆</span> Team &amp; security
           </Link>
+          <Link href="/hq/sign-ins" className="flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium text-ink-soft hover:bg-raised hover:text-ink" data-testid="hq-signins-nav">
+            <span className="w-2 text-center text-[11px]">↪</span> Sign-ins
+          </Link>
         </div>
       )}
       {client?.pending && (

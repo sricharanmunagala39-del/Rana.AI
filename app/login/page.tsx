@@ -1,11 +1,13 @@
 // @ts-nocheck
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AuthShell from "@/components/AuthShell";
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [justReset, setJustReset] = useState(false);
+  useEffect(() => { const q = new URLSearchParams(window.location.search); const e = q.get("email"); if (e) setEmail(e); setJustReset(q.get("reset") === "1"); }, []);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -59,9 +61,10 @@ export default function LoginPage() {
           <div className="text-[11px] font-mono text-signal tracking-wider">// WELCOME BACK</div>
           <h1 className="font-display text-[30px] font-semibold tracking-tight mt-1 mb-1.5">Sign in to RANA</h1>
           <p className="text-[13.5px] text-ink-soft mb-7">Your AI employees kept working while you were away.</p>
+          {justReset && <div className="text-[13px] bg-signal/10 border border-signal/25 rounded-xl px-3.5 py-2.5 mb-4" data-testid="reset-ok">✓ Password changed. Sign in with your new password.</div>}
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <div><label className="text-[12px] font-semibold text-ink-soft block mb-1.5">Work email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" autoFocus className={field} /></div>
-            <div><label className="text-[12px] font-semibold text-ink-soft block mb-1.5">Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={field} /></div>
+            <div><div className="flex items-center justify-between mb-1.5"><label className="text-[12px] font-semibold text-ink-soft">Password</label><a href={`/forgot-password${email.trim() ? `?email=${encodeURIComponent(email.trim())}` : ""}`} className="text-[12px] text-signal font-semibold" data-testid="forgot-link">Forgot password?</a></div><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={field} /></div>
             {error && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-xl px-3 py-2.5">{error}</div>}
             <button type="submit" disabled={loading || !email.trim() || !password.trim()} className="bg-signal text-on-accent rounded-xl py-3 text-[14px] font-semibold disabled:opacity-40 mt-1">{loading ? "Signing in…" : "Sign in →"}</button>
           </form>

@@ -2,7 +2,7 @@
 import { scryptSync, randomBytes, timingSafeEqual, createHmac } from "crypto";
 
 const SESSION_COOKIE = "rana_session";
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type Role = "owner" | "admin" | "manager" | "agent" | "viewer";
 export const ROLES: Role[] = ["owner", "admin", "manager", "agent", "viewer"];
@@ -18,7 +18,7 @@ export const ROLE_INFO: Record<Role, { label: string; can: string }> = {
 /** userId is absent on sessions from the old shared client login; those act as the owner. */
 export type HqRole = "founder" | "ops" | "support" | "finance";
 /** hqFrom/hqRO/hqExp/hqReason: RANA HQ staff inside a client's workspace (read-only and time-limited when set). hqRole: set by getSession for HQ staff. */
-export type Session = { clientId: string; email: string; exp: number; userId?: string; role?: Role; name?: string; hqFrom?: string; hqRO?: boolean; hqExp?: number; hqReason?: string; hqRole?: HqRole };
+export type Session = { clientId: string; email: string; exp: number; iat?: number; userId?: string; role?: Role; name?: string; hqFrom?: string; hqRO?: boolean; hqExp?: number; hqReason?: string; hqRole?: HqRole };
 
 export function roleOf(s: Session): Role { return s.role && RANK[s.role] ? s.role : "owner"; }
 export function hasRole(s: Session, min: Role): boolean { return RANK[roleOf(s)] >= RANK[min]; }
@@ -65,7 +65,8 @@ export function verifyPassword(plain: string, stored: string): boolean {
 }
 
 export function createSessionCookie(clientId: string, email: string, user?: { userId: string; role: Role; name?: string | null; hqFrom?: string; hqRO?: boolean; hqExp?: number; hqReason?: string }): string {
-  const payload: Session = { clientId, email, exp: Date.now() + SESSION_TTL_MS, ...(user ? { userId: user.userId, role: user.role, name: user.name ?? undefined, ...(user.hqFrom ? { hqFrom: user.hqFrom, hqRO: !!user.hqRO, hqExp: user.hqExp, hqReason: user.hqReason } : {}) } : {}) };
+  const now = Date.now();
+  const payload: Session = { clientId, email, iat: now, exp: now + SESSION_TTL_MS, ...(user ? { userId: user.userId, role: user.role, name: user.name ?? undefined, ...(user.hqFrom ? { hqFrom: user.hqFrom, hqRO: !!user.hqRO, hqExp: user.hqExp, hqReason: user.hqReason } : {}) } : {}) };
   const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const value = `${data}.${sign(data)}`;
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";

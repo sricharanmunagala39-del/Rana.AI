@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 import { getSession, forgetUser } from "@/lib/session";
-import { unauthorized, verifyPassword, hashPassword } from "@/lib/auth";
+import { unauthorized, verifyPassword, hashPassword, createSessionCookie } from "@/lib/auth";
 import { getUser, updateUser, passwordProblem } from "@/lib/users";
 import { audit } from "@/lib/audit";
 
@@ -19,5 +19,8 @@ export async function POST(req: Request) {
   await updateUser(user.id, { password_hash: hashPassword(next), must_change_password: false } as any);
   forgetUser(user.id);
   await audit(session, "password_changed", { req, targetType: "user", targetId: user.id });
-  return Response.json({ ok: true });
+  // Every other device is now signed out; keep this one signed in with a fresh cookie.
+  const headers = new Headers({ "Content-Type": "application/json" });
+  if (!session.hqFrom) headers.set("Set-Cookie", createSessionCookie(session.clientId, user.email, { userId: user.id, role: user.role, name: user.name }));
+  return new Response(JSON.stringify({ ok: true, signedOutElsewhere: true }), { status: 200, headers });
 }

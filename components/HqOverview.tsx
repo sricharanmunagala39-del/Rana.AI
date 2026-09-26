@@ -135,7 +135,7 @@ export default function HqOverview({ onData, onOpenClient, onApprove }: { onData
           <div className="flex justify-between"><span className="text-ink-soft">Razorpay notices</span><span className={P.razorpay.problems ? "text-miss font-semibold" : "text-signal font-semibold"}>{P.razorpay.problems ? `${P.razorpay.problems} problem(s)` : `OK · ${P.razorpay.recent.length} recent`}</span></div>
           <div className="flex justify-between"><span className="text-ink-soft">Email</span><span className={P.emailConfigured ? "text-signal font-semibold" : "text-hot font-semibold"}>{P.emailConfigured ? `On${P.emailFailures24h ? ` · ${P.emailFailures24h} failed` : ""}` : "Off — add RESEND_API_KEY"}</span></div>
           <div className="flex justify-between"><span className="text-ink-soft">Sarvam agent check</span><span>{P.sarvamCheck ? `${P.sarvamCheck.ok ? "OK" : "check"} · ${new Date(P.sarvamCheck.at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : "—"}</span></div>
-          <div className="flex gap-3 mt-2 pt-2 border-t border-line text-[12px] font-semibold"><Link href="/hq/money" className="text-signal">₹ Money</Link><Link href="/hq/team" className="text-signal">Team &amp; security</Link></div>
+          <div className="flex gap-3 mt-2 pt-2 border-t border-line text-[12px] font-semibold"><Link href="/hq/money" className="text-signal">₹ Money</Link><Link href="/hq/team" className="text-signal">Team &amp; security</Link><Link href="/hq/sign-ins" className="text-signal">Sign-ins</Link></div>
         </div>
       </div>
     </div>
