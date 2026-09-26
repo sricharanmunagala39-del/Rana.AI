@@ -82,8 +82,10 @@ function leadOf(call: any, fields: string[], extra: { campaign: string | null; c
 
 // ---------- Senders ----------
 async function post(url: string, body: any, headers: Record<string, string> = {}) {
-  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: typeof body === "string" ? body : JSON.stringify(body), signal: AbortSignal.timeout(10000), redirect: "error" });
-  if (!r.ok) throw new Error(`${r.status} ${(await r.text().catch(() => "")).slice(0, 200)}`);
+  // Redirects are never followed (a webhook must not bounce RANA to another address), but a 3xx still means the
+  // receiver got the request — Google Apps Script web apps always answer a POST with a 302.
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: typeof body === "string" ? body : JSON.stringify(body), signal: AbortSignal.timeout(10000), redirect: "manual" });
+  if (r.status < 200 || r.status >= 400) throw new Error(`${r.status} ${(await r.text().catch(() => "")).slice(0, 200)}`);
 }
 
 async function deliver(integ: any, lead: Lead): Promise<void> {
@@ -121,7 +123,13 @@ async function deliver(integ: any, lead: Lead): Promise<void> {
       const body = cfg.template
         ? { messaging_product: "whatsapp", to: n, type: "template", template: { name: cfg.template, language: { code: cfg.templateLang || "en" }, components: [{ type: "body", parameters: lead.lines.slice(0, 10).map(([, v]) => ({ type: "text", text: clip(v.replace(/\s+/g, " "), 900) || "-" })) }] } }
         : { messaging_product: "whatsapp", to: n, type: "text", text: { body: text, preview_url: false } };
-      await post(`https://graph.facebook.com/v21.0/${encodeURIComponent(cfg.phoneNumberId)}/messages`, body, { Authorization: `Bearer ${secret}` });
+      const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(cfg.phoneNumberId)}/messages`;
+      try { await post(url, body, { Authorization: `Bearer ${secret}` }); }
+      catch (e: any) {
+        // A template with no {{1}} blanks (like Meta's test "hello_world") rejects parameters — send it plain.
+        if (!cfg.template || !/132000|parameter/i.test(String(e?.message))) throw e;
+        await post(url, { ...body, template: { name: cfg.template, language: { code: cfg.templateLang || "en" } } }, { Authorization: `Bearer ${secret}` });
+      }
     }
   }
 }
