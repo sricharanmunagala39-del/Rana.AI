@@ -1,12 +1,19 @@
 export const runtime = "nodejs";
 export const maxDuration = 90;
 import { studioGuard } from "@/lib/studioAuth";
-import { chatJson } from "@/lib/llm";
+import { chat, chatJson } from "@/lib/llm";
+
 import { friendly } from "@/lib/sarvamHealth";
 import { buildAgentPrompt, normalizePlaybook, normalizePolicy, normalizeLinks, normalizePronunciations } from "@/lib/playbook";
 import { normalizeHandoff } from "@/lib/handoff";
 import { STRICTNESS_LABELS } from "@/lib/storage";
 import { auditMessages, rewriteMessages, simulateMessages, customerMessages, cleanAnalysis, businessSummary, OBJECTION_TYPES, REWRITE_KINDS, PERSONAS, type Turn } from "@/lib/coach";
+
+/** First real line of a plain-text model reply, without quotes, labels or JSON braces. */
+function plainLine(t: string) {
+  const line = String(t || "").replace(/```[\s\S]*?```/g, "").split(/\n+/).map((l) => l.trim()).find((l) => l && !/^[{}\[\]]$/.test(l)) || "";
+  return line.replace(/^(customer|you|agent|reply|line)\s*:\s*/i, "").replace(/^["“'`]+|["”'`]+$/g, "").slice(0, 600);
+}
 
 // Fair use: each coach request costs a little AI time; stop a runaway loop from one workspace.
 const hits = new Map<string, number[]>();
@@ -72,7 +79,10 @@ export async function POST(req: Request) {
         playbook, policy, links: normalizeLinks(b.links), pronunciations: normalizePronunciations(b.pronunciations), knowledge: [],
         handoff: normalizeHandoff(b.handoff),
       });
-      const out: any = await chatJson(simulateMessages({ system, greeting, history }), { maxTokens: 900, temperature: 0.4, timeoutMs: 60000 });
+      const msgs = simulateMessages({ system, greeting, history });
+      // If the model won't give clean JSON, still answer: plain reply, neutral analysis.
+      const out: any = await chatJson(msgs, { maxTokens: 1500, temperature: 0.4, timeoutMs: 60000 })
+        .catch(async (e) => { if ((e as any)?.name === "SarvamError") throw e; return { reply: plainLine(await chat([...msgs.slice(0, 1).map((m) => ({ ...m, content: m.content.split("# PRACTICE MODE")[0] })), ...msgs.slice(1)], { maxTokens: 800, temperature: 0.4, timeoutMs: 45000 })), analysis: {} }; });
       const reply = str(out.reply ?? out.agent ?? out.text, 800).trim();
       if (!reply) throw new Error("empty reply");
       return Response.json({ reply, analysis: cleanAnalysis(out.analysis || {}) });
@@ -80,7 +90,9 @@ export async function POST(req: Request) {
 
     if (mode === "customer") {
       const persona = PERSONAS[b.persona] ? b.persona : "price";
-      const out: any = await chatJson(customerMessages({ persona, business: businessSummary(playbook, greeting), openingLanguage, history, greeting }), { maxTokens: 400, temperature: 0.9, timeoutMs: 45000 });
+      const msgs = customerMessages({ persona, business: businessSummary(playbook, greeting), openingLanguage, history, greeting });
+      const out: any = await chatJson(msgs, { maxTokens: 1200, temperature: 0.7, timeoutMs: 45000 })
+        .catch(async (e) => { if ((e as any)?.name === "SarvamError") throw e; return { line: plainLine(await chat([...msgs, { role: "user", content: "Reply with ONLY the customer's next line — no JSON, no quotes, no explanation." }], { maxTokens: 600, temperature: 0.7, timeoutMs: 40000 })), done: false }; });
       const line = str(out.line ?? out.text, 400).trim();
       if (!line) throw new Error("empty line");
       return Response.json({ line, done: !!out.done });
