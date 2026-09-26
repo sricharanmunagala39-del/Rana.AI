@@ -7,6 +7,7 @@
 import { useRef, useState } from "react";
 import { Spinner } from "./Editors";
 import { LANG_NAMES } from "@/lib/playbook";
+import { spellAcronyms } from "@/lib/acronym";
 
 const NATIVE_LABEL: Record<string, string> = { te: "తెలుగు", hi: "हिन्दी", ta: "தமிழ்", kn: "ಕನ್ನಡ", ml: "മലയാളം", mr: "मराठी", bn: "বাংলা", gu: "ગુજરાતી", pa: "ਪੰਜਾਬੀ", en: "English" };
 
@@ -58,6 +59,9 @@ export default function PronunciationPanel({ items, onChange, keyterms, onKeyter
     const p = items[i];
     const source = (p.sayAs || p.word || "").trim();
     if (!source) return;
+    // Capital-letter names (DBMCI, FMGE, PG) are spelled letter by letter straight away — no AI needed.
+    const spelled = spellAcronyms(p.word || source, lang);
+    if (spelled) { set(i, "sayAs", spelled); return; }
     setWriting(i); setErr("");
     try {
       const res = await fetch("/api/studio/translate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: p.word || source, to: lang, mode: "transliterate" }) });
@@ -98,7 +102,8 @@ export default function PronunciationPanel({ items, onChange, keyterms, onKeyter
           {items.map((p: any, i: number) => (
             <div key={i} className="grid grid-cols-[1fr_1.3fr_auto_auto] gap-2 items-center" data-testid="pron-row">
               <div className="flex items-center gap-1.5 border border-line rounded-lg bg-raised px-2">
-                <input value={p.word} onChange={(e) => set(i, "word", e.target.value)} placeholder="DBMCI" className="flex-1 min-w-0 py-1.5 text-[13.5px] outline-none bg-transparent" />
+                <input value={p.word} onChange={(e) => set(i, "word", e.target.value)} placeholder="DBMCI"
+                  onBlur={() => { if (!String(p.sayAs || "").trim()) { const sp = spellAcronyms(p.word, lang); if (sp) set(i, "sayAs", sp); } }} className="flex-1 min-w-0 py-1.5 text-[13.5px] outline-none bg-transparent" />
                 <PlayBtn k={`w${i}`} text={p.word} label="" />
               </div>
               <div className="flex items-center gap-1.5 border border-signal/40 rounded-lg bg-raised px-2">

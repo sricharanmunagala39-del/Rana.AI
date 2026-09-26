@@ -42,7 +42,7 @@ export function cycleStart(client: any, now = new Date()): Date {
   return d;
 }
 
-/** Connected minutes, billed per call rounded up to the next 30 seconds. Talk-page practice (source "manual") is free and never counted here. */
+/** Connected minutes, billed per call rounded up to the next 30 seconds. Talk-page practice is metered separately (lib/practice). */
 export function billedMinutes(durations: number[]): number {
   return durations.reduce((m, d) => (d > 0 ? m + Math.ceil(d / 30) / 2 : m), 0);
 }
@@ -56,16 +56,17 @@ export async function minutesBetween(clientId: string, from: Date, to: Date): Pr
 export async function usageOf(client: any, now = new Date()) {
   const from = cycleStart(client, now);
   const rows = await sbAll<any>(`/calls?client_id=eq.${client.id}&created_at=gte.${encodeURIComponent(from.toISOString())}&duration_seconds=gt.0&select=duration_seconds,source&order=created_at.asc,id.asc`).catch(() => []);
-  // Practice on the Talk page (browser sessions, source "manual") is free: Sarvam doesn't charge for it, so we don't either.
+  // Talk-page practice doesn't use plan minutes; it has its own free allowance, metered from practice_sessions.
   const all = (rows || []).filter((r) => r.source !== "manual").map((r) => Number(r.duration_seconds) || 0);
-  const tests = (rows || []).filter((r) => r.source === "manual").map((r) => Number(r.duration_seconds) || 0);
+  const { practiceMinutes } = await import("./practice");
+  const testMinutes = await practiceMinutes(client.id, from).catch(() => 0);
   const lim = limitsOf(client);
   const used = billedMinutes(all);
   const trialEndsAt = lim.plan.key === "trial" ? (client?.trial_ends_at ? new Date(client.trial_ends_at) : null) : null;
   const daysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt.getTime() - now.getTime()) / 86400000)) : null;
   const overage = Math.max(0, used - lim.minutes);
   return {
-    periodStart: from.toISOString(), minutesUsed: used, minutesIncluded: lim.minutes, testMinutes: billedMinutes(tests),
+    periodStart: from.toISOString(), minutesUsed: used, minutesIncluded: lim.minutes, testMinutes, practiceAllowance: FREE_PRACTICE_MIN,
     calls: all.length, overageMinutes: overage,
     overageCost: overage && lim.plan.overagePerMin ? Math.round(overage * lim.plan.overagePerMin) : 0,
     trialEndsAt: trialEndsAt?.toISOString() ?? null, trialDaysLeft: daysLeft,
@@ -75,8 +76,8 @@ export async function usageOf(client: any, now = new Date()) {
   };
 }
 
-/** Free practice minutes per billing period on the Talk page (fair-use guard). Override with RANA_FREE_PRACTICE_MIN. */
-export const FREE_PRACTICE_MIN = Number(process.env.RANA_FREE_PRACTICE_MIN) || 300;
+/** Free practice minutes per billing period on the Talk page. Sarvam bills these (₹4.50/started minute), so keep it modest. Override with RANA_FREE_PRACTICE_MIN. */
+export const FREE_PRACTICE_MIN = Number(process.env.RANA_FREE_PRACTICE_MIN) || 30;
 
 /** Why this workspace can't place calls right now, or null. `extraMinutes` = minutes a new campaign may use. */
 export async function callingBlock(client: any, opts: { contacts?: number; practice?: boolean } = {}): Promise<string | null> {
@@ -89,10 +90,10 @@ export async function callingBlock(client: any, opts: { contacts?: number; pract
   if (u.plan.key === "trial" && u.trialEndsAt && Date.parse(u.trialEndsAt) < Date.now())
     return `Your free trial ended on ${new Date(u.trialEndsAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}. Pick a plan on the Billing page to keep calling.`;
   if (client.status === "pending") return "Your workspace is waiting for RANA to approve it. We'll email you as soon as it's switched on.";
-  // Practice in the browser is free and doesn't need plan minutes — only a generous fair-use cap.
+  // Practice in the browser doesn't need plan minutes — it has its own free allowance.
   if (opts.practice) {
     return u.testMinutes >= FREE_PRACTICE_MIN
-      ? `You've used this period's ${FREE_PRACTICE_MIN} free practice minutes. Use "Call me" to test by phone, or ask RANA for more practice time.`
+      ? `You've used this period's ${FREE_PRACTICE_MIN} free voice-practice minutes. Keep testing for free with "Practice conversation" (typed) on the employee's Review step, use "Call me" (counts as a call), or ask RANA for more practice time.`
       : null;
   }
   if (u.minutesUsed >= u.minutesIncluded && !u.limits.allowOverage) {

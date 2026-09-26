@@ -3,6 +3,7 @@ export const maxDuration = 120;
 import { studioGuard } from "@/lib/studioAuth";
 import { chatJson } from "@/lib/llm";
 import { editMessages, normalizePlaybook, normalizeLinks } from "@/lib/playbook";
+import { friendly } from "@/lib/sarvamHealth";
 
 /** POST { playbook, greeting, links, instruction, openingLanguage } → the edited playbook and a one-line summary. */
 export async function POST(req: Request) {
@@ -23,6 +24,6 @@ export async function POST(req: Request) {
     });
   } catch (e: any) {
     console.error("[studio edit]", e?.message || e);
-    return Response.json({ error: "The AI couldn't make that change. Please try again in a minute." }, { status: 502 });
+    return Response.json({ error: friendly(e, "The AI couldn't make that change. Please try again in a minute.") }, { status: 502 });
   }
 }

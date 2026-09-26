@@ -114,7 +114,7 @@ export default function BillingPage() {
                     </div>
                     <div className="h-2.5 rounded-full bg-paper mt-2 overflow-hidden"><div className={`h-full ${pct >= 100 ? "bg-miss" : pct >= 80 ? "bg-hot" : "bg-signal"}`} style={{ width: `${pct}%` }} /></div>
                     <div className="text-[12px] text-ink-soft mt-2">
-                      {u.calls} connected call{u.calls === 1 ? "" : "s"} · {u.testMinutes} min of free practice on the Talk page (not counted)
+                      {u.calls} connected call{u.calls === 1 ? "" : "s"} · {u.testMinutes} of {u.practiceAllowance ?? 30} free voice-practice minutes used on the Talk page (not counted in your plan)
                       {u.overageMinutes > 0 ? ` · ${u.overageMinutes} min over plan${u.overageCost ? ` (${inr(u.overageCost)} + GST)` : ""}` : ""}
                     </div>
                   </div>

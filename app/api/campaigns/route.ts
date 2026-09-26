@@ -12,6 +12,7 @@ import { createCampaignRow, updateCampaignRow, listCampaignRows, insertContacts,
 import { listCallsLean } from "@/lib/calls";
 import { kpis } from "@/lib/metrics";
 import { getSession } from "@/lib/session";
+import { friendly } from "@/lib/sarvamHealth";
 
 /** GET — every campaign for this client with live numbers computed from its calls. */
 export async function GET(req: Request) {
@@ -129,7 +130,7 @@ export async function POST(req: Request) {
     } catch (err: any) {
       await updateCampaignRow(campaign.id, { status: "failed", last_error: String(err?.message || err).slice(0, 500) });
       console.error("[campaign launch]", err?.message || err);
-      return Response.json({ error: "The campaign couldn't start. Please try again — if it keeps failing, RANA support can see what went wrong.", campaignId: campaign.id }, { status: 502 });
+      return Response.json({ error: friendly(err, "The campaign couldn't start. Please try again — if it keeps failing, RANA support can see what went wrong."), campaignId: campaign.id }, { status: 502 });
     }
   }
 

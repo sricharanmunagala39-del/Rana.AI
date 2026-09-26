@@ -2,7 +2,8 @@
 // Sarvam has no balance API we can read, so HQ keeps a small ledger: top-ups it paid, and balance readings from the Sarvam
 // dashboard. Between readings, spend is estimated from the minutes RANA records × cost per minute.
 import { sb, sbAll } from "./db";
-import { PLANS, type PlanKey, billedMinutes } from "./plans";
+import { PLANS, type PlanKey } from "./plans";
+import { practiceRows, practiceSeconds, pulseMinutes } from "./practice";
 import { razorpayConfigured, fetchPaymentFee } from "./razorpay";
 import { r2, todayIST, addDays } from "./billing";
 
@@ -36,9 +37,11 @@ async function feeOf(inv: any): Promise<{ fee: number; tax: number; estimated: b
 }
 
 async function callsBetween(from: Date, to: Date) {
-  // Talk-page practice (source "manual") isn't charged by Sarvam, so it's left out of cost estimates.
+  // Sarvam bills every conversation minute — phone calls AND browser practice. Practice is metered in
+  // practice_sessions (the webhook doesn't always report browser sessions), so "manual" call rows are skipped here.
   const rows = (await sbAll<any>(`/calls?created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=client_id,duration_seconds,created_at,source&order=created_at.asc,id.asc`).catch(() => [])) || [];
-  return rows.filter((r) => r.source !== "manual");
+  const practice = (await practiceRows(from, to)).map((r: any) => ({ client_id: r.client_id, duration_seconds: practiceSeconds(r), created_at: r.started_at, source: "practice" }));
+  return [...rows.filter((r) => r.source !== "manual"), ...practice];
 }
 
 /** Estimated Sarvam credit balance from the ledger + recorded minutes. */
@@ -55,8 +58,8 @@ export async function sarvamBalance(now = new Date()) {
   // Top-ups are paid incl. 18% GST; Sarvam credits = amount before GST.
   const credited = topups.reduce((a, e) => a + (e.gst_included ? Number(e.amount) / 1.18 : Number(e.amount)), 0);
   const since = from ? new Date(Date.parse(from + "T00:00:00+05:30")) : null;
-  const spent = since ? billedMinutes((await callsBetween(since, now)).map((c) => Number(c.duration_seconds) || 0)) * cpm : 0;
-  const week = billedMinutes((await callsBetween(new Date(now.getTime() - 7 * 86400e3), now)).map((c) => Number(c.duration_seconds) || 0));
+  const spent = since ? pulseMinutes((await callsBetween(since, now)).map((c) => Number(c.duration_seconds) || 0)) * cpm : 0;
+  const week = pulseMinutes((await callsBetween(new Date(now.getTime() - 7 * 86400e3), now)).map((c) => Number(c.duration_seconds) || 0));
   const perDay = (week * cpm) / 7;
   const balance = r2(base + credited - spent);
   const daysLeft = perDay > 0 ? Math.floor(balance / perDay) : null;
@@ -92,7 +95,7 @@ export async function financeReport(ym?: string | null, now = new Date()) {
   });
   const byClient: Record<string, number[]> = {};
   calls.forEach((c) => { (byClient[c.client_id] ||= []).push(Number(c.duration_seconds) || 0); });
-  for (const [id, d] of Object.entries(byClient)) if (per[id]) per[id].minutes = billedMinutes(d);
+  for (const [id, d] of Object.entries(byClient)) if (per[id]) per[id].minutes = pulseMinutes(d);
   open.forEach((o) => { if (per[o.client_id]) per[o.client_id].outstanding += Number(o.total); });
   const rows = Object.values(per).map((r: any) => {
     r.sarvamCost = r2(r.minutes * cpm);

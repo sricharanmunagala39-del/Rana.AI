@@ -2,10 +2,19 @@ export const runtime = "nodejs";
 export const maxDuration = 90;
 import { studioGuard } from "@/lib/studioAuth";
 import { chatJson } from "@/lib/llm";
+import { friendly } from "@/lib/sarvamHealth";
 import { buildAgentPrompt, normalizePlaybook, normalizePolicy, normalizeLinks, normalizePronunciations } from "@/lib/playbook";
 import { normalizeHandoff } from "@/lib/handoff";
 import { STRICTNESS_LABELS } from "@/lib/storage";
 import { auditMessages, rewriteMessages, simulateMessages, customerMessages, cleanAnalysis, businessSummary, OBJECTION_TYPES, REWRITE_KINDS, PERSONAS, type Turn } from "@/lib/coach";
+
+// Fair use: each coach request costs a little AI time; stop a runaway loop from one workspace.
+const hits = new Map<string, number[]>();
+function tooMany(clientId: string, limit = 300): boolean {
+  const now = Date.now(); const list = (hits.get(clientId) || []).filter((t) => now - t < 3600e3);
+  list.push(now); hits.set(clientId, list);
+  return list.length > limit;
+}
 
 const REF = /^(objection|pitch|discovery|faq) \d{1,2}$|^(opening|closing|greeting)$/;
 const str = (v: any, n: number) => String(v ?? "").slice(0, n);
@@ -20,6 +29,7 @@ const str = (v: any, n: number) => String(v ?? "").slice(0, n);
 export async function POST(req: Request) {
   const g = await studioGuard(req);
   if (g instanceof Response) return g;
+  if (tooMany(g.session.clientId)) return Response.json({ error: "That's a lot of practice for one hour — take a short break and try again." }, { status: 429 });
   const b = await req.json().catch(() => ({}));
   const mode = String(b.mode || "");
   const playbook = normalizePlaybook(b.playbook);
@@ -80,6 +90,6 @@ export async function POST(req: Request) {
   } catch (e: any) {
     console.error("[studio coach]", mode, e?.message || e);
     const noAi = /No AI model is configured/.test(String(e?.message));
-    return Response.json({ error: noAi ? "The AI coach isn't set up yet — RANA support has been told." : "The AI coach couldn't answer just now. Please try again." }, { status: noAi ? 503 : 502 });
+    return Response.json({ error: noAi ? "The AI coach isn't set up yet — RANA support has been told." : friendly(e, "The AI coach couldn't answer just now. Please try again.") }, { status: noAi ? 503 : 502 });
   }
 }

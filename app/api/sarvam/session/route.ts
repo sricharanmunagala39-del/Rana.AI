@@ -3,6 +3,8 @@ import { getSession } from "@/lib/session";
 import { forbidUnless } from "@/lib/auth";
 import { getScriptById, getClientById } from "@/lib/supabase";
 import { callingBlock } from "@/lib/plans";
+import { startPractice, MAX_PRACTICE_S } from "@/lib/practice";
+import { friendly } from "@/lib/sarvamHealth";
 import { sarvamConfig, sarvamMissing, signedSessionUrl, sessionPayload, voiceFor, withVoice } from "@/lib/sarvamAgent";
 
 /**
@@ -19,11 +21,13 @@ export async function POST(req: Request) {
   const script: any = b.scriptId ? await getScriptById(String(b.scriptId)) : null;
   if (!script || script.client_id !== session.clientId) return Response.json({ error: "Employee not found" }, { status: 404 });
   if (!script.published_at || !String(script.instructions || "").trim()) return Response.json({ error: `${script.name} isn't published yet — press Publish first.` }, { status: 400 });
-  const planBlock = await callingBlock(await getClientById(session.clientId), { practice: true }); // practice is free
+  const planBlock = await callingBlock(await getClientById(session.clientId), { practice: true }); // own free allowance, not plan minutes
   if (planBlock) return Response.json({ error: planBlock, code: "plan_limit" }, { status: 402 });
   try {
     const signed = await signedSessionUrl(withVoice(cfg, script.voice_name), `rana-test-${session.clientId.slice(0, 8)}-${Date.now()}`);
     const p = sessionPayload(script);
+    // Metered: Sarvam bills browser sessions like calls, so every practice session is recorded.
+    const practiceId = await startPractice(session.clientId, script.id, (session as any).email || null);
     const hotwords = (Array.isArray(script.keyterms) ? script.keyterms : []).map((k: any) => String(k)).filter(Boolean).slice(0, 50);
     return Response.json({
       url: signed.url,
@@ -34,9 +38,10 @@ export async function POST(req: Request) {
         ...(hotwords.length ? { speech_hotwords: hotwords } : {}),
       },
       voice: voiceFor(script.voice_name).name, language: p.initial_language_name,
+      practiceId, maxSeconds: MAX_PRACTICE_S,
     });
   } catch (e: any) {
     console.error("[talk session]", e?.message || e);
-    return Response.json({ error: "Couldn't start the test call. Please try again in a minute." }, { status: 502 });
+    return Response.json({ error: friendly(e, "Couldn't start the test call. Please try again in a minute.") }, { status: 502 });
   }
 }
