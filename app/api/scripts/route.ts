@@ -1,5 +1,6 @@
 // @ts-nocheck
 export const runtime = "nodejs";
+import { normalizeHandoff } from "@/lib/handoff";
 import { getScriptsForClient, createScript } from "@/lib/supabase";
 import { parseSession } from "@/lib/auth";
 import { INDUSTRY_TEMPLATES } from "@/lib/industryTemplates";
@@ -56,6 +57,7 @@ export async function POST(req: Request) {
       links: normalizeLinks(body.links),
       pronunciations: normalizePronunciations(body.pronunciations),
       language_policy: normalizePolicy(body.language_policy, body.starting_language ?? "en-IN"),
+      handoff: normalizeHandoff(body.handoff),
       keyterms: (Array.isArray(body.keyterms) ? body.keyterms : []).map((k: any) => String(k).slice(0, 60)).filter(Boolean).slice(0, 100),
       status: "draft",
     });

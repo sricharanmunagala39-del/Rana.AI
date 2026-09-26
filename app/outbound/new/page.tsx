@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import LeadListImport from "@/components/LeadListImport";
 
 type Script = { id: string; name: string; cartesia_agent_id: string | null; tested_at: string | null };
 type PhoneNumber = { id: string; number: string; label: string | null; provider: string };
@@ -28,7 +29,7 @@ export default function NewCampaignPage() {
   const [name, setName] = useState("");
   const [scriptId, setScriptId] = useState("");
   const [fromId, setFromId] = useState("");
-  const [raw, setRaw] = useState("");
+  const [approvedList, setApprovedList] = useState<any[] | null>(null);
   const [when, setWhen] = useState<"now" | "later">("now");
   const [consent, setConsent] = useState<string>("");
   const [at, setAt] = useState("");
@@ -52,14 +53,11 @@ export default function NewCampaignPage() {
       if (d.numbers?.length === 1) setFromId(d.numbers[0].id);
     }).catch(() => {});
     fetch("/api/sarvam/status").then((r) => r.json()).then((d) => {
-      if (d?.sarvam?.ready && d.sarvam.number) setSarvamNumber({ id: "sarvam", number: d.sarvam.number, label: "Sarvam · Indian number" } as any);
+      if (d?.sarvam?.ready && d.sarvam.number) setSarvamNumber({ id: "sarvam", number: d.sarvam.number, label: "RANA Indian number" } as any);
     }).catch(() => {});
   }, []);
 
-  const parsed = useMemo(() => parseList(raw), [raw]);
-  const ok = parsed.contacts.filter((c) => c.valid && !c.dup);
-  const bad = parsed.contacts.filter((c) => !c.valid);
-  const dups = parsed.contacts.filter((c) => c.dup);
+  const ok = approvedList || [];
   const script = scripts.find((s) => s.id === scriptId);
   // Employees on the Sarvam engine call from the Sarvam Indian number; Cartesia employees from Cartesia/Twilio numbers.
   const onSarvam = !!script && String(script.cartesia_agent_id || "").startsWith("sarvam:");
@@ -76,15 +74,12 @@ export default function NewCampaignPage() {
     !script && "Choose an employee",
     script && !script.tested_at && `${script.name} hasn't been signed off on the Talk page yet`,
     !from && "Choose the number to call from",
-    !ok.length && "Add at least one valid phone number",
+    !approvedList && "Add your list and press “Looks right” to approve it",
+    approvedList && !ok.length && "Add at least one valid phone number",
     ok.length > 5000 && "Maximum 5,000 numbers per campaign",
     when === "later" && (!scheduledIso || Date.parse(scheduledIso) < Date.now() + 60000) && "Pick a start time in the future",
   ].filter(Boolean) as string[];
 
-  async function onFile(f: File | undefined) {
-    if (!f) return;
-    setRaw(await f.text());
-  }
 
   async function launch() {
     if (problems.length) return;

@@ -8,6 +8,7 @@ import { audit } from "@/lib/audit";
 import { claimResource } from "@/lib/ownership";
 import { isForeignVoice } from "@/lib/voiceClone";
 import { normalizePlaybook, normalizeLinks, normalizePronunciations, normalizePolicy } from "@/lib/playbook";
+import { normalizeHandoff } from "@/lib/handoff";
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const session = await getSession(req);
   if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
@@ -30,6 +31,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if ("links" in patch) patch.links = normalizeLinks(patch.links);
   if ("pronunciations" in patch) patch.pronunciations = normalizePronunciations(patch.pronunciations);
   if ("language_policy" in patch) patch.language_policy = normalizePolicy(patch.language_policy, patch.starting_language || existing.starting_language);
+  if ("handoff" in patch) patch.handoff = normalizeHandoff(patch.handoff);
   if ("keyterms" in patch) patch.keyterms = (Array.isArray(patch.keyterms) ? patch.keyterms : []).map((k: any) => String(k).slice(0, 60)).filter(Boolean).slice(0, 100);
   if ("engine" in patch) patch.engine = "sarvam"; // Sarvam is the only engine offered
   if ("source_script" in patch) patch.source_script = String(patch.source_script || "").slice(0, 60000);

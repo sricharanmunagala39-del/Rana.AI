@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   for (const p of skippedDnc) seen.delete(p);
   const contacts = Array.from(seen.values());
   if (!contacts.length) return Response.json({ error: skippedDnc.length ? `Every number on this list is on your do-not-call list (${skippedDnc.length}).` : "No valid phone numbers in the list." }, { status: 400 });
-  if (contacts.length > 5000) return Response.json({ error: "Cartesia allows up to 5,000 numbers per campaign — split the list." }, { status: 400 });
+  if (contacts.length > 5000) return Response.json({ error: "Up to 5,000 numbers per campaign — split the list." }, { status: 400 });
 
   const scheduledAt = body.scheduledAt && Date.parse(body.scheduledAt) > Date.now() + 60000 ? new Date(body.scheduledAt).toISOString() : null;
   // Calling hours: refuse to start outside the client's window and say when it next opens.

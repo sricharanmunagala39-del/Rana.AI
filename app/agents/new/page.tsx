@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import VoicePickerModal, { PickerVoice } from "@/components/VoicePickerModal";
@@ -9,6 +9,7 @@ import ModelPickerModal, { PickerModel } from "@/components/ModelPickerModal";
 import BackgroundSoundPicker, { PickerBackgroundSound } from "@/components/BackgroundSoundPicker";
 import ScriptStudio from "@/components/studio/ScriptStudio";
 import AskAiBar from "@/components/studio/AskAiBar";
+import ReviewCoach from "@/components/studio/ReviewCoach";
 import { LANGUAGES, STRICTNESS_LABELS, stepsToInstructions } from "@/lib/storage";
 import { baseLang, LANG_NAMES, playbookFromSteps, playbookToSteps, detectScriptLanguage, sameScriptLanguage } from "@/lib/playbook";
 
@@ -30,6 +31,7 @@ function WizardInner() {
   const isEditing = !!editId;
 
   const [stepIdx, setStepIdx] = useState(0);
+  const [reviewTab, setReviewTab] = useState<"summary" | "coach" | "practice">("summary");
   const [loadingExisting, setLoadingExisting] = useState(isEditing);
   const [loadError, setLoadError] = useState("");
 
@@ -50,7 +52,7 @@ function WizardInner() {
   const [noiseSuppression, setNoiseSuppression] = useState<"off" | "auto" | "max">("auto");
   const [strictness, setStrictness] = useState(3);
   // Script Studio
-  const [studio, setStudio] = useState<any>({ sourceScript: "", playbook: null, greeting: "", links: [], pronunciations: [], keyterms: [] });
+  const [studio, setStudio] = useState<any>({ sourceScript: "", playbook: null, greeting: "", links: [], pronunciations: [], keyterms: [], handoff: null });
   const setStudioPart = (patch: any) => setStudio((s: any) => ({ ...s, ...patch }));
 
   // ── Cartesia catalog ──
@@ -82,17 +84,36 @@ function WizardInner() {
     fetch("/api/sarvam/status").then((r) => r.json()).then(setSarvamStatus).catch(() => {});
   }, []);
 
+  // Voice previews are fetched ahead of time (all voices, in the chosen language) so "Hear" plays instantly.
+  const previewCache = useRef<Map<string, Promise<string | null>>>(new Map());
+  function previewUrl(key: string, lang: string) {
+    const k = `${key}|${lang}`;
+    if (!previewCache.current.has(k)) {
+      previewCache.current.set(k, fetch(`/api/voices/preview?${new URLSearchParams({ engine: "sarvam", lang, voice: key })}`)
+        .then(async (r) => (r.ok ? URL.createObjectURL(await r.blob()) : null)).catch(() => null)
+        .then((u) => { if (!u) previewCache.current.delete(k); return u; }));
+    }
+    return previewCache.current.get(k)!;
+  }
   async function previewSarvam(voice?: string) {
     const key = voice || (voiceName || "priya").toLowerCase();
     setPreviewing(key);
     try {
-      const res = await fetch(`/api/voices/preview?${new URLSearchParams({ engine: "sarvam", lang: startingLanguage, voice: key })}`);
-      if (!res.ok) throw new Error();
-      const url = URL.createObjectURL(await res.blob());
-      const a = new Audio(url); a.onended = () => { URL.revokeObjectURL(url); setPreviewing(false); };
+      const url = await previewUrl(key, startingLanguage);
+      if (!url) throw new Error();
+      const a = new Audio(url); a.onended = () => setPreviewing(false); a.onerror = () => setPreviewing(false);
       await a.play();
     } catch { setPreviewing(false); }
   }
+  useEffect(() => {
+    if (stepIdx !== 1) return;
+    const list = (sarvamStatus?.sarvam?.voices || DEFAULT_VOICES).map((v: any) => v.key);
+    const chosen = (voiceName || "priya").toLowerCase();
+    // The chosen voice first, then the rest a moment later.
+    previewUrl(chosen, startingLanguage);
+    const t = setTimeout(() => list.forEach((k: string) => previewUrl(k, startingLanguage)), 400);
+    return () => clearTimeout(t);
+  }, [stepIdx, startingLanguage, sarvamStatus]);
 
   useEffect(() => {
     (async () => {
@@ -138,6 +159,7 @@ function WizardInner() {
           links: s.links || [],
           pronunciations: s.pronunciations || [],
           keyterms: s.keyterms || [],
+          handoff: s.handoff || null,
         });
       } catch (err: any) {
         setLoadError(err?.message || "Something went wrong.");
@@ -203,6 +225,7 @@ function WizardInner() {
         links: (studio.links || []).filter((l: any) => l.url?.trim()),
         pronunciations: (studio.pronunciations || []).filter((p: any) => p.word?.trim() && p.sayAs?.trim()),
         keyterms: studio.keyterms || [],
+        handoff: studio.handoff || null,
         language_policy: policy,
         engine,
       };
@@ -532,7 +555,17 @@ function WizardInner() {
 
               {stepIdx === 3 && (
                 <div className="flex flex-col gap-5">
-                  <div className="text-[12.5px] text-ink-soft">Read it through. Anything to change? Ask the AI in plain words — or go back to the Studio and edit a card.</div>
+                  <div className="flex gap-1 border-b border-line -mx-1" data-testid="review-tabs">
+                    {([["summary", "Summary"], ["coach", "✦ AI Coach"], ["practice", "Practice conversation"]] as const).map(([k, l]) => (
+                      <button key={k} type="button" onClick={() => setReviewTab(k)} data-testid={`review-tab-${k}`}
+                        className={`px-3 py-2 text-[13px] font-semibold border-b-2 -mb-px ${reviewTab === k ? "border-signal text-signal" : "border-transparent text-ink-soft hover:text-ink"}`}>{l}</button>
+                    ))}
+                  </div>
+                  {reviewTab !== "summary" && (
+                    <ReviewCoach tab={reviewTab} studio={studio} set={setStudioPart} name={name} openingLanguage={startingLanguage} policy={policy} strictness={strictness} />
+                  )}
+                  {reviewTab === "summary" && <>
+                  <div className="text-[12.5px] text-ink-soft">Read it through. Anything to change? Ask the AI in plain words, check it with the <button type="button" onClick={() => setReviewTab("coach")} className="font-semibold text-signal">AI Coach</button>, or <button type="button" onClick={() => setReviewTab("practice")} className="font-semibold text-signal">practise a conversation</button>.</div>
                   {pb && <AskAiBar playbook={pb} greeting={studio.greeting} links={studio.links} openingLanguage={startingLanguage} onApply={(x: any) => setStudioPart(x)} compact />}
 
                   <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-4" data-testid="review">
@@ -574,6 +607,7 @@ function WizardInner() {
                       {[
                         [pb?.faqs?.length || 0, "FAQs"], [pb?.facts?.filter(Boolean).length || 0, "facts"], [studio.links.filter((l: any) => l.url).length, "links"],
                         [studio.pronunciations.length, "pronunciation fixes"], [studio.keyterms.length, "listen-for words"],
+                        [studio.handoff?.enabled ? studio.handoff.contacts?.length || 0 : 0, "people for call transfer"],
                       ].map(([n, l]) => (
                         <span key={l as string} className={`text-[12px] border rounded-full px-2.5 py-0.5 ${n ? "border-line bg-paper" : "border-dashed border-line text-ink-soft"}`}>{n} {l}</span>
                       ))}
@@ -586,6 +620,7 @@ function WizardInner() {
                       </div>
                     )}
                   </div>
+                  </>}
 
                   {saveError && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">{saveError}</div>}
                   {publishError && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2.5">{publishError}</div>}

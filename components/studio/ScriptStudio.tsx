@@ -9,6 +9,8 @@ import { Card, ListEditor, PairEditor, AutoText, Spinner } from "./Editors";
 import AskAiBar from "./AskAiBar";
 import KnowledgePanel from "./KnowledgePanel";
 import PronunciationPanel from "./PronunciationPanel";
+import HandoffPanel from "./HandoffPanel";
+import VoiceScriptInput from "./VoiceScriptInput";
 import { EMPTY_PLAYBOOK, LANG_NAMES, baseLang, detectScriptLanguage, sameScriptLanguage, spokenUrl } from "@/lib/playbook";
 
 const PURPOSES = [["payment", "Payment"], ["website", "Website"], ["booking", "Booking / demo"], ["brochure", "Brochure"], ["other", "Other"]];
@@ -23,13 +25,15 @@ Close: Ask them to book a free demo class at dbmci.com/demo or pay the seat book
 
 export default function ScriptStudio({ value, set, agentName, openingLanguage, policy, voiceId, voiceName, speed, engine, scriptId, ensureSaved, strictness, setStrictness, strictnessLabels }: any) {
   const { sourceScript, playbook, greeting, links, pronunciations, keyterms } = value;
-  const [tab, setTab] = useState<"script" | "knowledge" | "links" | "say">("script");
+  const [tab, setTab] = useState<"script" | "knowledge" | "links" | "say" | "handoff">("script");
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeMsg, setAnalyzeMsg] = useState<{ tone: "ok" | "warn" | "err"; text: string } | null>(null);
   const [showSource, setShowSource] = useState(!playbook);
   const [translating, setTranslating] = useState(false);
   const [translateErr, setTranslateErr] = useState("");
   const [knowledgeCount, setKnowledgeCount] = useState<number | null>(null);
+  const [inputMode, setInputMode] = useState<"type" | "record" | "upload">("type");
+  const [heard, setHeard] = useState(false);
 
   const open = baseLang(openingLanguage);
   const openName = LANG_NAMES[open] || "English";
@@ -99,6 +103,7 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
     ["knowledge", "Knowledge", knowledgeCount],
     ["links", "Links & payments", links.length || null],
     ["say", "Pronunciation", pronunciations.length || null],
+    ["handoff", "Call transfer", value.handoff?.enabled ? value.handoff.contacts?.length || null : null],
   ];
 
   const setLink = (i: number, k: string, v: string) => set({ links: links.map((l: any, j: number) => (j === i ? { ...l, [k]: v, ...(k === "url" && (!l.say || l.say === spokenUrl(l.url)) ? { say: spokenUrl(v) } : {}) } : l)) });
@@ -118,7 +123,20 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
         <>
           {/* 1. The raw script */}
           {showSource ? (
-            <Card title="Paste your call script" hint="Any format works — headings, bullet points, a paragraph, or a transcript of your best counsellor's call. English, Telugu, Hindi or mixed." testId="source-card">
+            <Card title="Your call script" hint="Type or paste it, say it out loud, or upload a recording of a good call. Any format — headings, bullet points, a paragraph. English, Telugu, Hindi or mixed." testId="source-card">
+              <div className="flex gap-1.5 mb-3" data-testid="input-modes">
+                {[["type", "⌨ Type script"], ["record", "🎙 Record voice"], ["upload", "⬆ Upload audio"]].map(([k, l]) => (
+                  <button key={k} type="button" onClick={() => setInputMode(k as any)} data-testid={`mode-${k}`}
+                    className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-lg border ${inputMode === k ? "bg-ink text-paper border-ink" : "border-line text-ink-soft hover:text-ink"}`}>{l}</button>
+                ))}
+              </div>
+              {inputMode !== "type" && (
+                <div className="mb-3">
+                  <VoiceScriptInput mode={inputMode} language={policy?.mode === "fixed" ? open : "auto"}
+                    onText={(t: string) => { set({ sourceScript: sourceScript.trim() ? `${sourceScript.trim()}\n\n${t}` : t }); setInputMode("type"); setHeard(true); }} />
+                </div>
+              )}
+              {heard && inputMode === "type" && <div className="text-[12px] text-signal mb-2" data-testid="heard">✓ Written down from your audio. Fix any words it misheard, then build the call plan.</div>}
               <textarea value={sourceScript} onChange={(e) => set({ sourceScript: e.target.value })} rows={10} data-testid="source-script"
                 placeholder={"Intro: …\nQuestions to ask: …\nOffer / fees: …\nIf they say it's expensive: …\nClosing: …"}
                 className="w-full border border-line rounded-lg px-3 py-2.5 text-[13.5px] bg-raised outline-none focus:border-signal resize-y leading-relaxed" />
@@ -237,6 +255,7 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
         </>
       )}
 
+      {tab === "handoff" && <HandoffPanel value={value.handoff} onChange={(v: any) => set({ handoff: v })} />}
       {tab === "knowledge" && <KnowledgePanel scriptId={scriptId} ensureSaved={ensureSaved} onCount={setKnowledgeCount} openingLanguage={openingLanguage} onUse={addFromKnowledge} />}
 
       {tab === "links" && (
