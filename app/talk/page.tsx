@@ -432,7 +432,7 @@ function TalkInner() {
                 {allChecked && testsRun === 0 && !testedAt && <span className="text-[11.5px] text-ink-soft">Make at least one test call first.</span>}
               </div>
               {testMsg && <div className="text-[12.5px] text-signal">{testMsg}</div>}
-              <div className="text-[11.5px] text-ink-soft">Practice here in the browser is free — it never uses your plan minutes. "Call me" rings a real phone and counts as a call.</div>
+              <div className="text-[11.5px] text-ink-soft">Voice practice here doesn't use your plan minutes — it has its own free allowance each month (practice calls end after 10 minutes). For free practice without the limit, use "Practice conversation" (typed) on the employee's Review step. "Call me" rings a real phone and counts as a call.</div>
             </div>
           </div>
         )}

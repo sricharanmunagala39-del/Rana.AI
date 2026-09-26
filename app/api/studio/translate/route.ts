@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 import { studioGuard } from "@/lib/studioAuth";
 import { chat } from "@/lib/llm";
 import { translateMessages, transliterateMessages } from "@/lib/playbook";
+import { friendly } from "@/lib/sarvamHealth";
 
 /** POST { text, to, mode? } → { text } in natural spoken language `to` (e.g. te, hi); mode "transliterate" spells a word by sound in that script. */
 export async function POST(req: Request) {
@@ -16,6 +17,6 @@ export async function POST(req: Request) {
     return Response.json({ text: out.replace(/^["']|["']$/g, "").trim() });
   } catch (e: any) {
     console.error("[studio translate]", e?.message || e);
-    return Response.json({ error: "Translation didn't work this time. Please try again in a minute." }, { status: 502 });
+    return Response.json({ error: friendly(e, "Translation didn't work this time. Please try again in a minute.") }, { status: 502 });
   }
 }

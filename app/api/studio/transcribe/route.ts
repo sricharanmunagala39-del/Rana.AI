@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
 import { studioGuard } from "@/lib/studioAuth";
+import { sarvamFetch, classifySarvamError, CUSTOMER_MESSAGE } from "@/lib/sarvamHealth";
 
 const LANGS = ["hi", "bn", "kn", "ml", "mr", "od", "pa", "ta", "te", "en", "gu", "ur"];
 
@@ -24,11 +25,11 @@ export async function POST(req: Request) {
   form.append("mode", "transcribe");
   form.append("language_code", LANGS.includes(code) ? `${code}-IN` : "unknown");
   try {
-    const res = await fetch("https://api.sarvam.ai/speech-to-text", { method: "POST", headers: { "api-subscription-key": key }, body: form, signal: AbortSignal.timeout(50000) });
+    const res = await sarvamFetch("stt", "https://api.sarvam.ai/speech-to-text", { method: "POST", headers: { "api-subscription-key": key }, body: form, timeoutMs: 45000, retry: true });
     const text = await res.text();
     if (!res.ok) {
       console.error("[transcribe]", res.status, text.slice(0, 300));
-      return Response.json({ error: "Couldn't turn that audio into text. Please try again." }, { status: 502 });
+      return Response.json({ error: CUSTOMER_MESSAGE[classifySarvamError(res.status, text)] }, { status: 502 });
     }
     const d = JSON.parse(text);
     return Response.json({ text: String(d.transcript || "").trim(), language: d.language_code || null });

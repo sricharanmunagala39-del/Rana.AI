@@ -4,6 +4,8 @@
 // which the chat API (api.sarvam.ai) rejects with 403 invalid_api_key_error. Keys come from dashboard.sarvam.ai → API Keys.
 // Used for script analysis, AI edits, translation and document summaries — never on a live call.
 
+import { sarvamFetch, SarvamError, classifySarvamError } from "./sarvamHealth";
+
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 export type LlmOptions = { maxTokens?: number; temperature?: number; json?: boolean; timeoutMs?: number };
 
@@ -47,8 +49,8 @@ async function openai(messages: ChatMessage[], o: LlmOptions): Promise<string> {
 }
 
 async function sarvam(messages: ChatMessage[], o: LlmOptions): Promise<string> {
-  const res = await fetch("https://api.sarvam.ai/v1/chat/completions", {
-    method: "POST", signal: AbortSignal.timeout(o.timeoutMs ?? 120000),
+  const res = await sarvamFetch("chat", "https://api.sarvam.ai/v1/chat/completions", {
+    method: "POST", timeoutMs: o.timeoutMs ?? 120000, retry: true,
     headers: { "api-subscription-key": sarvamKey(), "Content-Type": "application/json" },
     body: JSON.stringify({
       model: process.env.SARVAM_MODEL || "sarvam-105b", messages,
@@ -60,7 +62,7 @@ async function sarvam(messages: ChatMessage[], o: LlmOptions): Promise<string> {
     if (res.status === 403 && /invalid_api_key|authentication/i.test(body)) {
       throw new Error("Sarvam rejected the API key. Create a key at dashboard.sarvam.ai → API Keys and save it in Vercel as SARVAM_CHAT_API_KEY (or add ANTHROPIC_API_KEY), then redeploy");
     }
-    throw new Error(`Sarvam ${res.status}: ${body}`);
+    throw new SarvamError(classifySarvamError(res.status, body), res.status, `Sarvam ${res.status}: ${body}`);
   }
   const d = await res.json();
   const c = d.choices?.[0];

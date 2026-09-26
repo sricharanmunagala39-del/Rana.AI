@@ -15,6 +15,16 @@ import { claimResource } from "@/lib/ownership";
 import { buildAgentPrompt, normalizePlaybook, normalizePolicy, normalizeLinks, normalizePronunciations } from "@/lib/playbook";
 import { listKnowledge } from "@/lib/knowledge";
 import { normalizeHandoff } from "@/lib/handoff";
+import { autoAcronymRules } from "@/lib/acronym";
+import { LANG_NAMES } from "@/lib/playbook";
+
+/** The client's own pronunciation fixes, plus letter-by-letter spellings for acronyms they didn't list (DBMCI, FMGE…). */
+function withAcronyms(script: any) {
+  const own = normalizePronunciations(script.pronunciations);
+  const policy = normalizePolicy(script.language_policy, script.starting_language || "en-IN");
+  const auto = autoAcronymRules([script.greeting, JSON.stringify(script.playbook || {}), (script.steps || []).map((x: any) => `${x.title} ${x.body}`).join(" ")], policy.allowed, own.map((p) => p.word), LANG_NAMES);
+  return [...own, ...auto];
+}
 import { STRICTNESS_LABELS } from "@/lib/storage";
 import { sarvamConfig, sarvamMissing, voiceFor, withVoice } from "@/lib/sarvamAgent";
 
@@ -28,7 +38,7 @@ async function compile(script: any) {
     playbook: script.playbook ? normalizePlaybook(script.playbook) : null,
     steps: script.playbook ? undefined : script.steps, facts: script.facts || [],
     policy: normalizePolicy(script.language_policy, script.starting_language || "en-IN"),
-    links: normalizeLinks(script.links), pronunciations: normalizePronunciations(script.pronunciations),
+    links: normalizeLinks(script.links), pronunciations: withAcronyms(script),
     knowledge: knowledge.map((k: any) => ({ title: k.title, kind: k.kind, summary: k.summary, content: k.content })),
     handoff: normalizeHandoff(script.handoff),
   });

@@ -6,8 +6,10 @@
 // instructions, greeting and opening language, so publishing in RANA takes effect on the next call.
 //
 // Keys: Voice Agents keys (sk_samvaad_…) are separate from Sarvam API keys (sk_…) — RANA_SARVAM_AGENTS_API_KEY.
+import { sarvamFetch, SarvamError, classifySarvamError } from "./sarvamHealth";
 import { liveTransferOn, normalizeHandoff, scriptRefLine, transferNumber } from "./handoff";
-import { LANG_NAMES, baseLang } from "./playbook";
+import { LANG_NAMES, baseLang, normalizePronunciations } from "./playbook";
+import { speakableGreeting } from "./acronym";
 
 const APPS = "https://apps.sarvam.ai/api";
 
@@ -107,23 +109,25 @@ export function sessionPayload(script: any, caller?: { name?: string | null; var
   const transfer_to = liveTransferOn() ? transferNumber(normalizeHandoff(script.handoff)) : null;
   return {
     agent_variables: transfer_to ? { rana_instructions, transfer_to } : { rana_instructions },
-    initial_bot_message: String(script.greeting || "").trim() || undefined,
+    initial_bot_message: speakableGreeting(String(script.greeting || "").trim(), normalizePronunciations(script.pronunciations), script.starting_language || "en") || undefined,
     initial_language_name: sarvamLanguageName(script.starting_language),
   };
 }
 
 async function call<T = any>(url: string, init: RequestInit & { key: string }): Promise<T> {
-  const res = await fetch(url, {
+  const method = String(init.method || "GET").toUpperCase();
+  const res = await sarvamFetch("agents", url, {
     ...init,
     headers: { "Content-Type": "application/json", "X-API-Key": init.key, ...(init.headers || {}) },
-    signal: AbortSignal.timeout(30000),
     cache: "no-store",
+    retry: method === "GET", // never repeat anything that could start a call twice
   });
   const text = await res.text();
   let data: any; try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
   if (!res.ok) {
     const detail = data?.error?.data?.details || data?.error?.message || data?.detail || data?.message || text.slice(0, 200);
-    throw new Error(`Sarvam ${res.status}: ${typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 200)}`);
+    const msg = `Sarvam ${res.status}: ${typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 200)}`;
+    throw new SarvamError(classifySarvamError(res.status, text), res.status, msg);
   }
   return data as T;
 }
@@ -271,7 +275,7 @@ export async function sarvamTts(opts: { text: string; language: string; speaker?
   if (!key) throw new Error("SARVAM_CHAT_API_KEY is not set");
   const lang = baseLang(opts.language) === "or" ? "od" : baseLang(opts.language); // Sarvam writes Odia as od-IN
   const code = ["en", "hi", "te", "ta", "kn", "ml", "mr", "bn", "gu", "pa", "od"].includes(lang) ? `${lang}-IN` : "en-IN";
-  const res = await fetch("https://api.sarvam.ai/text-to-speech", {
+  const res = await sarvamFetch("tts", "https://api.sarvam.ai/text-to-speech", {
     method: "POST",
     headers: { "api-subscription-key": key, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -279,9 +283,9 @@ export async function sarvamTts(opts: { text: string; language: string; speaker?
       speaker: (opts.speaker || SARVAM_AGENT_VOICE.speaker).toLowerCase(), model: "bulbul:v3",
       pace: Math.min(2, Math.max(0.5, opts.pace || 1)), output_audio_codec: "mp3", speech_sample_rate: 24000,
     }),
-    signal: AbortSignal.timeout(30000),
+    retry: true,
   });
-  if (!res.ok) throw new Error(`Sarvam TTS ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) { const t = (await res.text()).slice(0, 200); throw new SarvamError(classifySarvamError(res.status, t), res.status, `Sarvam TTS ${res.status}: ${t}`); }
   const d = await res.json();
   const b64 = d?.audios?.[0];
   if (!b64) throw new Error("Sarvam TTS returned no audio");

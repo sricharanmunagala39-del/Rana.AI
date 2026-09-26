@@ -7,6 +7,7 @@ import { callingBlock } from "@/lib/plans";
 import { normalisePhone } from "@/lib/campaigns";
 import { dncSet } from "@/lib/compliance";
 import { audit } from "@/lib/audit";
+import { friendly } from "@/lib/sarvamHealth";
 
 /** POST { scriptId, phone, name? } → Sarvam calls this number right now with this employee (a real phone test). */
 export async function POST(req: Request) {
@@ -36,6 +37,6 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, attemptId: r.attempt_id, from: cfg.agentNumber });
   } catch (e: any) {
     console.error("[call me]", e?.message || e);
-    return Response.json({ error: "Couldn't place the call right now. Please try again in a minute." }, { status: 502 });
+    return Response.json({ error: friendly(e, "Couldn't place the call right now. Please try again in a minute.") }, { status: 502 });
   }
 }

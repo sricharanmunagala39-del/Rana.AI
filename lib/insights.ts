@@ -103,6 +103,8 @@ export async function hqOverview(now = new Date()) {
 
   // ---- Business-wide ----
   const sarvam = await sarvamBalance(now).catch(() => null);
+  const live = await import("./sarvamHealth").then((m) => m.sarvamStatus()).catch(() => null);
+  if (live && !live.ok) alerts.unshift({ level: "red", kind: "sarvam_down", text: `STOPPED: ${live.reason || "Sarvam is refusing requests"}${live.since ? ` since ${new Date(live.since).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}` : ""}. Client calls, Talk page, voice previews and AI tools are stopped until it's fixed.`, action: { label: "Top up Sarvam", href: "https://indus.sarvam.ai/billing" } });
   if (sarvam?.lowWarning) alerts.push({ level: "red", kind: "sarvam", text: `Sarvam credits low: ≈₹${Math.round(sarvam.balance || 0).toLocaleString("en-IN")} left${sarvam.daysLeft !== null ? `, about ${sarvam.daysLeft} days` : ""}. Top up ₹${sarvam.suggestTopUp.toLocaleString("en-IN")} + GST.`, action: { label: "Money page", href: "/hq/money" } });
   else if (sarvam && !sarvam.tracked) alerts.push({ level: "info", kind: "sarvam_untracked", text: "Enter your Sarvam balance on the Money page so RANA can warn you before it runs out.", action: { label: "Money page", href: "/hq/money" } });
   const lastCron = (job: string) => (crons || []).find((r) => r.job === job) || null;

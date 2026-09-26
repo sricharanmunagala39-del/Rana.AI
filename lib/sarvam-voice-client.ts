@@ -67,6 +67,9 @@ export class SarvamVoiceCall {
   private sawAgentText = false;
   private ended = false;
   private greeting = "";
+  private practiceId: string | null = null;
+  private maxTimer: any = null;
+  private onPageHide = () => this.stop();
   private onEvent: (e: SarvamCallEvent) => void;
 
   constructor(onEvent: (e: SarvamCallEvent) => void) { this.onEvent = onEvent; }
@@ -77,6 +80,12 @@ export class SarvamVoiceCall {
     const session = await res.json();
     if (!res.ok) throw new Error(session.error || "Couldn't start the call");
     this.greeting = String(session.start?.initial_bot_message || "").trim();
+    this.practiceId = session.practiceId || null;
+    // Practice calls are billed per minute by the voice provider: end them automatically at the limit,
+    // and when the tab is closed, so a forgotten tab never keeps a call running.
+    const max = Number(session.maxSeconds) || 600;
+    this.maxTimer = setTimeout(() => { this.stop(); this.onEvent({ type: "error", message: `Practice calls end automatically after ${Math.round(max / 60)} minutes. Start a new one to keep going.` } as any); }, max * 1000);
+    try { window.addEventListener("pagehide", this.onPageHide); } catch {}
 
     this.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
     this.playCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -199,7 +208,20 @@ export class SarvamVoiceCall {
     this.finish();
   }
 
+  private reportEnd() {
+    if (!this.practiceId) return;
+    const body = JSON.stringify({ practiceId: this.practiceId });
+    this.practiceId = null;
+    try {
+      if (navigator.sendBeacon && navigator.sendBeacon("/api/sarvam/session/end", new Blob([body], { type: "application/json" }))) return;
+    } catch {}
+    fetch("/api/sarvam/session/end", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
+  }
+
   private cleanup() {
+    clearTimeout(this.maxTimer);
+    try { window.removeEventListener("pagehide", this.onPageHide); } catch {}
+    this.reportEnd();
     try { this.processor?.disconnect(); } catch {}
     try { this.source?.disconnect(); } catch {}
     try { this.micCtx?.close(); } catch {}

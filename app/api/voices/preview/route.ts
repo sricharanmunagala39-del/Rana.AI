@@ -1,11 +1,26 @@
 export const runtime = "nodejs";
+import crypto from "crypto";
+import { sb } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { unauthorized } from "@/lib/auth";
 import { previewLanguage, sampleLine, synthesizePreview, carrierLine } from "@/lib/voicePreview";
 import { isForeignVoice } from "@/lib/voiceClone";
 import { sarvamTts, voiceFor } from "@/lib/sarvamAgent";
 
+import { friendly } from "@/lib/sarvamHealth";
+
 const sarvamCache = new Map<string, ArrayBuffer>();
+const cacheId = (key: string) => crypto.createHash("sha256").update(key).digest("hex");
+async function loadSaved(key: string): Promise<ArrayBuffer | null> {
+  const rows = (await sb<any[]>(`/tts_cache?key=eq.${cacheId(key)}&select=audio_b64`).catch(() => [])) || [];
+  if (!rows[0]?.audio_b64) return null;
+  const buf = Buffer.from(rows[0].audio_b64, "base64");
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+}
+async function saveForGood(key: string, audio: ArrayBuffer) {
+  if (audio.byteLength > 600_000) return;
+  await sb(`/tts_cache?on_conflict=key`, { method: "POST", prefer: "resolution=merge-duplicates,return=minimal", body: JSON.stringify({ key: cacheId(key), audio_b64: Buffer.from(audio).toString("base64"), bytes: audio.byteLength }) });
+}
 
 /**
  * GET /api/voices/preview?voiceId=…&lang=te&name=Shanti&gender=feminine[&text=…][&speed=1.1]
@@ -26,15 +41,18 @@ export async function GET(req: Request) {
     const key = `${v.speaker}|${lang}|${pace}|${text}`;
     try {
       let audio = sarvamCache.get(key);
+      // Saved for good after the first time: the same voice saying the same line never costs twice.
+      if (!audio) audio = (await loadSaved(key)) || undefined;
       if (!audio) {
         audio = await sarvamTts({ text, language: lang, speaker: v.speaker, pace });
-        if (sarvamCache.size > 150) sarvamCache.delete(sarvamCache.keys().next().value as string);
-        sarvamCache.set(key, audio);
+        await saveForGood(key, audio).catch(() => {}); // awaited: serverless may stop right after the response
       }
+      if (sarvamCache.size > 150) sarvamCache.delete(sarvamCache.keys().next().value as string);
+      sarvamCache.set(key, audio);
       return new Response(audio, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "private, max-age=86400", "Content-Length": String(audio.byteLength) } });
     } catch (e: any) {
       console.error("[voice preview sarvam]", e?.message);
-      return Response.json({ error: "Couldn't generate a voice preview." }, { status: 502 });
+      return Response.json({ error: friendly(e, "Couldn't generate a voice preview.") }, { status: 502 });
     }
   }
   const voiceId = sp.get("voiceId") || "";
@@ -53,6 +71,6 @@ export async function GET(req: Request) {
     });
   } catch (e: any) {
     console.error("[voice preview]", e?.message);
-    return Response.json({ error: "Couldn't generate a preview for this voice." }, { status: 502 });
+    return Response.json({ error: friendly(e, "Couldn't generate a preview for this voice.") }, { status: 502 });
   }
 }
