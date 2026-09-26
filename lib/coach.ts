@@ -80,7 +80,7 @@ export function rewriteMessages(o: { text: string; kind: string; language: strin
     alternatives: "Write 3 different good versions (different angles).",
   };
   const lang = o.language === "en" ? "Write in English."
-    : o.language === "mix" ? "Write the natural mixed style Indians use on calls (e.g. Tenglish/Hinglish): the main language in its own script with common English words like fees, batch, demo, online, EMI kept in English as spoken."
+    : o.language === "mix" ? `Write the natural mixed style people use on calls (${baseLang(o.openingLanguage) === "hi" ? "Hinglish" : baseLang(o.openingLanguage) === "en" || baseLang(o.openingLanguage) === "te" ? "Tenglish" : "mixed"}): mostly ${LANG_NAMES[baseLang(o.openingLanguage) === "en" ? "te" : baseLang(o.openingLanguage)] || "Telugu"} written in its own script, with common English words like fees, batch, demo, online, EMI kept in English as spoken. Do NOT write the whole line in English.`
     : o.language && o.language !== "auto" ? `Write in ${LANG_NAMES[o.language] || o.language}, in its own script, everyday spoken style.`
     : langLine(o.openingLanguage, o.policy);
   return [
