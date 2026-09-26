@@ -7,6 +7,7 @@
  */
 export const runtime = "nodejs";
 import { getClientByWebhookSecret, getClientByAppId, upsertCall, payloadToCall, existingCall } from "@/lib/calls";
+import { handoffAfterCall } from "@/lib/handoffAlert";
 import crypto from "crypto";
 import { sarvamConfig, recordingUrl, SARVAM_VOICES } from "@/lib/sarvamAgent";
 import { optOutPhrase, addDnc } from "@/lib/compliance";
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
       row.recording_url = await fetchRecordingUrl(appId, row.interaction_id);
     }
     if (prev?.recording_url && !row.recording_url) delete row.recording_url; // keep a recording we already have
+    if (prev?.handoff) (row as any).follow_up = true; // a handoff stays a follow-up on retried webhooks
 
     const saved = await upsertCall(row);
 
@@ -81,7 +83,12 @@ export async function POST(req: Request) {
     if (said && phone) {
       await addDnc(client.id, [{ phone, source: "caller_request", reason: `Caller said "${said}"`, callId: String(row.interaction_id) }]).catch(() => {});
     }
-    return Response.json({ ok: true, id: saved.id, lead_status: saved.lead_status });
+    // Needed a person (ready to pay, asked for someone, existing customer issue…)? Alert them now — once per call.
+    let handoff = prev?.handoff || null;
+    if (!handoff && row.source !== "manual" && (row.duration_seconds ?? 0) > 0) {
+      handoff = await handoffAfterCall(client, saved, payload).catch((e: any) => { console.error("[webhook] handoff", e?.message); return null; });
+    }
+    return Response.json({ ok: true, id: saved.id, lead_status: saved.lead_status, handoff: handoff ? handoff.rule : null });
   } catch (err: any) {
     console.error("[webhook] failed", err?.message);
     return Response.json({ error: err?.message || "Failed to store call" }, { status: 500 });

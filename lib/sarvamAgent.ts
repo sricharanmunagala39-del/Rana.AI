@@ -6,6 +6,7 @@
 // instructions, greeting and opening language, so publishing in RANA takes effect on the next call.
 //
 // Keys: Voice Agents keys (sk_samvaad_…) are separate from Sarvam API keys (sk_…) — RANA_SARVAM_AGENTS_API_KEY.
+import { liveTransferOn, normalizeHandoff, scriptRefLine, transferNumber } from "./handoff";
 import { LANG_NAMES, baseLang } from "./playbook";
 
 const APPS = "https://apps.sarvam.ai/api";
@@ -100,9 +101,12 @@ export function sessionPayload(script: any, caller?: { name?: string | null; var
     caller?.name ? `- Name: ${caller.name}` : "",
     ...Object.entries(caller?.variables || {}).filter(([, v]) => String(v || "").trim()).map(([k, v]) => `- ${k.replace(/_/g, " ")}: ${v}`),
   ].filter(Boolean);
-  const rana_instructions = (details.length ? `${base}\n\n# About this caller\n${details.join("\n")}` : base).slice(0, 30000);
+  const ref = script.id ? `\n\n${scriptRefLine(String(script.id))}` : "";
+  const rana_instructions = ((details.length ? `${base}\n\n# About this caller\n${details.join("\n")}` : base).slice(0, 29900) + ref);
+  // Live transfer target (only once the Sarvam agents have call forwarding bound to `transfer_to`).
+  const transfer_to = liveTransferOn() ? transferNumber(normalizeHandoff(script.handoff)) : null;
   return {
-    agent_variables: { rana_instructions },
+    agent_variables: transfer_to ? { rana_instructions, transfer_to } : { rana_instructions },
     initial_bot_message: String(script.greeting || "").trim() || undefined,
     initial_language_name: sarvamLanguageName(script.starting_language),
   };

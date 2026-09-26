@@ -2,6 +2,7 @@
 // what to pitch, how to handle each objection, how to close — plus links, knowledge and
 // pronunciation. The AI builds it from whatever the client pastes; the client can edit any card
 // or ask the AI to change it; and at publish time it is compiled into the agent's instructions.
+import { handoffPrompt, type Handoff } from "./handoff";
 
 export type Objection = { objection: string; response: string };
 export type Faq = { question: string; answer: string };
@@ -344,6 +345,7 @@ export function buildAgentPrompt(s: {
   name: string; greeting: string; startingLanguage: string; strictnessText: string;
   playbook: Playbook | null; steps?: { title: string; body: string }[]; facts?: string[];
   policy: LanguagePolicy; links: AgentLink[]; pronunciations: Pronunciation[]; knowledge: KnowledgeItem[];
+  handoff?: Handoff | null;
 }): string {
   const open = baseLang(s.startingLanguage);
   const openName = LANG_NAMES[open] || "English";
@@ -414,6 +416,9 @@ ${s.links.map((l) => `- ${l.label} (${l.purpose}): say "${l.say || spokenUrl(l.u
 When you need to say these words, write them exactly as shown on the right so they are pronounced correctly:
 ${s.pronunciations.map((x) => `- ${x.word} → ${x.sayAs}`).join("\n")}`);
   }
+
+  const handoff = s.handoff ? handoffPrompt(s.handoff) : "";
+  if (handoff) parts.push(handoff);
 
   parts.push(`# Always
 - Be honest. If asked whether you are an AI or a real person, say you are an AI assistant calling on behalf of the team.

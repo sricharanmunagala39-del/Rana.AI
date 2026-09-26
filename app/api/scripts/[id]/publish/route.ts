@@ -14,6 +14,7 @@ import { audit } from "@/lib/audit";
 import { claimResource } from "@/lib/ownership";
 import { buildAgentPrompt, normalizePlaybook, normalizePolicy, normalizeLinks, normalizePronunciations } from "@/lib/playbook";
 import { listKnowledge } from "@/lib/knowledge";
+import { normalizeHandoff } from "@/lib/handoff";
 import { STRICTNESS_LABELS } from "@/lib/storage";
 import { sarvamConfig, sarvamMissing, voiceFor, withVoice } from "@/lib/sarvamAgent";
 
@@ -29,6 +30,7 @@ async function compile(script: any) {
     policy: normalizePolicy(script.language_policy, script.starting_language || "en-IN"),
     links: normalizeLinks(script.links), pronunciations: normalizePronunciations(script.pronunciations),
     knowledge: knowledge.map((k: any) => ({ title: k.title, kind: k.kind, summary: k.summary, content: k.content })),
+    handoff: normalizeHandoff(script.handoff),
   });
   const keyterms = Array.from(new Set([...(script.keyterms || []), ...normalizePronunciations(script.pronunciations).map((p) => p.word)])).slice(0, 100);
   return { instructions, keyterms };

@@ -68,6 +68,14 @@ export default function CallDrawer({ call, onClose, onUpdated }: { call: CallRow
             </div>
           </div>
 
+          {call.handoff && (
+            <div className="border border-hot/40 rounded-lg px-3 py-2.5 bg-hot-tint" data-testid="handoff-banner">
+              <div className="text-[11.5px] font-semibold text-warm uppercase tracking-wide">Needs a person — {call.handoff.label}</div>
+              <div className="text-[13px] mt-1 leading-relaxed">“{call.handoff.quote}”</div>
+              <div className="text-[12px] text-ink-soft mt-1">{call.handoff.to_name ? `Routed to ${call.handoff.to_name}${call.handoff.to_phone ? ` · ${call.handoff.to_phone}` : ""}` : "Routed to your team"}{call.handoff.emailed ? " · alert emailed" : ""}</div>
+            </div>
+          )}
+
           {call.lead_reason && (
             <div className="border border-line rounded-lg px-3 py-2.5 bg-paper">
               <div className="text-[11.5px] font-semibold text-ink-soft uppercase tracking-wide">Why RANA labelled it {LEAD_LABEL[call.lead_status]}</div>
