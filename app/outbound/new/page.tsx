@@ -8,63 +8,6 @@ import Sidebar from "@/components/Sidebar";
 
 type Script = { id: string; name: string; cartesia_agent_id: string | null; tested_at: string | null };
 type PhoneNumber = { id: string; number: string; label: string | null; provider: string };
-type Contact = { name: string; phone: string; variables: Record<string, string>; valid: boolean; dup: boolean };
-
-/* ── list parsing: paste or CSV, header optional ── */
-function splitLine(line: string): string[] {
-  const out: string[] = []; let cur = ""; let q = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') { if (q && line[i + 1] === '"') { cur += '"'; i++; } else q = !q; }
-    else if ((ch === "," || ch === "\t" || ch === ";") && !q) { out.push(cur.trim()); cur = ""; }
-    else cur += ch;
-  }
-  out.push(cur.trim());
-  return out;
-}
-function normalisePhone(raw: string): string | null {
-  const s = String(raw || "").replace(/[^\d+]/g, "");
-  let out: string;
-  if (s.startsWith("+")) out = s; else if (s.startsWith("00")) out = "+" + s.slice(2);
-  else if (s.length === 11 && s.startsWith("0")) out = "+91" + s.slice(1);
-  else if (s.length === 10) out = "+91" + s;
-  else if (s.length === 12 && s.startsWith("91")) out = "+" + s; else return null;
-  return /^\+[1-9]\d{9,14}$/.test(out) ? out : null;
-}
-function parseList(text: string): { contacts: Contact[]; columns: string[] } {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  if (!lines.length) return { contacts: [], columns: [] };
-  let rows = lines.map(splitLine);
-  const first = rows[0].map((h) => h.toLowerCase());
-  const hasHeader = first.some((h) => /phone|mobile|number|contact|name/.test(h)) && !first.some((h) => normalisePhone(h));
-  let header = hasHeader ? rows[0].map((h) => h.trim()) : [];
-  if (hasHeader) rows = rows.slice(1);
-  const width = Math.max(...rows.map((r) => r.length));
-  if (!hasHeader) header = Array.from({ length: width }, (_, i) => `col${i + 1}`);
-  // Phone column: named, otherwise the column with the most phone-like values.
-  let pi = header.findIndex((h) => /phone|mobile|number|contact/i.test(h));
-  if (pi < 0) {
-    let best = -1;
-    for (let i = 0; i < width; i++) { const n = rows.filter((r) => normalisePhone(r[i] || "")).length; if (n > best) { best = n; pi = i; } }
-  }
-  let ni = header.findIndex((h) => /^(full ?)?name$|student|doctor|customer|lead/i.test(h));
-  if (ni < 0 && !hasHeader) ni = [0, 1].find((i) => i !== pi && rows.some((r) => r[i] && !normalisePhone(r[i]))) ?? -1;
-  const varCols = header.map((h, i) => ({ h, i })).filter(({ i }) => i !== pi && i !== ni && hasHeader);
-  const seen = new Set<string>();
-  const contacts = rows.map((r) => {
-    const phone = normalisePhone(r[pi] || "");
-    const dup = !!phone && seen.has(phone);
-    if (phone) seen.add(phone);
-    const variables: Record<string, string> = {};
-    for (const { h, i } of varCols) if (r[i]) variables[h.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")] = r[i];
-    return { name: ni >= 0 ? r[ni] || "" : "", phone: phone || r[pi] || "", variables, valid: !!phone, dup };
-  });
-  return { contacts, columns: varCols.map(({ h }) => h.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")) };
-}
-
-const SAMPLE = `name,phone,college,year
-Dr Priya Reddy,98480 12345,Osmania Medical College,2024
-Dr Rahul Varma,+91 90000 54321,Gandhi Medical College,2023`;
 
 // Defined at module level so inputs inside keep focus while typing.
 function Section({ n, title, children }: any) {
@@ -194,33 +137,7 @@ export default function NewCampaignPage() {
           </Section>
 
           <Section n={2} title="Who to call">
-            <div className="text-[12.5px] text-ink-soft">Paste from Excel/Sheets or upload a CSV. One person per line. A <span className="font-semibold">phone</span> column is required; <span className="font-semibold">name</span> and any other columns (college, year, course…) are passed to the employee so it can use them in the conversation.</div>
-            <textarea value={raw} onChange={(e) => setRaw(e.target.value)} rows={7} placeholder={SAMPLE} className={`${input} font-mono text-[12px]`} />
-            <div className="flex flex-wrap items-center gap-3 text-[12.5px]">
-              <label className="border border-line rounded-lg px-3 py-1.5 font-semibold cursor-pointer hover:bg-paper">Upload CSV<input type="file" accept=".csv,.txt,.tsv" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} /></label>
-              <button onClick={() => setRaw(SAMPLE)} className="text-ink-soft hover:text-ink">Use sample</button>
-              {parsed.contacts.length > 0 && (
-                <span className="text-ink-soft"><span className="font-semibold text-signal">{ok.length} ready</span>{bad.length ? ` · ${bad.length} invalid` : ""}{dups.length ? ` · ${dups.length} duplicates removed` : ""}</span>
-              )}
-            </div>
-            {parsed.columns.length > 0 && <div className="text-[12px] text-ink-soft">Extra details the employee can use: {parsed.columns.map((c) => <span key={c} className="font-mono bg-paper border border-line rounded px-1.5 py-0.5 mr-1">{`{{${c}}}`}</span>)}</div>}
-            {parsed.contacts.length > 0 && (
-              <div className="border border-line rounded-lg overflow-hidden">
-                <table className="w-full text-[12.5px]">
-                  <thead className="bg-paper text-ink-soft text-left"><tr><th className="px-3 py-1.5 font-medium">Name</th><th className="px-3 py-1.5 font-medium">Phone</th><th className="px-3 py-1.5 font-medium">Details</th><th className="px-3 py-1.5 font-medium"></th></tr></thead>
-                  <tbody>
-                    {parsed.contacts.slice(0, 6).map((c, i) => (
-                      <tr key={i} className="border-t border-line">
-                        <td className="px-3 py-1.5">{c.name || "—"}</td><td className="px-3 py-1.5 font-mono">{c.phone}</td>
-                        <td className="px-3 py-1.5 text-ink-soft truncate max-w-[260px]">{Object.values(c.variables).join(" · ") || "—"}</td>
-                        <td className="px-3 py-1.5 text-right">{!c.valid ? <span className="text-miss">invalid</span> : c.dup ? <span className="text-ink-soft">duplicate</span> : <span className="text-signal">✓</span>}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {parsed.contacts.length > 6 && <div className="px-3 py-1.5 text-[11.5px] text-ink-soft border-t border-line">+ {parsed.contacts.length - 6} more</div>}
-              </div>
-            )}
+            <LeadListImport onApproved={setApprovedList} />
           </Section>
 
           <Section n={3} title="When">
