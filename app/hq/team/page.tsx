@@ -58,7 +58,7 @@ export default function HqTeamPage() {
           <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-3" data-testid="twostep">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-[15px] font-semibold">Your two-step login {tf?.enabled ? <span className="ml-2 text-[11px] text-signal">ON</span> : <span className="ml-2 text-[11px] text-miss">OFF</span>}</div>
+                <div className="text-[15px] font-semibold">Your two-step login {tf === null || tf === undefined ? <span className="ml-2 text-[11px] text-ink-soft">…</span> : tf.enabled ? <span className="ml-2 text-[11px] text-signal">ON</span> : <span className="ml-2 text-[11px] text-miss">OFF</span>}</div>
                 <div className="text-[12.5px] text-ink-soft">After your password, RANA asks for a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, Authy). Strongly recommended for HQ — it can see every client.</div>
               </div>
               {tf && !tf.enabled && !tf.secret && <button onClick={() => twoStep("start")} disabled={busy} className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold shrink-0" data-testid="twostep-start">Turn on</button>}
