@@ -18,12 +18,19 @@ export const LEGAL_LINKS: [string, string][] = [
   ["Contact", "/legal/contact"],
 ];
 
-export function Doc({ title, intro, children }: { title: string; intro?: string; children: React.ReactNode }) {
+export const SOCIAL_LINKS: [string, string][] = [
+  ["YouTube", "https://www.youtube.com/channel/UCgrbxNCSEA3f0A1Tt8VZt2w"],
+  ["Instagram", "https://www.instagram.com/ranaai.in/"],
+  ["LinkedIn", "https://www.linkedin.com/company/145231982/"],
+  ["Facebook", "https://www.facebook.com/1404023779460084"],
+];
+
+export function Doc({ title, intro, updated, children }: { title: string; intro?: string; updated?: string; children: React.ReactNode }) {
   return (
     <article>
       <p className="eyebrow">// LEGAL</p>
       <h1 className="font-display text-[34px] sm:text-[42px] font-semibold tracking-tight mt-3">{title}</h1>
-      <p className="text-ink-soft text-[14px] mt-2">Last updated: {LEGAL.updated}</p>
+      <p className="text-ink-soft text-[14px] mt-2">Last updated: {updated || LEGAL.updated}</p>
       {intro && <p className="text-[16px] leading-7 mt-6 text-ink/90">{intro}</p>}
       <div className="mt-8 space-y-8 text-[15px] leading-7 text-ink/85">{children}</div>
     </article>
