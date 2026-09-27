@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     wants: WANTS[b.wants] ? b.wants : null,
     languages: (Array.isArray(b.languages) ? b.languages : []).map((l: any) => clip(l, 20)).filter(Boolean).slice(0, 11),
     volume: clip(b.volume, 40) || null, best_time: clip(b.bestTime, 40) || null,
-    message: clip(b.message, 1000) || null, source: clip(b.source, 40) || null, ip,
+    message: clip(b.message, 1000) || null, source: clip(b.source, 300) || null, ip,
   };
   const saved = await sb<any[]>(`/demo_requests`, { method: "POST", body: JSON.stringify(row) }).catch((e) => { console.error("[demo]", e?.message); return null; });
   if (!saved?.[0]) return Response.json({ error: "Couldn't save your request just now. Please email hello@ranaai.in." }, { status: 500 });
