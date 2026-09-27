@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { engineOfCampaign } from "@/lib/voice/engines";
 import { unauthorized, forbidUnless } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { getClientById } from "@/lib/supabase";
@@ -15,7 +16,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const c = await getCampaignRow(session.clientId, decodeURIComponent(params.id));
   if (!c) return Response.json({ error: "Campaign not found" }, { status: 404 });
   if (!c.cartesia_batch_id) return Response.json({ error: "This campaign never reached the calling engine." }, { status: 400 });
-  const onSarvam = (c as any).engine === "sarvam";
+  const onSarvam = engineOfCampaign(c as any) === "sarvam";
   const { action } = await req.json().catch(() => ({}));
   if (action === "cancel" || action === "retry") { const denied = forbidUnless(session, "manager"); if (denied) return denied; }
   if (action === "retry") {

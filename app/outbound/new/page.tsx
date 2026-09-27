@@ -1,6 +1,7 @@
 // @ts-nocheck
 "use client";
 
+import { engineOfAgentRef } from "@/lib/voice/engines";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -60,7 +61,7 @@ export default function NewCampaignPage() {
   const ok = approvedList || [];
   const script = scripts.find((s) => s.id === scriptId);
   // Employees on the Sarvam engine call from the Sarvam Indian number; Cartesia employees from Cartesia/Twilio numbers.
-  const onSarvam = !!script && String(script.cartesia_agent_id || "").startsWith("sarvam:");
+  const onSarvam = !!script && engineOfAgentRef(script.cartesia_agent_id) === "sarvam";
   const numbers: PhoneNumber[] = onSarvam ? (sarvamNumber ? [sarvamNumber] : []) : cartesiaNumbers;
   useEffect(() => {
     if (onSarvam && sarvamNumber) setFromId("sarvam");

@@ -1,6 +1,7 @@
 // Campaigns + their contact lists (Supabase, service key, server-side only).
 // A campaign = one Cartesia call batch. Every uploaded number is a campaign_contacts row; once
 // Cartesia dials it, cartesia_call_id links it to calls.interaction_id.
+import { engineOfCampaign } from "./voice/engines";
 import { getCartesiaBatch } from "./cartesia";
 import { sarvamConfig, getSarvamCampaign } from "./sarvamAgent";
 
@@ -90,7 +91,7 @@ function campaignStatusFromBatch(b: any): string {
 /** Pull the batch from Cartesia and write each recipient's status + call id onto our contacts. */
 export async function refreshCampaignFromCartesia(c: Campaign): Promise<Campaign> {
   if (!c.cartesia_batch_id) return c;
-  if ((c as any).engine === "sarvam") return refreshSarvamCampaign(c);
+  if (engineOfCampaign(c as any) === "sarvam") return refreshSarvamCampaign(c);
   const b = await getCartesiaBatch(c.cartesia_batch_id);
   const recipients: any[] = b?.recipients ?? [];
   const contacts = await listContacts(c.id);

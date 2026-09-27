@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { isEngine } from "@/lib/voice/engines";
 import { getSession } from "@/lib/session";
 import { requireHq } from "@/lib/hq";
 import { sb } from "@/lib/db";
@@ -58,6 +59,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if ("campaignSize" in b) patch.max_campaign_size = intOrNull(b.campaignSize, 1_000_000);
   if ("allowOverage" in b) patch.allow_overage = !!b.allowOverage;
   if ("walletEnabled" in b) patch.wallet_enabled = !!b.walletEnabled;
+  // Calling engines this client may pick per employee. Sarvam is always on; others are opt-in.
+  if ("voiceProviders" in b) patch.voice_providers = Array.from(new Set(["sarvam", ...(Array.isArray(b.voiceProviders) ? b.voiceProviders : []).filter(isEngine)]));
   if ("number" in b) {
     const n = String(b.number || "").replace(/[^\d+]/g, "");
     if (n && !/^\+?\d{10,13}$/.test(n)) return Response.json({ error: "Enter the number with country code, e.g. +914012345678." }, { status: 400 });

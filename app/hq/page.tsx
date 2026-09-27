@@ -247,6 +247,7 @@ export default function HqPage() {
             <label className="text-[12px] font-semibold">Notes
               <textarea id="hq-edit-notes" defaultValue={editing.notes || ""} onBlur={(e) => { if (e.target.value !== (editing.notes || "")) patch(editing.id, { notes: e.target.value }); }} className="mt-1 w-full border border-line rounded-lg px-3 py-2 text-[13px] font-normal" rows={3} />
             </label>
+            <label className="flex items-start gap-2 text-[13px] border-t border-line pt-4" data-testid="hq-cartesia"><input type="checkbox" className="mt-1" defaultChecked={(editing.overrides?.voiceProviders || []).includes("cartesia")} onChange={(e) => patch(editing.id, { voiceProviders: e.target.checked ? ["sarvam", "cartesia"] : ["sarvam"] })} /><span>Cartesia engine<span className="block text-[11px] text-ink-soft">Lets them pick Cartesia per employee: Hindi/English only, 900+ voices, their own cloned voice. Sarvam stays available.</span></span></label>
             {editing.plan !== "trial" && (
               <div className="flex flex-col gap-2 border-t border-line pt-4" data-testid="hq-wallet">
                 <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" defaultChecked={!!editing.overrides?.walletEnabled} onChange={(e) => patch(editing.id, { walletEnabled: e.target.checked })} /> Prepaid wallet (minutes beyond the plan come from their recharge balance)</label>
