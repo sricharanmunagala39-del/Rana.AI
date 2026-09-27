@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 export const maxDuration = 90;
+import { hideVendors } from "@/lib/voice/brand";
 import { studioGuard } from "@/lib/studioAuth";
 import { listKnowledge, addKnowledge, deleteKnowledge, fetchPageText, thinHint } from "@/lib/knowledge";
 
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
     const row = await addKnowledge({ client_id: g.session.clientId, script_id: g.script.id, kind: b.kind, title: title || "Notes", source, content, created_by: g.session.email });
     return Response.json({ ok: true, item: view(row) }, { status: 201 });
   } catch (e: any) {
-    return Response.json({ error: e?.message || "Couldn't add that." }, { status: 400 });
+    return Response.json({ error: hideVendors(e?.message) || "Couldn't add that." }, { status: 400 });
   }
 }
 

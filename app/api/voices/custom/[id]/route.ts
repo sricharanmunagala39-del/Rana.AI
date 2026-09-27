@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { hideVendors } from "@/lib/voice/brand";
 import { getSession } from "@/lib/session";
 import { unauthorized, forbidUnless } from "@/lib/auth";
 import { getCustomVoice, deleteOnCartesia, markDeleted } from "@/lib/voiceClone";
@@ -25,6 +26,6 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     await audit(session, "voice_deleted", { req, targetType: "voice", targetId: v.cartesia_voice_id, detail: { name: v.name } });
     return Response.json({ ok: true });
   } catch (e: any) {
-    return Response.json({ error: e?.message || "Couldn't delete this voice" }, { status: 502 });
+    return Response.json({ error: hideVendors(e?.message) || "Couldn't delete this voice" }, { status: 502 });
   }
 }

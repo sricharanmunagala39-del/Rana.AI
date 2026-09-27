@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { hideVendors } from "@/lib/voice/brand";
 import { parseSession, unauthorized } from "@/lib/auth";
 import { getClientById } from "@/lib/supabase";
 import { listCartesiaPhoneNumbers, provisionCartesiaPhoneNumber } from "@/lib/cartesia";
@@ -12,7 +13,7 @@ export async function GET(req: Request) {
   const session = await getSession(req);
   if (!session) return unauthorized();
   if (!process.env.CARTESIA_API_KEY) {
-    return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
+    return Response.json({ error: hideVendors("CARTESIA_API_KEY is not set.") }, { status: 500 });
   }
   try {
     // Only this client's numbers — the Cartesia account is shared by every client.
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
       })),
     });
   } catch (err: any) {
-    return Response.json({ error: err?.message || "Failed to load phone numbers" }, { status: 500 });
+    return Response.json({ error: hideVendors(err?.message) || "Failed to load phone numbers" }, { status: 500 });
   }
 }
 
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
   if (!session) return unauthorized();
   const denied = forbidUnless(session, "admin"); if (denied) return denied;
   if (!process.env.CARTESIA_API_KEY) {
-    return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
+    return Response.json({ error: hideVendors("CARTESIA_API_KEY is not set.") }, { status: 500 });
   }
   let body: { label?: string; assignToAgent?: boolean };
   try { body = await req.json(); } catch { return Response.json({ error: "Invalid body." }, { status: 400 }); }
@@ -65,6 +66,6 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: any) {
-    return Response.json({ error: err?.message || "Failed to provision a phone number" }, { status: 500 });
+    return Response.json({ error: hideVendors(err?.message) || "Failed to provision a phone number" }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
+import { hideVendors } from "@/lib/voice/brand";
 import { engineOfAgentRef } from "@/lib/voice/engines";
 import { unauthorized, forbidUnless } from "@/lib/auth";
 import { getScriptById, getClientById } from "@/lib/supabase";
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
       campaigns: rows.map((c) => ({ ...c, kpis: kpis(c.cartesia_batch_id ? byBatch.get(c.cartesia_batch_id) || [] : []) })),
     });
   } catch (err: any) {
-    return Response.json({ error: err?.message || "Failed to load campaigns" }, { status: 500 });
+    return Response.json({ error: hideVendors(err?.message) || "Failed to load campaigns" }, { status: 500 });
   }
 }
 
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
   if (!script || script.client_id !== session.clientId) return Response.json({ error: "Pick which employee should make the calls." }, { status: 400 });
   if (!script.cartesia_agent_id) return Response.json({ error: `${script.name} isn't published yet. Publish it from My Employees first.` }, { status: 400 });
   const onSarvam = engineOfAgentRef(script.cartesia_agent_id) === "sarvam";
-  if (!onSarvam && !process.env.CARTESIA_API_KEY) return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
+  if (!onSarvam && !process.env.CARTESIA_API_KEY) return Response.json({ error: hideVendors("CARTESIA_API_KEY is not set.") }, { status: 500 });
   if (!(script as any).tested_at) return Response.json({ error: `${script.name} hasn't been signed off yet. Talk to it on the Talk page and mark it as tested first.` }, { status: 400 });
 
   // De-duplicate and validate numbers; keep the first name seen for each.
@@ -161,6 +162,6 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, campaign: updated, accepted: contacts.length, invalid, skippedDnc: skippedDnc.length });
   } catch (err: any) {
     await updateCampaignRow(campaign.id, { status: "failed", last_error: String(err?.message || err).slice(0, 500) });
-    return Response.json({ error: `Cartesia didn't accept the campaign: ${err?.message || err}`, campaignId: campaign.id }, { status: 502 });
+    return Response.json({ error: hideVendors(`Cartesia didn't accept the campaign: ${err?.message || err}`), campaignId: campaign.id }, { status: 502 });
   }
 }

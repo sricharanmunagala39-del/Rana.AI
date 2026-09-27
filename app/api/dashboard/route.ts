@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { hideVendors } from "@/lib/voice/brand";
 import { parseSession, unauthorized } from "@/lib/auth";
 import { listCallsLean, listCampaigns } from "@/lib/calls";
 import { maybeSyncClientCalls } from "@/lib/callSync";
@@ -60,6 +61,6 @@ export async function GET(req: Request) {
       generatedAt: new Date().toISOString(),
     });
   } catch (err: any) {
-    return Response.json({ error: err?.message || "Failed to build dashboard" }, { status: 500 });
+    return Response.json({ error: hideVendors(err?.message) || "Failed to build dashboard" }, { status: 500 });
   }
 }

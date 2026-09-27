@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
+import { hideVendors } from "@/lib/voice/brand";
 import { parseSession, unauthorized } from "@/lib/auth";
 import { syncClientCalls } from "@/lib/callSync";
 import { getSession } from "@/lib/session";
@@ -12,6 +13,6 @@ export async function POST(req: Request) {
     const r = await syncClientCalls(session.clientId);
     return Response.json({ ok: r.errors.length === 0, ...r }, { status: r.errors.length && !r.saved ? 502 : 200 });
   } catch (err: any) {
-    return Response.json({ error: err?.message || "Sync failed" }, { status: 500 });
+    return Response.json({ error: hideVendors(err?.message) || "Sync failed" }, { status: 500 });
   }
 }

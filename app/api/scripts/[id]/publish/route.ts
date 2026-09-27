@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { hideVendors } from "@/lib/voice/brand";
 import { engineOfAgentRef } from "@/lib/voice/engines";
 import { getScriptById, updateScript, getClientById } from "@/lib/supabase";
 import { parseSession } from "@/lib/auth";
@@ -82,13 +83,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       } as any);
       return Response.json({ ok: true, script: updated, agentId: agentRef, engine: "sarvam", voice: voice.name, chars: instructions.length });
     } catch (err: any) {
-      return Response.json({ error: err?.message || "Couldn't publish this employee." }, { status: 500 });
+      return Response.json({ error: hideVendors(err?.message) || "Couldn't publish this employee." }, { status: 500 });
     }
   }
 
   if (!process.env.CARTESIA_API_KEY) {
     return Response.json(
-      { error: "CARTESIA_API_KEY is not set. Add it in Vercel → Settings → Environment Variables." },
+      { error: hideVendors("CARTESIA_API_KEY is not set. Add it in Vercel → Settings → Environment Variables.") },
       { status: 500 }
     );
   }
@@ -176,6 +177,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return Response.json({ ok: true, script: updated, agentId, engine: "cartesia", voiceId: resolvedVoiceId, modelId: resolvedModelId, language });
   } catch (err: any) {
     console.error("[script publish] failed", err?.message);
-    return Response.json({ error: err?.message || "Failed to publish this agent to Cartesia" }, { status: 500 });
+    return Response.json({ error: hideVendors(err?.message) || "Failed to publish this agent to R2" }, { status: 500 });
   }
 }
