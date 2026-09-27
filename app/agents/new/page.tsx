@@ -1,6 +1,7 @@
 // @ts-nocheck
 "use client";
 
+import { ENGINES, LANGUAGE_LABELS, engineSupports, isEngine, type EngineId } from "@/lib/voice/engines";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -39,8 +40,9 @@ function WizardInner() {
   const [name, setName] = useState("");
   const [startingLanguage, setStartingLanguage] = useState("en-IN");
   const [policy, setPolicy] = useState<{ mode: "match_caller" | "fixed"; allowed: string[]; style?: "everyday" | "pure"; swaps?: { avoid: string; say: string }[] }>({ mode: "match_caller", allowed: ["en", "te", "hi"], style: "everyday", swaps: [] });
-  // Voice engine: always Sarvam for customers (the Cartesia code path stays only for old drafts).
-  const [engine, setEngine] = useState<"sarvam" | "cartesia">("sarvam");
+  // Voice engine: Sarvam by default; Cartesia (or later providers) once RANA HQ switches it on for this workspace.
+  const [engine, setEngine] = useState<EngineId>("sarvam");
+  const [engines, setEngines] = useState<{ id: EngineId; label: string; blurb: string; callLanguages: string[] }[]>([]);
   const [sarvamStatus, setSarvamStatus] = useState<any>(null);
   const [previewing, setPreviewing] = useState<string | false>(false);
   const [voiceId, setVoiceId] = useState("");
@@ -82,6 +84,7 @@ function WizardInner() {
 
   useEffect(() => {
     fetch("/api/sarvam/status").then((r) => r.json()).then(setSarvamStatus).catch(() => {});
+    fetch("/api/voice/engines").then((r) => r.json()).then((d) => setEngines(d?.engines || [])).catch(() => {});
   }, []);
 
   // Voice previews are fetched ahead of time (all voices, in the chosen language) so "Hear" plays instantly.
@@ -138,7 +141,7 @@ function WizardInner() {
         const s = data.script;
         setName(s.name || "");
         setStartingLanguage(s.starting_language || "en-IN");
-        setEngine("sarvam"); // Sarvam is the only engine offered
+        setEngine(isEngine(s.engine) ? s.engine : "sarvam");
         if (s.language_policy) setPolicy({ mode: s.language_policy.mode === "fixed" ? "fixed" : "match_caller", allowed: s.language_policy.allowed?.length ? s.language_policy.allowed : [baseLang(s.starting_language)], style: s.language_policy.style === "pure" ? "pure" : "everyday", swaps: Array.isArray(s.language_policy.swaps) ? s.language_policy.swaps : [] });
         setVoiceId(s.speaker || "");
         setVoiceName(s.voice_name || "");
@@ -420,7 +423,30 @@ function WizardInner() {
 
               {stepIdx === 1 && (
                 <div className="flex flex-col gap-6">
-                  <div>
+                  {engines.length > 1 && (
+                    <div data-testid="engine-picker">
+                      <label className="text-[13px] font-semibold block mb-1">Voice engine</label>
+                      <div className="text-[12px] text-ink-soft mb-3">Everything else about your employee stays the same. You can switch later and publish again.</div>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {engines.map((e) => {
+                          const fits = engineSupports(e.id, startingLanguage, policy.allowed);
+                          const on = engine === e.id;
+                          return (
+                            <button key={e.id} type="button" disabled={!fits && !on} onClick={() => setEngine(e.id)} data-testid={`engine-${e.id}`}
+                              className={`text-left border rounded-xl px-3.5 py-3 ${on ? "border-signal bg-signal-tint/50 ring-1 ring-signal" : "border-line bg-raised hover:border-signal/50"} disabled:opacity-50 disabled:cursor-not-allowed`}>
+                              <div className="text-[14px] font-semibold flex items-center gap-1.5">{e.label}{on && <span className="text-[10.5px] text-signal">✓ selected</span>}</div>
+                              <div className="text-[11.5px] text-ink-soft leading-snug mt-0.5">{e.blurb}</div>
+                              {!fits && <div className="text-[11.5px] text-miss mt-1">Talks in {e.callLanguages.map((l) => LANGUAGE_LABELS[l] || l).join(" and ")} only. Your employee uses other languages too.</div>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {!engineSupports(engine, startingLanguage, policy.allowed) && (
+                        <div className="text-[12px] text-miss mt-2">{ENGINES[engine].label} can't talk in every language this employee uses. Switch to Sarvam, or limit the languages in step 1.</div>
+                      )}
+                    </div>
+                  )}
+                  {engine === "sarvam" && <div>
                     <label className="text-[13px] font-semibold block mb-1">Voice</label>
                     <div className="text-[12px] text-ink-soft mb-3">Pick who your callers hear. Every voice speaks Telugu, Hindi, Tamil and 8 more Indian languages, and switches when the caller does.</div>
                     {sarvamStatus && !sarvamStatus.sarvam?.ready && (
@@ -447,7 +473,7 @@ function WizardInner() {
                         );
                       })}
                     </div>
-                  </div>
+                  </div>}
 
                   {engine === "cartesia" && <>
                   {catalogError && <div className="text-[12.5px] text-miss bg-miss-tint border border-miss/20 rounded-lg px-3 py-2">{catalogError}</div>}

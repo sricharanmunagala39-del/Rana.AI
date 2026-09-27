@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { engineOfAgentRef } from "@/lib/voice/engines";
 import { getScriptById, updateScript, getClientById } from "@/lib/supabase";
 import { parseSession } from "@/lib/auth";
 import {
@@ -27,6 +28,8 @@ function withAcronyms(script: any) {
 }
 import { STRICTNESS_LABELS } from "@/lib/storage";
 import { sarvamConfig, sarvamMissing, voiceFor, withVoice } from "@/lib/sarvamAgent";
+import { engineBlocker, isEngine, DEFAULT_ENGINE } from "@/lib/voice/engines";
+import { engineReady } from "@/lib/voice/server";
 
 /** Same instructions for either engine: playbook, links, documents, pronunciation and language rules in one prompt. */
 async function compile(script: any) {
@@ -54,12 +57,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const first = await getScriptById(params.id);
   if (!first || first.client_id !== session.clientId) return Response.json({ error: "Not found" }, { status: 404 });
 
-  // Sarvam engine (the only engine offered to customers): nothing to create remotely. RANA's instructions travel
-  // with every call to the RANA Runtime agent for the chosen voice, so publishing = compiling and saving them.
-  // Older Cartesia drafts are moved onto Sarvam when they are published.
-  const SARVAM_ONLY = true;
-  if (SARVAM_ONLY || (first as any).engine !== "cartesia") {
-    const voice = voiceFor((first as any).engine === "cartesia" ? null : first.voice_name);
+  // Which engine: the one the employee asks for, if this workspace may use it and it fits the employee's languages.
+  // Sarvam needs nothing created remotely: RANA's instructions travel with every call to the RANA Runtime agent for
+  // the chosen voice, so publishing = compiling and saving them. Cartesia gets its own agent per employee.
+  const clientRow: any = await getClientById(session.clientId);
+  const wanted = isEngine((first as any).engine) ? (first as any).engine : DEFAULT_ENGINE;
+  if (wanted === "cartesia") {
+    const policy = normalizePolicy((first as any).language_policy, first.starting_language || "en-IN");
+    const blocker = engineBlocker("cartesia", clientRow, first.starting_language, policy.allowed)
+      || (engineReady("cartesia") ? null : "Cartesia isn't connected on RANA's side yet — RANA support has been notified.");
+    if (blocker) return Response.json({ error: blocker, code: "engine_unavailable" }, { status: 400 });
+  }
+  if (wanted !== "cartesia") {
+    const voice = voiceFor(first.voice_name);
     const base = sarvamConfig();
     const cfg = base ? withVoice(base, voice.key) : null;
     if (!cfg) return Response.json({ error: "Calling isn't switched on for your account yet — RANA support has been notified." }, { status: 500 });
@@ -95,10 +105,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const language = toCartesiaLanguage(script.starting_language);
 
     // Resolve a voice/model if this agent doesn't have one pinned yet.
-    let resolvedVoiceId = script.speaker;
+    let resolvedVoiceId = /^[0-9a-f-]{36}$/i.test(String(script.speaker || "")) ? script.speaker : null;
     if (!resolvedVoiceId) {
       const voices = await listCartesiaVoices();
       const match =
+        voices.find((v: any) => v.language === language && /IN|India/i.test(`${v.country || ""} ${v.description || ""}`)) ??
         voices.find((v: any) => v.language === language) ??
         voices.find((v: any) => v.language === "en") ??
         voices[0];
@@ -122,9 +133,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       keyterms,
       initialMessage: script.greeting || null,
       language,
-      voiceId: resolvedVoiceId,
+      voiceId: resolvedVoiceId as string,
       speed: script.speech_rate,
-      modelId: resolvedModelId,
+      modelId: resolvedModelId as string,
       noiseSuppression: (script.noise_suppression as "off" | "auto" | "max" | undefined) ?? "auto",
       backgroundSound: script.background_sound_id
         ? { fileId: script.background_sound_id, volume: typeof script.background_volume === "number" ? script.background_volume : 1 }
@@ -133,7 +144,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     // Every named agent gets its own Cartesia agent_id — that's what makes each one
     // independently selectable for a campaign or phone number later.
-    let agentId = script.cartesia_agent_id && !String(script.cartesia_agent_id).startsWith("sarvam:") ? script.cartesia_agent_id : null;
+    let agentId = engineOfAgentRef(script.cartesia_agent_id) === "cartesia" ? script.cartesia_agent_id : null;
     if (agentId) {
       await updateCartesiaAgent(agentId, cfg);
     } else {
@@ -152,17 +163,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // webhook setup here so it can't block Publish.
 
     await claimResource(session.clientId, "agent", agentId!, script.name).catch(() => {});
-    await audit(session, "employee_published", { req, targetType: "employee", targetId: script.id, detail: { name: script.name, agentId } });
+    await audit(session, "employee_published", { req, targetType: "employee", targetId: script.id, detail: { name: script.name, engine: "cartesia", agentId } });
 
     const updated = await updateScript(params.id, {
-      cartesia_agent_id: agentId,
+      cartesia_agent_id: agentId, engine: "cartesia", keyterms,
       speaker: resolvedVoiceId,
       model_id: resolvedModelId,
       published_at: new Date().toISOString(),
       instructions,
     });
 
-    return Response.json({ ok: true, script: updated, agentId, voiceId: resolvedVoiceId, modelId: resolvedModelId, language });
+    return Response.json({ ok: true, script: updated, agentId, engine: "cartesia", voiceId: resolvedVoiceId, modelId: resolvedModelId, language });
   } catch (err: any) {
     console.error("[script publish] failed", err?.message);
     return Response.json({ error: err?.message || "Failed to publish this agent to Cartesia" }, { status: 500 });

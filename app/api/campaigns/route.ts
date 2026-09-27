@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
+import { engineOfAgentRef } from "@/lib/voice/engines";
 import { unauthorized, forbidUnless } from "@/lib/auth";
 import { getScriptById, getClientById } from "@/lib/supabase";
 import { filterOwned } from "@/lib/ownership";
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
   const script = body.scriptId ? await getScriptById(body.scriptId) : null;
   if (!script || script.client_id !== session.clientId) return Response.json({ error: "Pick which employee should make the calls." }, { status: 400 });
   if (!script.cartesia_agent_id) return Response.json({ error: `${script.name} isn't published yet. Publish it from My Employees first.` }, { status: 400 });
-  const onSarvam = String(script.cartesia_agent_id).startsWith("sarvam:");
+  const onSarvam = engineOfAgentRef(script.cartesia_agent_id) === "sarvam";
   if (!onSarvam && !process.env.CARTESIA_API_KEY) return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
   if (!(script as any).tested_at) return Response.json({ error: `${script.name} hasn't been signed off yet. Talk to it on the Talk page and mark it as tested first.` }, { status: 400 });
 
@@ -140,7 +141,7 @@ export async function POST(req: Request) {
   if (!from) return Response.json({ error: "Pick the number to call from. Add one on the Phone Numbers page if the list is empty." }, { status: 400 });
 
   const campaign = await createCampaignRow({
-    client_id: session.clientId, name, script_id: script.id, cartesia_agent_id: script.cartesia_agent_id,
+    client_id: session.clientId, name, script_id: script.id, cartesia_agent_id: script.cartesia_agent_id, engine: "cartesia",
     status: "draft", total_contacts: contacts.length, from_number_id: from.id, from_number: from.number,
     scheduled_at: scheduledAt, concurrency, skipped_dnc: skippedDnc.length, created_by: session.email,
   } as any);
