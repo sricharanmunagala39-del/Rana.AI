@@ -7,6 +7,7 @@ export default function Privacy() {
   return (
     <Doc
       title="Privacy Policy"
+      updated="27 September 2026"
       intro={`This policy explains what personal data ${LEGAL.brand} (operated by ${LEGAL.owner}, ${LEGAL.city}) collects, why, and the choices you have. It is written to meet the Digital Personal Data Protection Act, 2023 and the Information Technology Act, 2000.`}
     >
       <Sec h="What we collect">
@@ -39,7 +40,12 @@ export default function Privacy() {
         <p>Data is encrypted in transit, access is limited to people who need it, logins are protected with signed sessions and optional two-step verification, and support access to a customer workspace is logged.</p>
       </Sec>
       <Sec h="Cookies and similar technology">
-        <p>We use only what the service needs to work: a sign-in cookie that keeps you logged in, and a setting saved in your browser for light or dark mode. We do not use advertising cookies or sell browsing data. If we add analytics in future, we will update this section and ask for consent where the law requires it.</p>
+        <p>We use only what the service needs to work: a sign-in cookie that keeps you logged in, and a setting saved in your browser for light or dark mode. If you reach our website from a link in one of our social media posts, your browser also remembers that link's campaign tag (for example utm_source=instagram) for up to 30 days and sends it with a demo request or sign-up, so we know which post helped. Nothing else is tracked. We do not use advertising cookies or sell browsing data. If we add analytics in future, we will update this section and ask for consent where the law requires it.</p>
+      </Sec>
+      <Sec h="YouTube and our social media accounts">
+        <p>{LEGAL.brand} uses YouTube API Services to upload and schedule videos on our own YouTube channel, add comments to our own videos and read their statistics (views, likes and comments). We use the official Meta and LinkedIn APIs in the same way for our own Facebook, Instagram and LinkedIn pages. These tools act only on accounts owned by {LEGAL.brand}; we do not access, collect or store data from your YouTube, Google, Facebook, Instagram or LinkedIn account.</p>
+        <p>By watching or interacting with our videos on YouTube you are also subject to the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTube Terms of Service</a>, and Google handles your data under the <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a>.</p>
+        <p>Statistics we receive from YouTube API Services are refreshed or deleted within 30 days. If you have ever connected a Google account to {LEGAL.brand}, you can revoke our access at any time on the <a href="https://security.google.com/settings/security/permissions" target="_blank" rel="noopener noreferrer">Google security settings page</a>, and you can ask us to delete any data by emailing <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>.</p>
       </Sec>
       <Sec h="Your rights">
         <p>You can ask to access, correct or delete your personal data, withdraw consent, or nominate someone to act for you, by emailing <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>. We reply within 30 days. If you are not satisfied with our response, you may complain to the Data Protection Board of India.</p>
