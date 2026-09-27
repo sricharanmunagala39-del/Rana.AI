@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { hideVendors } from "@/lib/voice/brand";
 import { parseSession, unauthorized } from "@/lib/auth";
 import { getClientById, updateClient } from "@/lib/supabase";
 import {
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
   const denied = forbidUnless(session, "admin"); if (denied) return denied;
   if (!process.env.CARTESIA_API_KEY) {
     return Response.json(
-      { error: "CARTESIA_API_KEY is not set. Add it in Vercel → Settings → Environment Variables." },
+      { error: hideVendors("CARTESIA_API_KEY is not set. Add it in Vercel → Settings → Environment Variables.") },
       { status: 500 }
     );
   }
@@ -111,6 +112,6 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, agentId, voiceId: resolvedVoiceId, modelId: resolvedModelId, language });
   } catch (err: any) {
     console.error("[cartesia publish] failed", err?.message);
-    return Response.json({ error: err?.message || "Failed to publish to Cartesia" }, { status: 500 });
+    return Response.json({ error: hideVendors(err?.message) || "Failed to publish to R2" }, { status: 500 });
   }
 }

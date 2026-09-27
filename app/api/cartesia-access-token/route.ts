@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { hideVendors } from "@/lib/voice/brand";
 import { getSession } from "@/lib/session";
 import { getClientById } from "@/lib/supabase";
 import { callingBlock } from "@/lib/plans";
@@ -9,7 +10,7 @@ export async function POST(req: Request) {
   const planBlock = await callingBlock(await getClientById(session.clientId));
   if (planBlock) return Response.json({ error: planBlock, code: "plan_limit" }, { status: 402 });
   if (!process.env.CARTESIA_API_KEY) {
-    return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
+    return Response.json({ error: hideVendors("CARTESIA_API_KEY is not set.") }, { status: 500 });
   }
   try {
     const res = await fetch("https://api.cartesia.ai/access-token", {
@@ -25,12 +26,12 @@ export async function POST(req: Request) {
     const data = await res.json();
     if (!res.ok) {
       return Response.json(
-        { error: data?.message || data?.error || "Failed to mint a Cartesia session token" },
+        { error: hideVendors(data?.message || data?.error) || "Couldn't start the voice session" },
         { status: res.status }
       );
     }
     return Response.json({ token: data.token });
   } catch (err: any) {
-    return Response.json({ error: err?.message || "Failed to mint a Cartesia session token" }, { status: 500 });
+    return Response.json({ error: hideVendors(err?.message) || "Couldn't start the voice session" }, { status: 500 });
   }
 }

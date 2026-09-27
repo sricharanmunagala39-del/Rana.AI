@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
+import { hideVendors } from "@/lib/voice/brand";
 import { getSession } from "@/lib/session";
 import { unauthorized, forbidUnless } from "@/lib/auth";
 import { cloneOnCartesia, saveCustomVoice, CLONE_LANGUAGES, MAX_CLIP_BYTES } from "@/lib/voiceClone";
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
   const session = await getSession(req);
   if (!session) return unauthorized();
   const denied = forbidUnless(session, "admin"); if (denied) return denied;
-  if (!process.env.CARTESIA_API_KEY) return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
+  if (!process.env.CARTESIA_API_KEY) return Response.json({ error: hideVendors("CARTESIA_API_KEY is not set.") }, { status: 500 });
 
   let form: FormData;
   try { form = await req.formData(); } catch { return Response.json({ error: "Upload didn't arrive — try again." }, { status: 400 }); }
@@ -58,10 +59,10 @@ export async function POST(req: Request) {
     if (/clone 402|plan_upgrade/i.test(msg)) {
       return Response.json({
         code: "plan_upgrade_required",
-        error: "Your Cartesia plan doesn't include voice cloning yet. Upgrade the Cartesia account (play.cartesia.ai → Billing) to a paid plan, then press Create voice again — your recordings are kept.",
+        error: hideVendors("Your Cartesia plan doesn't include voice cloning yet. Upgrade the Cartesia account (play.cartesia.ai → Billing) to a paid plan, then press Create voice again — your recordings are kept."),
       }, { status: 402 });
     }
-    if (/clone 401|clone 403/i.test(msg)) return Response.json({ error: "Cartesia rejected the API key. Check CARTESIA_API_KEY in Vercel." }, { status: 502 });
-    return Response.json({ error: `Cartesia couldn't clone this voice: ${msg.slice(0, 200)}` }, { status: 502 });
+    if (/clone 401|clone 403/i.test(msg)) return Response.json({ error: hideVendors("Cartesia rejected the API key. Check CARTESIA_API_KEY in Vercel.") }, { status: 502 });
+    return Response.json({ error: hideVendors(`Cartesia couldn't clone this voice: ${msg.slice(0, 200)}`) }, { status: 502 });
   }
 }

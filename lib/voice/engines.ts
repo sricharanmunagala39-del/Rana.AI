@@ -19,6 +19,8 @@ export type EngineInfo = {
   results: "webhook" | "poll";
   /** Voices offered: RANA's fixed set, or the provider's full catalog. */
   voices: "rana" | "catalog";
+  /** Can switch language mid-call when the caller does. */
+  switchesLanguage: boolean;
 };
 
 export const RANA_CALL_LANGUAGES = ["en", "hi", "te", "ta", "kn", "ml", "mr", "bn", "gu", "pa", "or"];
@@ -26,24 +28,27 @@ export const RANA_CALL_LANGUAGES = ["en", "hi", "te", "ta", "kn", "ml", "mr", "b
 export const ENGINES: Record<EngineId, EngineInfo> = {
   sarvam: {
     id: "sarvam",
-    label: "Sarvam",
-    blurb: "All 11 Indian languages, on RANA's Indian numbers.",
+    label: "R1", // customers never see the provider names
+    blurb: "Built for Indian languages. Switches language when the caller does. Runs on RANA's Indian numbers.",
     callLanguages: RANA_CALL_LANGUAGES,
     cloning: false,
     indianNumbers: true,
     results: "webhook",
     voices: "rana",
+    switchesLanguage: true,
   },
   cartesia: {
     id: "cartesia",
-    label: "Cartesia",
-    // Cartesia's call agents listen with Ink 2, which understands English and Hindi only (Sept 2026).
-    blurb: "Hindi, English and Hinglish, with 900+ voices and your own cloned voice.",
-    callLanguages: ["en", "hi"],
+    label: "R2",
+    // Cartesia accepted call agents in all 11 of our languages (tested 27 Sep 2026). Each agent holds one primary
+    // language; switching language mid-call is "coming soon" on their side.
+    blurb: "900+ voices, your own cloned voice and very fast replies. Each call stays in the opening language.",
+    callLanguages: RANA_CALL_LANGUAGES,
     cloning: true,
     indianNumbers: false,
     results: "poll",
     voices: "catalog",
+    switchesLanguage: false,
   },
 };
 
@@ -91,7 +96,7 @@ export function engineBlocker(engine: EngineId, client: any, language?: string |
   if (!clientEngines(client).includes(engine)) return `${ENGINES[engine].label} isn't switched on for your account. Ask RANA support to enable it.`;
   if (!engineSupports(engine, language, alsoSpeaks)) {
     const names = ENGINES[engine].callLanguages.map((l) => LANGUAGE_LABELS[l] || l).join(" and ");
-    return `${ENGINES[engine].label} agents can only talk in ${names} for now. Pick Sarvam for other languages.`;
+    return `${ENGINES[engine].label} agents can only talk in ${names} for now. Pick ${ENGINES.sarvam.label} for other languages.`;
   }
   return null;
 }

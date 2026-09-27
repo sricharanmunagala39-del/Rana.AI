@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { hideVendors } from "@/lib/voice/brand";
 import { listCartesiaAccents, listCartesiaFiles, listCartesiaModels, listCartesiaVoices } from "@/lib/cartesia";
 import { getSession } from "@/lib/session";
 import { unauthorized } from "@/lib/auth";
@@ -8,7 +9,7 @@ export async function GET(req: Request) {
   const session = await getSession(req);
   if (!session) return unauthorized();
   if (!process.env.CARTESIA_API_KEY) {
-    return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
+    return Response.json({ error: hideVendors("CARTESIA_API_KEY is not set.") }, { status: 500 });
   }
   try {
     const [allVoices, models, accents, backgroundSounds, mine] = await Promise.all([
@@ -68,6 +69,6 @@ export async function GET(req: Request) {
         .map((f: any) => ({ id: f.id, filename: f.filename, sizeBytes: f.size ?? null })),
     });
   } catch (err: any) {
-    return Response.json({ error: err?.message || "Failed to load Cartesia catalog" }, { status: 500 });
+    return Response.json({ error: hideVendors(err?.message) || "Failed to load R2 catalog" }, { status: 500 });
   }
 }

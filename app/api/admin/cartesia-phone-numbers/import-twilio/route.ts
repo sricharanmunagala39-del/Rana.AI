@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { hideVendors } from "@/lib/voice/brand";
 import { parseSession, unauthorized } from "@/lib/auth";
 import { getClientById } from "@/lib/supabase";
 import { createTwilioProvider, importTwilioPhoneNumber, toE164India, type TwilioRegion } from "@/lib/cartesia";
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
   if (!session) return unauthorized();
   const denied = forbidUnless(session, "admin"); if (denied) return denied;
   if (!process.env.CARTESIA_API_KEY) {
-    return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
+    return Response.json({ error: hideVendors("CARTESIA_API_KEY is not set.") }, { status: 500 });
   }
   let body: {
     accountSid?: string; apiKeySid?: string; apiKeySecret?: string; region?: string;

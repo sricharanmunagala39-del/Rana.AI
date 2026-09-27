@@ -432,17 +432,43 @@ function WizardInner() {
                           const fits = engineSupports(e.id, startingLanguage, policy.allowed);
                           const on = engine === e.id;
                           return (
-                            <button key={e.id} type="button" disabled={!fits && !on} onClick={() => setEngine(e.id)} data-testid={`engine-${e.id}`}
-                              className={`text-left border rounded-xl px-3.5 py-3 ${on ? "border-signal bg-signal-tint/50 ring-1 ring-signal" : "border-line bg-raised hover:border-signal/50"} disabled:opacity-50 disabled:cursor-not-allowed`}>
-                              <div className="text-[14px] font-semibold flex items-center gap-1.5">{e.label}{on && <span className="text-[10.5px] text-signal">✓ selected</span>}</div>
+                            <div key={e.id} data-testid={`engine-${e.id}`}
+                              className={`border rounded-xl px-3.5 py-3 ${on ? "border-signal bg-signal-tint/50 ring-1 ring-signal" : "border-line bg-raised"} ${fits && !on ? "hover:border-signal/50 cursor-pointer" : ""}`}
+                              role={fits ? "button" : undefined} tabIndex={fits ? 0 : undefined}
+                              onClick={() => { if (fits) setEngine(e.id); }} onKeyDown={(ev) => { if (fits && (ev.key === "Enter" || ev.key === " ")) setEngine(e.id); }}>
+                              <div className={`text-[14px] font-semibold flex items-center gap-1.5 ${fits || on ? "" : "text-ink-soft"}`}>{e.label}{on && <span className="text-[10.5px] text-signal">✓ selected</span>}</div>
                               <div className="text-[11.5px] text-ink-soft leading-snug mt-0.5">{e.blurb}</div>
-                              {!fits && <div className="text-[11.5px] text-miss mt-1">Talks in {e.callLanguages.map((l) => LANGUAGE_LABELS[l] || l).join(" and ")} only. Your employee uses other languages too.</div>}
-                            </button>
+                              {!fits && (() => {
+                                const names = e.callLanguages.map((l) => LANGUAGE_LABELS[l] || l).join(" and ");
+                                const extra = Array.from(new Set([startingLanguage, ...policy.allowed].map((l) => LANGUAGE_LABELS[baseLang(l)] || l))).filter((n) => !e.callLanguages.some((l) => LANGUAGE_LABELS[l] === n));
+                                // One click: keep only the languages this engine understands, then pick it.
+                                const useIt = () => {
+                                  const keep = policy.allowed.map(baseLang).filter((l) => e.callLanguages.includes(l));
+                                  const allowed = keep.length ? keep : e.callLanguages.slice();
+                                  const start = e.callLanguages.includes(baseLang(startingLanguage)) ? startingLanguage : `${allowed.includes("hi") ? "hi" : allowed[0]}-IN`;
+                                  setStartingLanguage(start);
+                                  setPolicy((p) => ({ ...p, allowed: Array.from(new Set([baseLang(start), ...allowed])) }));
+                                  setEngine(e.id);
+                                };
+                                return (
+                                  <div className="mt-1.5">
+                                    <div className="text-[11.5px] text-miss">Understands {names} only. This employee also speaks {extra.join(", ")}.</div>
+                                    <button type="button" onClick={(ev) => { ev.stopPropagation(); useIt(); }} data-testid={`engine-${e.id}-switch`}
+                                      className="mt-2 border border-signal/60 text-signal rounded-lg px-2.5 py-1.5 text-[12px] font-semibold hover:bg-signal-tint/40">
+                                      Use {e.label} with {names} only
+                                    </button>
+                                  </div>
+                                );
+                              })()}
+                            </div>
                           );
                         })}
                       </div>
+                      {!ENGINES[engine].switchesLanguage && new Set([baseLang(startingLanguage), ...policy.allowed.map(baseLang)]).size > 1 && (
+                        <div className="text-[12px] text-ink-soft mt-2" data-testid="engine-one-language">{ENGINES[engine].label} keeps every call in {LANGUAGE_LABELS[baseLang(startingLanguage)] || "the opening language"}. If callers may switch languages mid-call, pick {ENGINES.sarvam.label}.</div>
+                      )}
                       {!engineSupports(engine, startingLanguage, policy.allowed) && (
-                        <div className="text-[12px] text-miss mt-2">{ENGINES[engine].label} can't talk in every language this employee uses. Switch to Sarvam, or limit the languages in step 1.</div>
+                        <div className="text-[12px] text-miss mt-2">{ENGINES[engine].label} can't talk in every language this employee uses. Switch to {ENGINES.sarvam.label}, or limit the languages in step 1.</div>
                       )}
                     </div>
                   )}
@@ -486,7 +512,7 @@ function WizardInner() {
                           ? "Loading voices…"
                           : selectedVoice
                           ? <>{selectedVoice.name}{selectedVoice.tagline ? <span className="text-ink-soft"> — {selectedVoice.tagline}</span> : null}</>
-                          : "Let Cartesia pick a voice matching the language"}
+                          : "Let RANA pick a voice for this language"}
                       </span>
                       <span className="text-[12.5px] font-semibold text-signal shrink-0 ml-3">{selectedVoice ? "Change" : "Browse"}</span>
                     </button>
@@ -516,7 +542,7 @@ function WizardInner() {
                           ? "Loading models…"
                           : selectedModel
                           ? <>{selectedModel.name}{selectedModel.provider ? <span className="text-ink-soft"> — {selectedModel.provider}</span> : null}</>
-                          : "Let Cartesia pick (defaults to a fast Claude model)"}
+                          : "Let RANA pick (a fast, reliable model)"}
                       </span>
                       <span className="text-[12.5px] font-semibold text-signal shrink-0 ml-3">{selectedModel ? "Change" : "Browse"}</span>
                     </button>

@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { hideVendors } from "@/lib/voice/brand";
 import { parseSession, unauthorized } from "@/lib/auth";
 import { getScriptById } from "@/lib/supabase";
 import { deleteCartesiaPhoneNumber, assignPhoneNumberAgent } from "@/lib/cartesia";
@@ -14,7 +15,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const session = await getSession(req);
   if (!session) return unauthorized();
   const denied = forbidUnless(session, "admin"); if (denied) return denied;
-  if (!process.env.CARTESIA_API_KEY) return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
+  if (!process.env.CARTESIA_API_KEY) return Response.json({ error: hideVendors("CARTESIA_API_KEY is not set.") }, { status: 500 });
   if (!(await ownsResource(session.clientId, "phone_number", params.id))) return NOT_YOURS();
   const { scriptId } = await req.json().catch(() => ({}));
   let agentId: string | null = null;
@@ -30,7 +31,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     await audit(session, "number_assigned", { req, targetType: "phone_number", targetId: params.id, detail: { scriptId: scriptId ?? null } });
     return Response.json({ ok: true, number: { id: updated?.id ?? params.id, agentId: updated?.agent?.id ?? agentId } });
   } catch (err: any) {
-    return Response.json({ error: err?.message || "Cartesia rejected the change" }, { status: 502 });
+    return Response.json({ error: hideVendors(err?.message) || "R2 rejected the change" }, { status: 502 });
   }
 }
 
@@ -39,7 +40,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   if (!session) return unauthorized();
   const denied = forbidUnless(session, "admin"); if (denied) return denied;
   if (!process.env.CARTESIA_API_KEY) {
-    return Response.json({ error: "CARTESIA_API_KEY is not set." }, { status: 500 });
+    return Response.json({ error: hideVendors("CARTESIA_API_KEY is not set.") }, { status: 500 });
   }
   if (!(await ownsResource(session.clientId, "phone_number", params.id))) return NOT_YOURS();
   try {
@@ -48,6 +49,6 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     await audit(session, "number_released", { req, targetType: "phone_number", targetId: params.id });
     return Response.json({ ok: true });
   } catch (err: any) {
-    return Response.json({ error: err?.message || "Failed to release this number" }, { status: 500 });
+    return Response.json({ error: hideVendors(err?.message) || "Failed to release this number" }, { status: 500 });
   }
 }

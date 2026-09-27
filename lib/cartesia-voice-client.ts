@@ -1,4 +1,5 @@
 "use client";
+import { hideVendors } from "./voice/brand";
 
 /**
  * Minimal browser client for Cartesia's Agents WebSocket API.
@@ -90,7 +91,7 @@ export class CartesiaVoiceCall {
   async start(agentId: string) {
     const tokenRes = await fetch("/api/cartesia-access-token", { method: "POST" });
     const tokenData = await tokenRes.json();
-    if (!tokenRes.ok) throw new Error(tokenData.error || "Could not get a Cartesia session token");
+    if (!tokenRes.ok) throw new Error(tokenData.error || "Could not start the call — try again");
 
     this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
@@ -107,7 +108,7 @@ export class CartesiaVoiceCall {
       let acked = false;
       const timeout = setTimeout(() => {
         if (!acked) {
-          reject(new Error("Cartesia didn't respond in time"));
+          reject(new Error("The voice engine didn't respond in time. Try again."));
           this.stop();
         }
       }, 15000);
@@ -151,14 +152,14 @@ export class CartesiaVoiceCall {
           const text = data.text ?? data.content ?? data.transcript ?? "";
           if (text) this.onEvent({ type: "transcript", role, text });
         } else if (data.event === "error") {
-          this.onEvent({ type: "error", message: data.message || "Cartesia reported an error" });
+          this.onEvent({ type: "error", message: hideVendors(data.message) || "The voice engine reported an error" });
         }
       };
 
       ws.onerror = () => {
         if (!acked) {
           clearTimeout(timeout);
-          reject(new Error("Could not connect to Cartesia"));
+          reject(new Error("Couldn't connect to the voice engine. Try again."));
         }
       };
 

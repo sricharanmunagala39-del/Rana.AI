@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+import { hideVendors } from "@/lib/voice/brand";
 import { engineOfCampaign } from "@/lib/voice/engines";
 import { unauthorized, forbidUnless } from "@/lib/auth";
 import { audit } from "@/lib/audit";
@@ -38,6 +39,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const fresh = await refreshCampaignFromCartesia((await getCampaignRow(session.clientId, c.id))!);
     return Response.json({ ok: true, campaign: fresh });
   } catch (err: any) {
-    return Response.json({ error: err?.message || "The calling engine rejected that action" }, { status: 502 });
+    return Response.json({ error: hideVendors(err?.message) || "The calling engine rejected that action" }, { status: 502 });
   }
 }
