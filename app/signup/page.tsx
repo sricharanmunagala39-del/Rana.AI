@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import AuthShell from "@/components/AuthShell";
+import { utmTag } from "@/app/landing/utm";
 
 const field = "w-full border border-line rounded-xl px-3.5 py-3 text-[14px] bg-sunken outline-none focus:border-signal";
 
@@ -13,7 +14,7 @@ export default function SignupPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr("");
     try {
-      const r = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(f) });
+      const r = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, source: utmTag() }) });
       const j = await r.json(); if (!r.ok) { setErr(j.error || "Sign-up failed"); return; }
       setDone(true);
     } finally { setBusy(false); }

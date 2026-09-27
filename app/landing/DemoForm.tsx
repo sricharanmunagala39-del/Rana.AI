@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { utmTag } from "./utm";
 
 const INDUSTRIES = ["Clinic / hospital / diagnostics", "Real estate", "Education / coaching / college", "E-commerce / D2C", "Insurance / loans / finance", "Hotel / restaurant / travel", "Automobile dealer / service", "Home & local services", "Other"];
 const LANGS = ["Telugu", "Hindi", "Tamil", "Kannada", "Malayalam", "Marathi", "Bengali", "Gujarati", "Punjabi", "Odia", "English"];
@@ -32,7 +33,7 @@ export default function DemoForm({ open, onClose, source }: { open: boolean; onC
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr("");
     try {
-      const r = await fetch("/api/demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, source }) });
+      const r = await fetch("/api/demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, source: utmTag() ? `${source}|${utmTag()}` : source }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || "Couldn't send. Please email hello@ranaai.in.");
       setDone(true);
