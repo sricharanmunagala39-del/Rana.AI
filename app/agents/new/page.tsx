@@ -464,8 +464,11 @@ function WizardInner() {
                           );
                         })}
                       </div>
+                      {!ENGINES[engine].switchesLanguage && new Set([baseLang(startingLanguage), ...policy.allowed.map(baseLang)]).size > 1 && (
+                        <div className="text-[12px] text-ink-soft mt-2" data-testid="engine-one-language">{ENGINES[engine].label} keeps every call in {LANGUAGE_LABELS[baseLang(startingLanguage)] || "the opening language"}. If callers may switch languages mid-call, pick {ENGINES.sarvam.label}.</div>
+                      )}
                       {!engineSupports(engine, startingLanguage, policy.allowed) && (
-                        <div className="text-[12px] text-miss mt-2">{ENGINES[engine].label} can't talk in every language this employee uses. Switch to Sarvam, or limit the languages in step 1.</div>
+                        <div className="text-[12px] text-miss mt-2">{ENGINES[engine].label} can't talk in every language this employee uses. Switch to {ENGINES.sarvam.label}, or limit the languages in step 1.</div>
                       )}
                     </div>
                   )}
@@ -509,7 +512,7 @@ function WizardInner() {
                           ? "Loading voices…"
                           : selectedVoice
                           ? <>{selectedVoice.name}{selectedVoice.tagline ? <span className="text-ink-soft"> — {selectedVoice.tagline}</span> : null}</>
-                          : "Let Cartesia pick a voice matching the language"}
+                          : "Let RANA pick a voice for this language"}
                       </span>
                       <span className="text-[12.5px] font-semibold text-signal shrink-0 ml-3">{selectedVoice ? "Change" : "Browse"}</span>
                     </button>
@@ -539,7 +542,7 @@ function WizardInner() {
                           ? "Loading models…"
                           : selectedModel
                           ? <>{selectedModel.name}{selectedModel.provider ? <span className="text-ink-soft"> — {selectedModel.provider}</span> : null}</>
-                          : "Let Cartesia pick (defaults to a fast Claude model)"}
+                          : "Let RANA pick (a fast, reliable model)"}
                       </span>
                       <span className="text-[12.5px] font-semibold text-signal shrink-0 ml-3">{selectedModel ? "Change" : "Browse"}</span>
                     </button>

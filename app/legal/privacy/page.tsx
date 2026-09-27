@@ -28,7 +28,7 @@ export default function Privacy() {
         <p>We do not sell personal data and we do not use your call recordings to advertise to anyone.</p>
       </Sec>
       <Sec h="Who we share it with">
-        <p>Only with service providers that help us run {LEGAL.brand}, under confidentiality and only for that purpose: Sarvam AI (speech and voice AI), our telephony provider, Supabase (database), Vercel (hosting), Resend (email delivery) and Razorpay (payments). We may disclose data when the law requires it.</p>
+        <p>Only with service providers that help us run {LEGAL.brand}, under confidentiality and only for that purpose: our speech and voice AI providers, our telephony provider, Supabase (database), Vercel (hosting), Resend (email delivery) and Razorpay (payments). We may disclose data when the law requires it.</p>
       </Sec>
       <Sec h="Customer data and callers">
         <p>For the leads and callers you contact through {LEGAL.brand}, you (our customer) decide what is collected and why, and we process that data on your behalf. You are responsible for having a lawful basis, such as the person's enquiry or consent, before we call them for you.</p>

@@ -1,4 +1,5 @@
 "use client";
+import { hideVendors } from "./voice/brand";
 
 /**
  * Browser client for a Sarvam voice-agent session (the protocol used by Sarvam's own `sarvam-conv-ai-sdk`).
@@ -95,7 +96,7 @@ export class SarvamVoiceCall {
     this.ws = ws;
 
     await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => { if (!this.live) { reject(new Error("Sarvam didn't answer in time. Try again.")); this.stop(); } }, 20000);
+      const timeout = setTimeout(() => { if (!this.live) { reject(new Error("The voice engine didn't answer in time. Try again.")); this.stop(); } }, 20000);
       const goLive = () => {
         if (this.live) return;
         this.live = true; clearTimeout(timeout);
@@ -142,10 +143,10 @@ export class SarvamVoiceCall {
           case "server.action.interaction_end":
             this.finish(); break;
           default:
-            if (d.type === "server.event.error" || d.error) this.onEvent({ type: "error", message: String(d.error?.message || d.message || "Sarvam reported an error") });
+            if (d.type === "server.event.error" || d.error) this.onEvent({ type: "error", message: String(hideVendors(d.error?.message || d.message) || "The voice engine reported an error") });
         }
       };
-      ws.onerror = () => { if (!this.live) { clearTimeout(timeout); reject(new Error("Couldn't connect to Sarvam.")); } };
+      ws.onerror = () => { if (!this.live) { clearTimeout(timeout); reject(new Error("Couldn't connect to the voice engine.")); } };
       ws.onclose = () => { clearTimeout(timeout); this.finish(); };
     });
   }
