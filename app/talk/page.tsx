@@ -1,6 +1,7 @@
 // @ts-nocheck
 "use client";
 
+import { engineOfScript } from "@/lib/voice/engines";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -71,7 +72,7 @@ function TalkInner() {
           setAgentName(s.name || "Agent");
           setLanguage(s.starting_language || "en-IN");
           if (s.cartesia_agent_id) setPublishInfo({ agentId: s.cartesia_agent_id, hasWebhook: true });
-          setEngine(s.engine === "cartesia" ? "cartesia" : "sarvam");
+          setEngine(engineOfScript(s)); // what it is published on, so the test matches real calls
           setPolicy(s.language_policy || null);
           setStale(!!(s.cartesia_agent_id && s.edited_at && s.published_at && new Date(s.edited_at) > new Date(s.published_at)));
           setTestedAt(s.tested_at || null);

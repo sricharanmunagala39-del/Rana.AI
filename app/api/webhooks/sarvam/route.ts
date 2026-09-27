@@ -76,6 +76,7 @@ export async function POST(req: Request) {
     if (prev?.recording_url && !row.recording_url) delete row.recording_url; // keep a recording we already have
     if (prev?.handoff) (row as any).follow_up = true; // a handoff stays a follow-up on retried webhooks
 
+    (row as any).engine = "sarvam";
     const saved = await upsertCall(row);
 
     // "Don't call me again" goes straight onto the do-not-call list so no future campaign dials them.

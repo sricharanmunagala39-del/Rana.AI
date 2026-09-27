@@ -11,6 +11,7 @@ import { getClientById as getClientRow } from "@/lib/supabase";
 import { audit } from "@/lib/audit";
 import { claimResource } from "@/lib/ownership";
 import { isForeignVoice } from "@/lib/voiceClone";
+import { clientEngines, isEngine, DEFAULT_ENGINE } from "@/lib/voice/engines";
 import { normalizePlaybook, normalizeLinks, normalizePronunciations, normalizePolicy } from "@/lib/playbook";
 export async function GET(req: Request) {
   const session = await getSession(req);
@@ -28,7 +29,10 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, industry = "edtech", fromTemplate = true } = body;
     if (!name?.trim()) return Response.json({ error: "Script name is required" }, { status: 400 });
-    const empBlock = await employeeBlock(await getClientRow(session.clientId));
+    const clientRow = await getClientRow(session.clientId);
+    const empBlock = await employeeBlock(clientRow);
+    // Engine: whatever the customer picked, if RANA HQ has switched it on for them; otherwise Sarvam.
+    const engine = isEngine(body.engine) && clientEngines(clientRow).includes(body.engine) ? body.engine : DEFAULT_ENGINE;
     if (empBlock) return Response.json({ error: empBlock, code: "plan_limit" }, { status: 402 });
   if (await isForeignVoice(session.clientId, body.speaker)) return Response.json({ error: "That voice isn't available to your account." }, { status: 403 });
 
@@ -51,7 +55,7 @@ export async function POST(req: Request) {
       background_sound_id: body.background_sound_id ?? null,
       background_volume: typeof body.background_volume === "number" ? body.background_volume : 1,
       noise_suppression: body.noise_suppression ?? "auto",
-      engine: "sarvam", // Sarvam is the only engine offered
+      engine,
       playbook: body.playbook ? normalizePlaybook(body.playbook) : null,
       source_script: body.source_script ? String(body.source_script).slice(0, 60000) : null,
       links: normalizeLinks(body.links),

@@ -5,6 +5,9 @@ import { listCartesiaCalls } from "./cartesia";
 import { callFromCartesiaApi, upsertCall, latestCartesiaCallStart, existingCallState } from "./calls";
 import { refreshActiveCampaigns, contactsByCallIds, normalisePhone } from "./campaigns";
 import { optOutPhrase, addDnc } from "./compliance";
+import { engineOfAgentRef } from "./voice/engines";
+import { handoffAfterCall } from "./handoffAlert";
+import { leadAlertsAfterCall } from "./leadAlerts";
 
 const FIRST_SYNC_LOOKBACK_DAYS = 14;
 const OVERLAP_MS = 30 * 60 * 1000; // re-read the last 30 min so calls that were still in progress get their final state
@@ -13,12 +16,16 @@ const lastRun = new Map<string, number>();
 export type SyncResult = { clientId: string; agents: number; fetched: number; saved: number; skipped: number; errors: string[] };
 
 export async function agentIdsForClient(clientId: string): Promise<string[]> {
+  return Object.keys(await agentScripts(clientId));
+}
+
+/** Cartesia agent id → the employee (script id) it belongs to. Sarvam employees report by webhook, so they're left out. */
+async function agentScripts(clientId: string): Promise<Record<string, string | null>> {
   const [client, scripts] = await Promise.all([getClientById(clientId), getScriptsForClient(clientId)]);
-  const ids = new Set<string>();
-  if (client?.cartesia_agent_id) ids.add(client.cartesia_agent_id);
-  for (const s of scripts || []) if (s.cartesia_agent_id) ids.add(s.cartesia_agent_id);
-  // "sarvam:…" = an employee on the Sarvam engine; its calls arrive by webhook, not Cartesia polling.
-  return Array.from(ids).filter((id) => !id.startsWith("sarvam:"));
+  const out: Record<string, string | null> = {};
+  if (client?.cartesia_agent_id && engineOfAgentRef(client.cartesia_agent_id) === "cartesia") out[client.cartesia_agent_id] = null;
+  for (const s of scripts || []) if (engineOfAgentRef(s.cartesia_agent_id) === "cartesia") out[s.cartesia_agent_id!] = s.id;
+  return out;
 }
 
 export async function syncClientCalls(clientId: string): Promise<SyncResult> {
@@ -29,7 +36,9 @@ export async function syncClientCalls(clientId: string): Promise<SyncResult> {
   // Pull campaign progress first so freshly dialled numbers already carry their Cartesia call id.
   try { await refreshActiveCampaigns(clientId); } catch (e: any) { res.errors.push(`campaigns: ${e?.message || e}`); }
 
-  const agentIds = await agentIdsForClient(clientId);
+  const scriptOf = await agentScripts(clientId);
+  const agentIds = Object.keys(scriptOf);
+  const client: any = agentIds.length ? await getClientById(clientId) : null;
   res.agents = agentIds.length;
   if (!agentIds.length) return res;
 
@@ -49,14 +58,24 @@ export async function syncClientCalls(clientId: string): Promise<SyncResult> {
       for (const c of finished) {
         if (state[c.id]?.final) { res.skipped++; continue; }
         const row: any = callFromCartesiaApi(c, clientId);
+        row.engine = "cartesia";
         const camp = campaignOf[c.id];
         if (camp) {
           // A campaign dial: tie it to its campaign and the name from the uploaded list.
           row.direction = "outbound"; row.source = "campaign"; row.campaign_id = camp.batchId ?? row.campaign_id;
           if (camp.name && !row.caller_name) row.caller_name = camp.name;
         }
-        try { await upsertCall(row); res.saved++; }
+        let saved: any;
+        try { saved = await upsertCall(row); res.saved++; }
         catch (e: any) { res.errors.push(`${c.id}: ${e?.message || e}`); continue; }
+        // Same after-call steps as Sarvam's webhook: tell a person when the caller needs one, then the client's lead
+        // alerts. Only the first time a call is stored as finished, so re-syncs never alert twice.
+        if (client && saved && row.source !== "manual" && (row.duration_seconds ?? 0) > 0) {
+          const handoff = await handoffAfterCall(client, saved, { rana_script_id: scriptOf[agentId] }).catch(() => null);
+          if (handoff) saved.follow_up = true;
+          await leadAlertsAfterCall(client, { ...saved, handoff: handoff || saved.handoff || null, follow_up: saved.follow_up || !!handoff })
+            .catch((e: any) => res.errors.push(`alerts ${c.id}: ${e?.message || e}`));
+        }
         // "Don't call me again" goes straight onto the do-not-call list so no future campaign dials them.
         if (row.source !== "manual" && row.caller_phone) {
           const said = optOutPhrase((row.transcript || []).filter((t: any) => t.role === "user").map((t: any) => t.text).join(" "));

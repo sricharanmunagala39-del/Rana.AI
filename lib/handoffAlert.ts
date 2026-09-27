@@ -6,9 +6,9 @@ import { APP_URL, emailHtml, esc, ownerEmails, sendEmail } from "./notify";
 
 export async function handoffAfterCall(client: any, saved: any, payload: any): Promise<any | null> {
   const vars = { ...(payload?.initial_agent_variables || {}), ...(payload?.agent_variables || {}) };
-  let scriptId = scriptRefFrom(vars.rana_instructions);
+  let scriptId = payload?.rana_script_id || scriptRefFrom(vars.rana_instructions);
   if (!scriptId && saved.campaign_id) {
-    const c = (await sb<any[]>(`/campaigns?client_id=eq.${client.id}&or=(sarvam_campaign_id.eq.${encodeURIComponent(saved.campaign_id)},id.eq.${/^[0-9a-f-]{36}$/.test(saved.campaign_id) ? saved.campaign_id : "00000000-0000-0000-0000-000000000000"})&select=script_id&limit=1`).catch(() => [])) || [];
+    const c = (await sb<any[]>(`/campaigns?client_id=eq.${client.id}&or=(sarvam_campaign_id.eq.${encodeURIComponent(saved.campaign_id)},cartesia_batch_id.eq.${encodeURIComponent(saved.campaign_id)},id.eq.${/^[0-9a-f-]{36}$/.test(saved.campaign_id) ? saved.campaign_id : "00000000-0000-0000-0000-000000000000"})&select=script_id&limit=1`).catch(() => [])) || [];
     scriptId = c[0]?.script_id || null;
   }
   if (!scriptId) return null;
