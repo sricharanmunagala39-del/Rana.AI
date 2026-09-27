@@ -5,7 +5,8 @@ import Orb from "@/components/Orb";
 import { Logo } from "@/components/Sidebar";
 import { PLANS, FAQ, INDUSTRY_CALLS, USE_CASES, type Line } from "./content";
 import DemoForm from "./DemoForm";
-import { LEGAL_LINKS } from "@/app/legal/legal";
+import { captureUtm } from "./utm";
+import { LEGAL_LINKS, SOCIAL_LINKS } from "@/app/legal/legal";
 
 // Public contact address (Zoho Mail inbox for ranaai.in).
 const CONTACT_EMAIL = "hello@ranaai.in";
@@ -251,6 +252,7 @@ export default function Site() {
   const [demo, setDemo] = useState<string | null>(null);
   const openDemo = (from: string) => () => { setMenu(false); setDemo(from); };
   useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get("demo") === "1" || window.location.hash === "#demo") setDemo("link"); }, []);
+  useEffect(() => { captureUtm(); }, []);
 
   return (
     <div className="site theme-night min-h-screen font-sans">
@@ -499,6 +501,7 @@ export default function Site() {
         <div className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-8 flex flex-col md:flex-row gap-3 items-center justify-between text-[12px] text-ink-soft/80">
           <nav className="flex flex-wrap gap-x-5 gap-y-2 justify-center font-mono">
             {LEGAL_LINKS.map(([l, h]) => <Link key={h} href={h} className="hover:text-signal">{l}</Link>)}
+            {SOCIAL_LINKS.map(([l, h]) => <a key={h} href={h} target="_blank" rel="noopener noreferrer" className="hover:text-signal">{l}</a>)}
           </nav>
           <div>RANA AI is a brand of Munagala Sri Charan · {CONTACT_EMAIL}</div>
         </div>
