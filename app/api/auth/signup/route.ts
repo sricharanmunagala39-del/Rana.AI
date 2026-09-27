@@ -22,6 +22,7 @@ export async function POST(req: Request) {
   const email = normaliseEmail(b.email);
   const phone = String(b.phone || "").replace(/[^\d+]/g, "").slice(0, 15);
   const password = String(b.password || "");
+  const sourceTag = String(b.source || "").replace(/[^\w.=&-]/g, "").slice(0, 250);
   if (company.length < 2) return Response.json({ error: "Enter your company name." }, { status: 400 });
   if (!validEmail(email)) return Response.json({ error: "Enter a valid work email." }, { status: 400 });
   if (!/^\+?\d{10,13}$/.test(phone)) return Response.json({ error: "Enter your 10-digit mobile number." }, { status: 400 });
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
   if (await getUserByEmail(email)) return Response.json({ error: "That email already has a RANA login. Sign in instead." }, { status: 409 });
   const owned = await sb<any[]>(`/clients?login_email=eq.${encodeURIComponent(email)}&select=id&limit=1`).catch(() => []);
   if (owned?.length) return Response.json({ error: "That email already has a RANA workspace. Sign in instead." }, { status: 409 });
-  const lastHour = (await sb<any[]>(`/clients?signup_source=eq.web&created_at=gte.${encodeURIComponent(new Date(Date.now() - 3600e3).toISOString())}&select=id`).catch(() => [])) || [];
+  const lastHour = (await sb<any[]>(`/clients?signup_source=like.web*&created_at=gte.${encodeURIComponent(new Date(Date.now() - 3600e3).toISOString())}&select=id`).catch(() => [])) || [];
   if (lastHour.length >= 20) return Response.json({ error: "Sign-ups are busy right now. Please try again in an hour." }, { status: 429 });
   hits.push(Date.now()); recent.set(ip, hits);
 
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
     method: "POST",
     body: JSON.stringify({
       name: company, company_name: company, login_email: email, industry: INDUSTRIES.includes(b.industry) ? b.industry : "other",
-      login_password: hashPassword(tempPassword() + tempPassword()), plan: "trial", status: "pending", signup_source: "web",
+      login_password: hashPassword(tempPassword() + tempPassword()), plan: "trial", status: "pending", signup_source: sourceTag ? `web|${sourceTag}` : "web",
       contact_phone: phone, hq_notes: `Signed up on the website by ${name || email} (${phone}).`,
     }),
   });
