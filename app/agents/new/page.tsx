@@ -439,7 +439,7 @@ function WizardInner() {
                               onClick={() => { if (fits) setEngine(e.id); }} onKeyDown={(ev) => { if (fits && (ev.key === "Enter" || ev.key === " ")) setEngine(e.id); }}>
                               <div className={`text-[14px] font-semibold flex items-center gap-1.5 ${fits || on ? "" : "text-ink-soft"}`}>{e.label}{on && <span className="text-[10.5px] text-signal">✓ selected</span>}</div>
                               <div className="text-[11.5px] text-ink-soft leading-snug mt-0.5">{e.blurb}</div>
-                              <div className="text-[11px] font-mono text-ink-soft mt-1">Uses {engineRateText(e.id)} of your plan</div>
+                              <div className="text-[11px] font-mono text-ink-soft mt-1">Uses {engineRateText(e.id)}</div>
                               {!fits && (() => {
                                 const names = e.callLanguages.map((l) => LANGUAGE_LABELS[l] || l).join(" and ");
                                 const extra = Array.from(new Set([startingLanguage, ...policy.allowed].map((l) => LANGUAGE_LABELS[baseLang(l)] || l))).filter((n) => !e.callLanguages.some((l) => LANGUAGE_LABELS[l] === n));
