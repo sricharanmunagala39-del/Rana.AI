@@ -34,7 +34,7 @@ export default function HqNumbersPage() {
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="hq" />
       <div className="flex-1 min-w-0 px-6 py-8 lg:px-10">
-        <div className="max-w-[1000px] flex flex-col gap-5">
+        <div className="w-full max-w-[1600px] flex flex-col gap-5">
           <div>
             <div className="text-[20px] font-display font-semibold">Phone numbers</div>
             <div className="text-[13px] text-ink-soft mt-0.5">

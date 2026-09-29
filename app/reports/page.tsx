@@ -72,7 +72,7 @@ export default function ReportsPage() {
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="leads-results" />
       <div className="flex-1 p-6 md:p-10 min-w-0">
-        <div className="max-w-[1150px] flex flex-col gap-5">
+        <div className="w-full max-w-[1600px] flex flex-col gap-5">
           <div>
             <div className="text-[20px] font-display font-semibold">Leads &amp; reports</div>
             <div className="text-[13px] text-ink-soft mt-0.5">Choose which calls and which columns you want. The numbers update as you choose; download it as an Excel file.</div>

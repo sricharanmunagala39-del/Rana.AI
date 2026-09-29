@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Orb from "@/components/Orb";
 import { Logo } from "@/components/Sidebar";
-import { PLANS, FAQ, INDUSTRY_CALLS, USE_CASES, type Line } from "./content";
+import { PLANS, FAQ, INDUSTRY_CALLS, USE_CASES, ENGINES_LINE, type Line } from "./content";
+import { TRIAL_DAYS, TRIAL_MINUTES, PLANS as PRICE_LIST } from "@/lib/pricing";
 import DemoForm from "./DemoForm";
 import { captureUtm } from "./utm";
 import { LEGAL_LINKS, SOCIAL_LINKS } from "@/app/legal/legal";
@@ -233,7 +234,7 @@ function MissedCalls({ onDemo }: { onDemo: () => void }) {
           <div className="text-[13.5px] text-ink-soft mt-3">{perMonth.toLocaleString("en-IN")} missed calls × {conv}% × {inr(value)}, over 26 working days. Your numbers — change the sliders.</div>
           <div className="mt-6 rounded-xl border border-white/10 bg-white/[.03] p-4 text-[14px]">RANA answers every one of those calls, day and night, from <b>₹9,999 a month</b>.</div>
           <div className="flex flex-wrap gap-3 mt-6 justify-center lg:justify-start">
-            <Link href="/signup" className="btn-glow rounded-full px-6 py-3 text-[14px] font-semibold">Start free — 14 days</Link>
+            <Link href="/signup" className="btn-glow rounded-full px-6 py-3 text-[14px] font-semibold">Start free — {TRIAL_DAYS} days</Link>
             <button onClick={onDemo} className="btn-ghost rounded-full px-6 py-3 text-[14px] font-medium">Book a demo</button>
           </div>
         </div>
@@ -302,10 +303,10 @@ export default function Site() {
               AI calling agents for any business that runs on phone calls — clinics, real estate, education, e-commerce, finance, hospitality and more. They answer and make your calls in Telugu, Hindi, Tamil and 8 more Indian languages, and hand your team only the leads worth calling back.
             </p>
             <div className="flex flex-wrap gap-3 mt-9 justify-center lg:justify-start">
-              <Link href="/signup" className="btn-glow rounded-full px-6 py-3.5 text-[15px] font-semibold" data-testid="hero-trial">Start free — 14 days</Link>
+              <Link href="/signup" className="btn-glow rounded-full px-6 py-3.5 text-[15px] font-semibold" data-testid="hero-trial">Start free — {TRIAL_DAYS} days</Link>
               <button onClick={openDemo("hero")} className="btn-ghost rounded-full px-6 py-3.5 text-[15px] font-medium" data-testid="hero-demo">Book a demo →</button>
             </div>
-            <div className="text-[12.5px] text-ink-soft/80 mt-4">100 free minutes · no card needed · cancel anytime</div>
+            <div className="text-[12.5px] text-ink-soft/80 mt-4">{TRIAL_MINUTES} free minutes · no card needed · cancel anytime</div>
           </div>
           <div className="relative flex flex-col items-center">
             <Orb size={520} interactive className="max-w-full" />
@@ -417,7 +418,8 @@ export default function Site() {
           <div className="reveal text-center max-w-[640px] mx-auto">
             <div className="eyebrow">// PRICING</div>
             <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] mt-3">Plans that pay for themselves.</h2>
-            <p className="text-ink-soft text-[16px] mt-3">Start free for 14 days with 100 minutes. Prices exclude GST, which is added where applicable. Pay annually and the setup fee is waived.</p>
+            <p className="text-ink-soft text-[16px] mt-3">Start free for {TRIAL_DAYS} days with {TRIAL_MINUTES} minutes. Prices exclude GST, which is added where applicable. Pay annually and the setup fee is waived.</p>
+            <p className="text-[14px] mt-3 font-medium" data-testid="engines-line">{ENGINES_LINE}</p>
           </div>
           <div className="grid md:grid-cols-3 gap-3 mt-12">
             {PLANS.map((p) => (
@@ -437,7 +439,7 @@ export default function Site() {
             ))}
           </div>
           <div className="reveal card mt-3 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div><div className="font-display text-[20px] font-semibold">Enterprise</div><div className="text-ink-soft text-[14px] mt-1">35,000+ minutes a month, unlimited AI employees, 50 calls at once, and custom per-minute rates.</div></div>
+            <div><div className="font-display text-[20px] font-semibold">Enterprise</div><div className="text-ink-soft text-[14px] mt-1">{PRICE_LIST.enterprise.minutes.toLocaleString("en-IN")}+ minutes a month, unlimited AI employees, {PRICE_LIST.enterprise.concurrency} calls at once, both voice engines, and custom per-minute rates.</div></div>
             <button onClick={openDemo("enterprise")} className="btn-ghost rounded-full px-6 py-3 text-[14px] font-semibold whitespace-nowrap">Talk to us →</button>
           </div>
         </section>
@@ -478,7 +480,7 @@ export default function Site() {
             <p className="font-display text-[34px] sm:text-[60px] font-semibold tracking-[-0.03em] leading-[1.02] mt-4">Got a call<br /><span className="text-gradient">you&apos;re missing?</span></p>
             <p className="text-ink-soft text-[16px] mt-5">Hire your first AI employee in minutes. It starts answering today.</p>
             <div className="flex flex-wrap gap-3 justify-center mt-9">
-              <Link href="/signup" className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold">Start free — 14 days</Link>
+              <Link href="/signup" className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold">Start free — {TRIAL_DAYS} days</Link>
               <button onClick={openDemo("footer-cta")} className="btn-ghost rounded-full px-7 py-3.5 text-[15px] font-medium">Book a demo</button>
             </div>
             <div className="text-[13px] text-ink-soft mt-5">or write to <a href={`mailto:${CONTACT_EMAIL}`} className="text-signal">{CONTACT_EMAIL}</a></div>

@@ -2,20 +2,10 @@
 // Prices exclude GST. A client row can override any limit (minutes_included, max_employees, …) for custom deals.
 import { sb, sbAll } from "./db";
 
-export type PlanKey = "trial" | "starter" | "growth" | "scale" | "enterprise";
-export type Plan = {
-  key: PlanKey; name: string; pricePerMonth: number | null; minutes: number; overagePerMin: number | null;
-  employees: number; concurrency: number; campaignSize: number; ownNumber: boolean; onboardingFee: number | null; trialDays?: number;
-};
-
-export const PLANS: Record<PlanKey, Plan> = {
-  trial:      { key: "trial",      name: "Trial",      pricePerMonth: 0,     minutes: 100,   overagePerMin: null, employees: 1,   concurrency: 1,  campaignSize: 50,     ownNumber: false, onboardingFee: 0, trialDays: 14 },
-  starter:    { key: "starter",    name: "Starter",    pricePerMonth: 9999,  minutes: 1000,  overagePerMin: 9,    employees: 1,   concurrency: 2,  campaignSize: 2000,   ownNumber: false, onboardingFee: 14999 },
-  growth:     { key: "growth",     name: "Growth",     pricePerMonth: 29999, minutes: 3500,  overagePerMin: 8,    employees: 3,   concurrency: 5,  campaignSize: 10000,  ownNumber: true,  onboardingFee: 24999 },
-  scale:      { key: "scale",      name: "Scale",      pricePerMonth: 89999, minutes: 12000, overagePerMin: 7,    employees: 10,  concurrency: 20, campaignSize: 50000,  ownNumber: true,  onboardingFee: 49999 },
-  enterprise: { key: "enterprise", name: "Enterprise", pricePerMonth: null,  minutes: 35000, overagePerMin: null, employees: 999, concurrency: 50, campaignSize: 200000, ownNumber: true,  onboardingFee: null },
-};
-export const PLAN_KEYS = Object.keys(PLANS) as PlanKey[];
+// Plan prices and limits live in lib/pricing.ts (shared with the website and Billing page).
+import { PLANS, PLAN_KEYS, engineMinuteRate, type Plan, type PlanKey } from "./pricing";
+export { PLANS, PLAN_KEYS };
+export type { Plan, PlanKey };
 
 export function planOf(client: any): Plan { return PLANS[(client?.plan as PlanKey)] || PLANS.trial; }
 
@@ -47,21 +37,30 @@ export function billedMinutes(durations: number[]): number {
   return durations.reduce((m, d) => (d > 0 ? m + Math.ceil(d / 30) / 2 : m), 0);
 }
 
+/** Plan minutes used by these calls: each call's 30-second pulses × its engine's minute rate (lib/pricing). */
+export function planMinutes(rows: { duration_seconds: any; engine?: string | null }[]): number {
+  return Math.round(rows.reduce((m, r) => {
+    const d = Number(r.duration_seconds) || 0;
+    return d > 0 ? m + (Math.ceil(d / 30) / 2) * engineMinuteRate(r.engine) : m;
+  }, 0) * 100) / 100;
+}
+
 /** Billed minutes in [from, to) — used for overage invoices. */
 export async function minutesBetween(clientId: string, from: Date, to: Date): Promise<number> {
-  const rows = await sbAll<any>(`/calls?client_id=eq.${clientId}&created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=duration_seconds,source&order=created_at.asc,id.asc`);
-  return billedMinutes((rows || []).filter((r) => r.source !== "manual").map((r) => Number(r.duration_seconds) || 0));
+  const rows = await sbAll<any>(`/calls?client_id=eq.${clientId}&created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=duration_seconds,source,engine&order=created_at.asc,id.asc`);
+  return planMinutes((rows || []).filter((r) => r.source !== "manual"));
 }
 
 export async function usageOf(client: any, now = new Date()) {
   const from = cycleStart(client, now);
-  const rows = await sbAll<any>(`/calls?client_id=eq.${client.id}&created_at=gte.${encodeURIComponent(from.toISOString())}&duration_seconds=gt.0&select=duration_seconds,source&order=created_at.asc,id.asc`).catch(() => []);
+  const rows = await sbAll<any>(`/calls?client_id=eq.${client.id}&created_at=gte.${encodeURIComponent(from.toISOString())}&duration_seconds=gt.0&select=duration_seconds,source,engine&order=created_at.asc,id.asc`).catch(() => []);
   // Talk-page practice doesn't use plan minutes; it has its own free allowance, metered from practice_sessions.
-  const all = (rows || []).filter((r) => r.source !== "manual").map((r) => Number(r.duration_seconds) || 0);
+  const real = (rows || []).filter((r) => r.source !== "manual");
+  const all = real.map((r) => Number(r.duration_seconds) || 0);
   const { practiceMinutes } = await import("./practice");
   const testMinutes = await practiceMinutes(client.id, from).catch(() => 0);
   const lim = limitsOf(client);
-  const used = billedMinutes(all);
+  const used = planMinutes(real);
   const trialEndsAt = lim.plan.key === "trial" ? (client?.trial_ends_at ? new Date(client.trial_ends_at) : null) : null;
   const daysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt.getTime() - now.getTime()) / 86400000)) : null;
   const overage = Math.max(0, used - lim.minutes);

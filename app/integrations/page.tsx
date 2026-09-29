@@ -66,7 +66,7 @@ export default function IntegrationsPage() {
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="alerts" />
       <div className="flex-1 p-6 md:p-10 min-w-0">
-        <div className="max-w-[980px] flex flex-col gap-5">
+        <div className="w-full max-w-[1280px] flex flex-col gap-5">
           <div>
             <div className="text-[20px] font-display font-semibold">Lead alerts</div>
             <div className="text-[13px] text-ink-soft mt-0.5">The moment a call ends, send the leads you choose to where your team works. You decide the channel, which leads, which calls and what the message contains.</div>

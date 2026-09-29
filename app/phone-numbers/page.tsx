@@ -92,7 +92,7 @@ export default function PhoneNumbersPage() {
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="phone-numbers" />
       <div className="flex-1 min-w-0 px-6 py-8 lg:px-10">
-        <div className="max-w-[900px] flex flex-col gap-6">
+        <div className="w-full max-w-[1280px] flex flex-col gap-6">
           <div>
             <div className="text-[20px] font-display font-semibold">Phone Numbers</div>
             <div className="text-[13px] text-ink-soft mt-0.5">The number your AI employees call from and answer — and your own business numbers.</div>

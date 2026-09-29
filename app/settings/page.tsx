@@ -433,7 +433,7 @@ export default function SettingsPage() {
   return (
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="settings" />
-      <main className="flex-1 min-w-0 px-6 py-8 lg:px-10 flex flex-col gap-5 max-w-[1040px]">
+      <main className="flex-1 min-w-0 px-6 py-8 lg:px-10 flex flex-col gap-5 max-w-[1280px]">
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h1 className="font-display text-[26px] font-semibold m-0">Settings</h1>

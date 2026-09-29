@@ -135,3 +135,21 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }
+
+/* ---------- Large screens (big monitors, TVs) ----------
+   Past ~1900 CSS px the whole interface scales up proportionally, so a 4K monitor or TV shows RANA at a
+   readable size instead of a small island of UI. Viewport-height sizes are divided by the same factor,
+   because CSS zoom would otherwise stretch full-height panels past the screen. */
+:root { --z: 1; }
+@media (min-width: 1900px) { :root { --z: 1.12; } }
+@media (min-width: 2300px) { :root { --z: 1.3; } }
+@media (min-width: 2800px) { :root { --z: 1.55; } }
+@media (min-width: 3400px) { :root { --z: 2; } }
+html { zoom: var(--z); }
+.min-h-screen { min-height: calc(100vh / var(--z)) !important; }
+.h-screen { height: calc(100vh / var(--z)) !important; }
+.max-h-\[75vh\] { max-height: calc(75vh / var(--z)) !important; }
+.max-h-\[80vh\] { max-height: calc(80vh / var(--z)) !important; }
+.max-h-\[85vh\] { max-height: calc(85vh / var(--z)) !important; }
+.max-h-\[88vh\] { max-height: calc(88vh / var(--z)) !important; }
+.max-h-\[90vh\] { max-height: calc(90vh / var(--z)) !important; }
