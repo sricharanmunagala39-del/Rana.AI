@@ -6,14 +6,14 @@ export type PlanKey = "trial" | "launch" | "starter" | "growth" | "scale" | "ent
 export type Plan = {
   key: PlanKey; name: string; pricePerMonth: number | null; minutes: number; overagePerMin: number | null;
   employees: number; concurrency: number; campaignSize: number; ownNumber: boolean; onboardingFee: number | null; trialDays?: number;
-  /** Own Indian number on plans that don't include one (₹/month); null = not offered. */
+  /** Own Indian number on plans that don't include one: starting monthly rent in ₹ (matches RANA_NUMBER_MONTHLY in lib/numbers — fancy numbers cost more); null = not offered. */
   numberAddon?: number | null;
 };
 
 export const PLANS: Record<PlanKey, Plan> = {
   trial:      { key: "trial",      name: "Trial",      pricePerMonth: 0,     minutes: 100,   overagePerMin: null, employees: 1,   concurrency: 1,  campaignSize: 50,     ownNumber: false, onboardingFee: 0, trialDays: 14, numberAddon: null },
   launch:     { key: "launch",     name: "Launch",     pricePerMonth: 4999,  minutes: 400,   overagePerMin: 10,   employees: 1,   concurrency: 1,  campaignSize: 500,    ownNumber: false, onboardingFee: 4999, numberAddon: null },
-  starter:    { key: "starter",    name: "Starter",    pricePerMonth: 9999,  minutes: 1000,  overagePerMin: 9,    employees: 1,   concurrency: 2,  campaignSize: 2000,   ownNumber: false, onboardingFee: 14999, numberAddon: 500 },
+  starter:    { key: "starter",    name: "Starter",    pricePerMonth: 9999,  minutes: 1000,  overagePerMin: 9,    employees: 1,   concurrency: 2,  campaignSize: 2000,   ownNumber: false, onboardingFee: 14999, numberAddon: 999 },
   growth:     { key: "growth",     name: "Growth",     pricePerMonth: 29999, minutes: 3500,  overagePerMin: 8,    employees: 3,   concurrency: 5,  campaignSize: 10000,  ownNumber: true,  onboardingFee: 24999 },
   scale:      { key: "scale",      name: "Scale",      pricePerMonth: 89999, minutes: 12000, overagePerMin: 7,    employees: 10,  concurrency: 20, campaignSize: 50000,  ownNumber: true,  onboardingFee: 49999 },
   enterprise: { key: "enterprise", name: "Enterprise", pricePerMonth: null,  minutes: 35000, overagePerMin: null, employees: 999, concurrency: 50, campaignSize: 200000, ownNumber: true,  onboardingFee: null },
@@ -68,11 +68,11 @@ export function planHighlights(p: Plan): string[] {
     `${p.employees >= 999 ? "Unlimited" : p.employees} AI employee${p.employees === 1 ? "" : "s"}`,
     `${p.concurrency} call${p.concurrency === 1 ? "" : "s"} at the same time`,
     `Campaigns up to ${inr0(p.campaignSize)} numbers`,
-    p.ownNumber ? "Your own Indian number" : p.numberAddon ? `Shared Indian number (own number +₹${inr0(p.numberAddon)}/month)` : "Shared Indian number",
+    p.ownNumber ? "Your own Indian number" : p.numberAddon ? `Shared Indian number (own number from +₹${inr0(p.numberAddon)}/month)` : "Shared Indian number",
     "Both voice engines: R1 and R2",
   ];
   return out;
 }
 export function numberCell(p: Plan): string {
-  return p.ownNumber ? "Included" : p.numberAddon ? `+₹${inr0(p.numberAddon)}/month` : "Shared";
+  return p.ownNumber ? "Included" : p.numberAddon ? `From +₹${inr0(p.numberAddon)}/month` : "Shared";
 }
