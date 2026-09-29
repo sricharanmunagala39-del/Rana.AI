@@ -96,7 +96,7 @@ export default function HqBilling({ clientId, onChanged }: { clientId: string; o
           {mode === "plan" ? (
             <>
               <div className="grid grid-cols-2 gap-2">
-                <label className="text-[11px] font-semibold">Plan<select id="hq-inv-plan-key" value={plan.plan} onChange={(e) => setPlan({ ...plan, plan: e.target.value })} className={field}><option value="starter">Starter</option><option value="growth">Growth</option><option value="scale">Scale</option></select></label>
+                <label className="text-[11px] font-semibold">Plan<select id="hq-inv-plan-key" value={plan.plan} onChange={(e) => setPlan({ ...plan, plan: e.target.value })} className={field}><option value="launch">Launch</option><option value="starter">Starter</option><option value="growth">Growth</option><option value="scale">Scale</option></select></label>
                 <label className="text-[11px] font-semibold">Billing<select id="hq-inv-interval" value={plan.interval} onChange={(e) => setPlan({ ...plan, interval: e.target.value })} className={field}><option value="monthly">Monthly</option><option value="annual">Annual (pay 10)</option></select></label>
               </div>
               <label className="flex items-center gap-2 text-[12px]"><input type="checkbox" checked={plan.waiveOnboarding} onChange={(e) => setPlan({ ...plan, waiveOnboarding: e.target.checked })} /> Waive onboarding fee</label>

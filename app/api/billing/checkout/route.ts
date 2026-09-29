@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   const b = await req.json().catch(() => ({} as any));
   const plan = b.plan as PlanKey;
   const interval: Interval = b.interval === "annual" ? "annual" : "monthly";
-  if (!SELF_SERVE.includes(plan)) return Response.json({ error: "Pick Starter, Growth or Scale. Enterprise is set up with RANA directly." }, { status: 400 });
+  if (!SELF_SERVE.includes(plan)) return Response.json({ error: "Pick Launch, Starter, Growth or Scale. Enterprise is set up with RANA directly." }, { status: 400 });
   const c: any = await getClientById(session.clientId);
   if (!c) return Response.json({ error: "Workspace not found" }, { status: 404 });
   if (!c.billing_name) return Response.json({ error: "Add your billing details first — they're printed on the invoice.", code: "billing_details" }, { status: 400 });

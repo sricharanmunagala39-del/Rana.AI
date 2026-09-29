@@ -38,7 +38,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     let r;
     if (b.mode === "plan") {
       const plan = b.plan as PlanKey; const interval: Interval = b.interval === "annual" ? "annual" : "monthly";
-      if (!SELF_SERVE.includes(plan)) return Response.json({ error: "Plan invoices are for Starter, Growth or Scale. Use a custom invoice for Enterprise." }, { status: 400 });
+      if (!SELF_SERVE.includes(plan)) return Response.json({ error: "Plan invoices are for Launch, Starter, Growth or Scale. Use a custom invoice for Enterprise." }, { status: 400 });
       const q = checkoutQuote(b.waiveOnboarding ? { ...c, onboarding_paid: true } : c, plan, interval);
       if (q.error) return Response.json({ error: q.error }, { status: 400 });
       r = await createInvoice(c, { kind: "plan", plan, interval, items: q.items, createdBy: `HQ ${session!.email}`, notify, origin, notes: b.notes || null });

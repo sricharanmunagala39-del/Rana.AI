@@ -4,7 +4,7 @@ import Link from "next/link";
 import Orb from "@/components/Orb";
 import { Logo } from "@/components/Sidebar";
 import { PLANS, FAQ, INDUSTRY_CALLS, USE_CASES, ENGINES_LINE, type Line } from "./content";
-import { TRIAL_DAYS, TRIAL_MINUTES, PLANS as PRICE_LIST } from "@/lib/pricing";
+import { TRIAL_DAYS, TRIAL_MINUTES, PLANS as PRICE_LIST, ENTRY_PLAN, inr0, inrShort } from "@/lib/pricing";
 import DemoForm from "./DemoForm";
 import { captureUtm } from "./utm";
 import { LEGAL_LINKS, SOCIAL_LINKS } from "@/app/legal/legal";
@@ -204,14 +204,23 @@ function Industries({ onDemo }: { onDemo: () => void }) {
   );
 }
 
-/** Honest back-of-the-envelope: the visitor's own numbers, the visitor's own estimate. */
+/** Honest back-of-the-envelope: the visitor's own numbers, the visitor's own estimate.
+ *  Customer value runs from ₹500 (a clinic visit) to ₹10 crore (a villa or a big B2B order) on a log scale, with presets. */
+const VALUE_MIN = 500, VALUE_MAX = 10_00_00_000;
+const niceRound = (v: number) => { const m = 10 ** Math.max(2, Math.floor(Math.log10(v)) - 1); return Math.max(VALUE_MIN, Math.round(v / m) * m); };
+const valueOfPos = (p: number) => niceRound(VALUE_MIN * (VALUE_MAX / VALUE_MIN) ** (p / 1000));
+const posOfValue = (v: number) => Math.round((1000 * Math.log(Math.min(VALUE_MAX, Math.max(VALUE_MIN, v)) / VALUE_MIN)) / Math.log(VALUE_MAX / VALUE_MIN));
+const VALUE_PRESETS: [string, number, number][] = [ // label, customer value, typical % of missed callers who would have bought
+  ["Clinic patient", 3000, 20], ["Coaching admission", 75000, 10], ["Insurance policy", 30000, 8], ["Car sale", 800000, 3], ["Flat / villa sale", 1_00_00_000, 1],
+];
 function MissedCalls({ onDemo }: { onDemo: () => void }) {
   const [missed, setMissed] = useState(15);
   const [conv, setConv] = useState(10);
-  const [value, setValue] = useState(10000);
+  const [value, setValue] = useState(75000);
   const perMonth = missed * 26;
-  const lost = Math.round(perMonth * (conv / 100) * value);
-  const inr = (n: number) => "₹" + n.toLocaleString("en-IN");
+  const won = perMonth * (conv / 100);
+  const lost = Math.round(won * value);
+  const plan = ENTRY_PLAN.pricePerMonth || 0;
   const slider = "w-full accent-[rgb(45,225,194)]";
   return (
     <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24">
@@ -219,20 +228,34 @@ function MissedCalls({ onDemo }: { onDemo: () => void }) {
         <div>
           <div className="eyebrow">// WHAT MISSED CALLS COST YOU</div>
           <h2 className="font-display text-[28px] sm:text-[38px] font-semibold tracking-[-0.025em] leading-[1.08] mt-3">Every unanswered call<br />is a customer who called someone else.</h2>
-          <div className="flex flex-col gap-6 mt-8 text-[14px]">
+          <div className="flex flex-wrap gap-2 mt-6" role="group" aria-label="Pick your business">
+            {VALUE_PRESETS.map(([label, v, c]) => (
+              <button key={label} type="button" onClick={() => { setValue(v); setConv(c); }} data-testid={`calc-preset-${label.split(" ")[0].toLowerCase()}`}
+                className={`rounded-full border px-3 py-1.5 text-[12.5px] transition-colors ${value === v ? "border-signal/60 bg-signal/10 text-signal font-semibold" : "border-white/10 text-ink-soft hover:text-ink hover:border-white/25"}`}>{label}</button>
+            ))}
+          </div>
+          <div className="flex flex-col gap-6 mt-6 text-[14px]">
             <label className="block"><div className="flex justify-between mb-2"><span className="text-ink-soft">Calls you miss or can&apos;t call back, per day</span><b className="font-mono">{missed}</b></div>
-              <input type="range" min={1} max={200} value={missed} onChange={(e) => setMissed(+e.target.value)} className={slider} aria-label="Missed calls per day" /></label>
+              <input type="range" min={1} max={300} value={missed} onChange={(e) => setMissed(+e.target.value)} className={slider} aria-label="Missed calls per day" /></label>
             <label className="block"><div className="flex justify-between mb-2"><span className="text-ink-soft">Of those, how many would have bought</span><b className="font-mono">{conv}%</b></div>
-              <input type="range" min={1} max={50} value={conv} onChange={(e) => setConv(+e.target.value)} className={slider} aria-label="Conversion percent" /></label>
-            <label className="block"><div className="flex justify-between mb-2"><span className="text-ink-soft">What one customer is worth to you</span><b className="font-mono">{inr(value)}</b></div>
-              <input type="range" min={500} max={200000} step={500} value={value} onChange={(e) => setValue(+e.target.value)} className={slider} aria-label="Customer value" /></label>
+              <input type="range" min={0.5} max={50} step={0.5} value={conv} onChange={(e) => setConv(+e.target.value)} className={slider} aria-label="Conversion percent" /></label>
+            <label className="block"><div className="flex justify-between items-center gap-3 mb-2"><span className="text-ink-soft">What one customer or sale is worth to you</span>
+                <span className="flex items-center gap-1 font-mono font-bold">₹<input type="number" min={VALUE_MIN} max={VALUE_MAX} step={500} value={value} onChange={(e) => setValue(Math.min(VALUE_MAX, Math.max(0, Math.round(+e.target.value || 0))))}
+                  className="w-[132px] bg-transparent border border-white/15 rounded-md px-2 py-1 text-right" aria-label="Customer value in rupees" data-testid="calc-value" /></span></div>
+              <input type="range" min={0} max={1000} value={posOfValue(value)} onChange={(e) => setValue(valueOfPos(+e.target.value))} className={slider} aria-label="Customer value" />
+              <div className="relative h-4 text-[11px] text-ink-soft mt-1 font-mono">{([["₹500", VALUE_MIN], ["₹10K", 10000], ["₹1 L", 1e5], ["₹10 L", 1e6], ["₹1 Cr", 1e7], ["₹10 Cr", VALUE_MAX]] as [string, number][]).map(([t, v], i, a) => (
+                <span key={t} className="absolute whitespace-nowrap" style={{ left: `${posOfValue(v) / 10}%`, transform: i === 0 ? "none" : i === a.length - 1 ? "translateX(-100%)" : "translateX(-50%)" }}>{t}</span>))}</div></label>
           </div>
         </div>
         <div className="text-center lg:text-left">
           <div className="font-mono text-[11.5px] text-ink-soft">BUSINESS YOU MAY BE LOSING EACH MONTH</div>
-          <div className="font-display text-[46px] sm:text-[60px] font-semibold tracking-tight text-gradient leading-none mt-3" data-testid="calc-lost">{inr(lost)}</div>
-          <div className="text-[13.5px] text-ink-soft mt-3">{perMonth.toLocaleString("en-IN")} missed calls × {conv}% × {inr(value)}, over 26 working days. Your numbers — change the sliders.</div>
-          <div className="mt-6 rounded-xl border border-white/10 bg-white/[.03] p-4 text-[14px]">RANA answers every one of those calls, day and night, from <b>₹9,999 a month</b>.</div>
+          <div className="font-display text-[46px] sm:text-[60px] font-semibold tracking-tight text-gradient leading-none mt-3" data-testid="calc-lost">{inrShort(lost)}</div>
+          <div className="text-[13.5px] text-ink-soft mt-3">{perMonth.toLocaleString("en-IN")} missed calls × {conv}% = about {won >= 10 ? Math.round(won).toLocaleString("en-IN") : Math.round(won * 10) / 10} customers × {inrShort(value)}, over 26 working days. Your numbers — change them.</div>
+          <div className="mt-6 rounded-xl border border-white/10 bg-white/[.03] p-4 text-[14px]" data-testid="calc-roi">RANA answers and calls back every one of them, from <b>₹{inr0(plan)} a month</b>.{" "}
+            {value > 0 && lost > 0 ? (value >= plan
+              ? <>One extra customer pays for <b>{value >= plan * 12 ? "a full year" : Math.floor(value / plan) === 1 ? "a month" : `${Math.floor(value / plan)} months`}</b> of RANA.</>
+              : <>It pays for itself with <b>{Math.ceil(plan / value)} extra customers</b> a month.</>) : null}
+          </div>
           <div className="flex flex-wrap gap-3 mt-6 justify-center lg:justify-start">
             <Link href="/signup" className="btn-glow rounded-full px-6 py-3 text-[14px] font-semibold">Start free — {TRIAL_DAYS} days</Link>
             <button onClick={onDemo} className="btn-ghost rounded-full px-6 py-3 text-[14px] font-medium">Book a demo</button>
@@ -414,21 +437,21 @@ export default function Site() {
         </section>
 
         {/* ---------- Pricing ---------- */}
-        <section id="pricing" className="max-w-[1160px] mx-auto px-5 sm:px-8 py-24">
+        <section id="pricing" className="max-w-[1280px] mx-auto px-5 sm:px-8 py-24">
           <div className="reveal text-center max-w-[640px] mx-auto">
             <div className="eyebrow">// PRICING</div>
             <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] mt-3">Plans that pay for themselves.</h2>
             <p className="text-ink-soft text-[16px] mt-3">Start free for {TRIAL_DAYS} days with {TRIAL_MINUTES} minutes. Prices exclude GST, which is added where applicable. Pay annually and the setup fee is waived.</p>
             <p className="text-[14px] mt-3 font-medium" data-testid="engines-line">{ENGINES_LINE}</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-3 mt-12">
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-12">
             {PLANS.map((p) => (
-              <div key={p.name} className={`card reveal p-7 flex flex-col ${p.hi ? "card-hi md:-translate-y-3" : ""}`} data-testid={`plan-${p.name.toLowerCase()}`}>
+              <div key={p.name} className={`card reveal p-6 flex flex-col ${p.hi ? "card-hi xl:-translate-y-3" : ""}`} data-testid={`plan-${p.name.toLowerCase()}`}>
                 <div className="flex items-center justify-between">
                   <div className="font-display text-[20px] font-semibold">{p.name}</div>
                   {p.hi && <span className="text-[11px] font-mono text-on-accent bg-signal rounded-full px-2.5 py-1">MOST POPULAR</span>}
                 </div>
-                <div className="mt-5 flex items-baseline gap-1"><span className="text-ink-soft text-[20px]">₹</span><span className="font-display text-[46px] font-semibold tracking-tight">{p.price}</span><span className="text-ink-soft text-[14px]">/month</span></div>
+                <div className="mt-5 flex items-baseline gap-1"><span className="text-ink-soft text-[20px]">₹</span><span className="font-display text-[40px] font-semibold tracking-tight">{p.price}</span><span className="text-ink-soft text-[14px]">/month</span></div>
                 <div className="text-[13.5px] mt-1"><b>{p.min} minutes</b> <span className="text-ink-soft">· then {p.extra}/min prepaid</span></div>
                 <ul className="mt-6 flex flex-col gap-2.5 text-[14px] flex-1">
                   {p.pts.map((t) => <li key={t} className="flex gap-2.5"><span className="text-signal">✓</span>{t}</li>)}
