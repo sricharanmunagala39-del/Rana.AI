@@ -1,4 +1,5 @@
 "use client";
+import { numberCell, enginesPricingLine, TRIAL_DAYS, ENTERPRISE_FROM } from "@/lib/pricing";
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { inr } from "@/lib/money";
@@ -69,7 +70,7 @@ export default function BillingPage() {
   }
   const u = d?.usage;
   const pct = u ? Math.min(100, (u.minutesUsed / Math.max(1, u.minutesIncluded)) * 100) : 0;
-  const plans = d ? Object.values(d.plans) as any[] : [];
+  const plans = d?.plans ? Object.values(d.plans) as any[] : [];
   const trialOver = u?.plan.key === "trial" && u.trialEndsAt && Date.parse(u.trialEndsAt) < Date.now();
   const outOfMinutes = u && u.minutesUsed >= u.minutesIncluded && !u.limits.allowOverage && !(b?.wallet?.enabled && b.wallet.balance > 0);
 
@@ -77,7 +78,7 @@ export default function BillingPage() {
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="billing" />
       <div className="flex-1 p-10">
-        <div className="max-w-[900px] flex flex-col gap-6">
+        <div className="w-full max-w-[1280px] flex flex-col gap-6">
           <div>
             <div className="text-[20px] font-display font-semibold">Plan & usage</div>
             <div className="text-[13px] text-ink-soft mt-0.5">Your plan, the minutes you've used this period, and what each plan includes. You're billed for connected minutes only — unanswered calls are free.</div>
@@ -144,19 +145,19 @@ export default function BillingPage() {
                     {plans.map((p) => (
                       <tr key={p.key} className={`border-b border-line last:border-0 ${p.key === u.plan.key ? "bg-signal-tint/60" : ""}`}>
                         <td className="px-4 py-3 font-semibold">{p.name}{p.key === u.plan.key ? <span className="ml-2 text-[10.5px] text-signal">Current</span> : null}</td>
-                        <td className="px-4 py-3 tabular-nums">{p.key === "trial" ? "Free · 14 days" : p.pricePerMonth ? inr(p.pricePerMonth) : "From ₹2.5 lakh"}</td>
-                        <td className="px-4 py-3 tabular-nums">{p.key === "enterprise" ? "35,000+" : p.minutes.toLocaleString("en-IN")}</td>
+                        <td className="px-4 py-3 tabular-nums">{p.key === "trial" ? `Free · ${TRIAL_DAYS} days` : p.pricePerMonth ? inr(p.pricePerMonth) : `From ${inr(ENTERPRISE_FROM)}`}</td>
+                        <td className="px-4 py-3 tabular-nums">{p.key === "enterprise" ? `${p.minutes.toLocaleString("en-IN")}+` : p.minutes.toLocaleString("en-IN")}</td>
                         <td className="px-4 py-3 tabular-nums">{p.overagePerMin ? `${inr(p.overagePerMin)}` : "—"}</td>
                         <td className="px-4 py-3">{p.employees >= 999 ? "Unlimited" : p.employees}</td>
                         <td className="px-4 py-3">{p.concurrency}</td>
-                        <td className="px-4 py-3">{p.ownNumber ? "Included" : p.key === "starter" ? "₹500/month" : "Shared"}</td>
+                        <td className="px-4 py-3">{numberCell(p)}</td>
                         <td className="px-4 py-3 tabular-nums">{p.onboardingFee === 0 ? "Free" : p.onboardingFee ? inr(p.onboardingFee) : "Custom"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="text-[12px] text-ink-soft">Prices exclude 18% GST. Minutes are counted per call, rounded up to the next 30 seconds. Unused minutes don't roll over. Annual prepay: 12 months for the price of 10, onboarding free. Enterprise and custom deals: <span className="font-semibold">support@ranaai.in</span>.</div>
+              <div className="text-[12px] text-ink-soft" data-testid="billing-engines"><b className="text-ink">{enginesPricingLine()}</b> Prices exclude 18% GST. Minutes are counted per call, rounded up to the next 30 seconds. Unused minutes don't roll over. Annual prepay: 12 months for the price of 10, onboarding free. Enterprise and custom deals: <span className="font-semibold">support@ranaai.in</span>.</div>
 
               {b && (
                 <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-4" data-testid="choose-plan">

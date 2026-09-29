@@ -1,9 +1,13 @@
 // Pricing and FAQ copy shared by the website and its structured data (app/landing/page.tsx).
-export const PLANS = [
-  { name: "Starter", price: "9,999", min: "1,000", extra: "₹9", pts: ["1 AI employee", "2 calls at the same time", "Campaigns up to 2,000 numbers", "Shared Indian number"], fee: "₹14,999 setup" },
-  { name: "Growth", price: "29,999", min: "3,500", extra: "₹8", pts: ["3 AI employees", "5 calls at the same time", "Campaigns up to 10,000 numbers", "Your own Indian number"], fee: "₹24,999 setup", hi: true },
-  { name: "Scale", price: "89,999", min: "12,000", extra: "₹7", pts: ["10 AI employees", "20 calls at the same time", "Campaigns up to 50,000 numbers", "Your own Indian number"], fee: "₹49,999 setup" },
-];
+import { PLANS as PRICE_LIST, PAID_PLAN_KEYS, planHighlights, inr0, TRIAL_DAYS, TRIAL_MINUTES, enginesPricingLine } from "@/lib/pricing";
+
+// Website plan cards come from the shared price list (lib/pricing), so they always match Billing and HQ.
+export const PLANS = PAID_PLAN_KEYS.map((k) => {
+  const p = PRICE_LIST[k];
+  return { name: p.name, price: inr0(p.pricePerMonth || 0), min: inr0(p.minutes), extra: `₹${p.overagePerMin}`, pts: planHighlights(p), fee: `₹${inr0(p.onboardingFee || 0)} setup`, hi: k === "growth" };
+});
+export const ENGINES_LINE = enginesPricingLine();
+const START = PRICE_LIST.starter;
 
 export const FAQ: [string, string][] = [
   ["Which businesses is RANA AI for?", "Any business that answers or makes a lot of phone calls: clinics and hospitals, real estate, schools and coaching, e-commerce and D2C brands, insurance and loan companies, hotels and restaurants, automobile dealers and local service businesses. If your team misses calls, calls back late or repeats the same answers all day, RANA can take those calls."],
@@ -14,8 +18,9 @@ export const FAQ: [string, string][] = [
   ["How fast can we go live?", "You can build and test your first AI employee the same day on the free trial. Done-for-you setups with your scripts and data usually take one to two weeks."],
   ["What happens when my minutes run out?", "Plan minutes are used first. After that, calls continue from a prepaid balance you top up by UPI, card or netbanking — or turn on auto-recharge so campaigns never stop."],
   ["What is an AI voice agent?", "An AI voice agent is software that talks on the phone like a trained staff member. RANA AI answers incoming calls and calls your leads, understands what people say in their own language, answers from your business information, and records, transcribes and scores every call for your team."],
-  ["How much does an AI calling agent cost in India?", "RANA AI plans start at ₹9,999 a month for 1,000 connected minutes (about ₹10 a minute), with lower per-minute rates on bigger plans. Calls are billed in 30-second pulses, and every workspace starts with a 14-day free trial with 100 minutes."],
+  ["How much does an AI calling agent cost in India?", `RANA AI plans start at ₹${inr0(START.pricePerMonth || 0)} a month for ${inr0(START.minutes)} connected minutes (about ₹${Math.round((START.pricePerMonth || 0) / START.minutes)} a minute), with lower per-minute rates on bigger plans. Calls are billed in 30-second pulses, and every workspace starts with a ${TRIAL_DAYS}-day free trial with ${TRIAL_MINUTES} minutes. ${enginesPricingLine()}`],
   ["Is AI calling allowed in India? What about TRAI and DND rules?", "Yes, when it follows TRAI's commercial-communication rules. RANA AI only dials inside the calling hours you set (9 AM to 9 PM, Monday to Saturday, by default), keeps a do-not-call list that grows automatically when someone asks not to be called, and stops a campaign outside those hours. For promotional lists you need DLT registration and the right number series, and you should only call people who enquired or agreed to be contacted — we help you set this up."],
+  ["What are the R1 and R2 voice engines?", "They are the two voice engines behind every RANA AI employee, and both are included in every plan. R1 is built for Indian languages and follows the caller when they switch language mid-call. R2 offers 900+ voices, very fast replies and your own cloned voice, and keeps each call in the language it opens with. You choose the engine for each AI employee and can switch any time."],
   ["Do I get an invoice?", "Yes. Every payment comes with a proper invoice you can download any time from the Billing page."],
 ];
 
