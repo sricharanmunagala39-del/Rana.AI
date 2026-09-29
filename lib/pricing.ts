@@ -36,10 +36,10 @@ export const ENGINE_PRICING = {
 export type EngineKey = keyof typeof ENGINE_PRICING;
 export const engineMinuteRate = (engine?: string | null) => (ENGINE_PRICING as any)[engine || "sarvam"]?.minuteRate ?? 1;
 
-/** "1 plan minute per minute" / "1.5 plan minutes per minute" — one wording everywhere. */
+/** "1 plan minute per call minute" / "1.5 plan minutes per call minute" — one wording everywhere. */
 export function engineRateText(engine: EngineKey): string {
   const r = ENGINE_PRICING[engine].minuteRate;
-  return r === 1 ? "1 plan minute per minute" : `${r} plan minutes per minute`;
+  return r === 1 ? "1 plan minute per call minute" : `${r} plan minutes per call minute`;
 }
 /** One line for pricing pages. */
 export function enginesPricingLine(): string {
