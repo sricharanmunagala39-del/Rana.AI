@@ -121,7 +121,7 @@ export default function HqPage() {
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="hq" />
       <div className="flex-1 p-10">
-        <div className="max-w-[1120px] flex flex-col gap-6">
+        <div className="w-full max-w-[1600px] flex flex-col gap-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-wide text-signal">RANA HQ</div>

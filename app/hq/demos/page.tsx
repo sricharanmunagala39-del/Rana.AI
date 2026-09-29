@@ -41,7 +41,7 @@ export default function HqDemosPage() {
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="hq" />
       <div className="flex-1 p-6 md:p-10 min-w-0">
-        <div className="max-w-[1100px] flex flex-col gap-5">
+        <div className="w-full max-w-[1600px] flex flex-col gap-5">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wide text-signal"><Link href="/hq">RANA HQ</Link> · Demo requests</div>
             <div className="text-[22px] font-display font-semibold">People who asked for a demo</div>

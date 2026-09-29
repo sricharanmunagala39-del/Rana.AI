@@ -47,7 +47,7 @@ export default function HqTeamPage() {
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="hq" />
       <div className="flex-1 p-10">
-        <div className="max-w-[980px] flex flex-col gap-6">
+        <div className="w-full max-w-[1600px] flex flex-col gap-6">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wide text-signal"><Link href="/hq">RANA HQ</Link> · Team &amp; security</div>
             <div className="text-[22px] font-display font-semibold">Who can use RANA HQ</div>

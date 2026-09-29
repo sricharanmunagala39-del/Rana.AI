@@ -43,7 +43,7 @@ export default function MoneyPage() {
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="hq" />
       <div className="flex-1 p-10">
-        <div className="max-w-[1120px] flex flex-col gap-6">
+        <div className="w-full max-w-[1600px] flex flex-col gap-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-wide text-signal"><Link href="/hq">RANA HQ</Link> · Money</div>
@@ -73,7 +73,7 @@ export default function MoneyPage() {
                 {[
                   ["Clients paid you", inr(t.received, true), `${t.paidInvoices} payment${t.paidInvoices === 1 ? "" : "s"} incl. GST`],
                   ["Razorpay fees", inr(t.fees, true), t.feesEstimated ? "some estimated at 2% + GST" : "exact, from Razorpay"],
-                  ["Sarvam cost (estimated)", inr(t.sarvamCost), `${Math.round(t.minutes).toLocaleString("en-IN")} min × ₹${d.costPerMin}`],
+                  ["Voice cost (estimated)", inr(t.sarvamCost), `${Math.round(t.minutes).toLocaleString("en-IN")} min · R1 ₹${d.costPerMin}/min, R2 ₹${d.costPerMinR2 ?? "7.4"}/min`],
                   ["Your profit", inr(t.profit), "revenue excl. GST − fees − Sarvam"],
                 ].map(([k, v, sub]) => (
                   <div key={k} className="border border-line rounded-xl bg-raised px-4 py-3">
@@ -116,7 +116,7 @@ export default function MoneyPage() {
                       )}
                     </>
                   )}
-                  <div className="text-[11.5px] text-ink-soft">Estimate uses ₹{d.costPerMin} per connected minute (Sarvam + carrier). Change it with <code>RANA_COST_PER_MIN</code> once you see Sarvam's real bill.</div>
+                  <div className="text-[11.5px] text-ink-soft">Estimate uses ₹{d.costPerMin} per R1 minute (Sarvam + carrier) and ₹{d.costPerMinR2 ?? "7.4"} per R2 minute (Cartesia + LLM + carrier). Change them with <code>RANA_COST_PER_MIN</code> and <code>RANA_COST_PER_MIN_R2</code> once you see the real bills.</div>
                 </div>
 
                 <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-1.5 text-[13px]" data-testid="gst-card">

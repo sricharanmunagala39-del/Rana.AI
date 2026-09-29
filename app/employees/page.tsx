@@ -194,7 +194,7 @@ export default function EmployeesPage() {
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="employees" />
       <div className="flex-1 min-w-0 px-6 py-8 lg:px-10">
-        <div className="max-w-[900px]">
+        <div className="w-full max-w-[1280px]">
           <div className="flex items-center justify-between mb-2 gap-4">
             <div>
               <div className="text-[22px] font-display font-semibold">My Employees</div>

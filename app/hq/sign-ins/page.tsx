@@ -56,7 +56,7 @@ export default function HqSignInsPage() {
     <div className="flex min-h-screen bg-paper">
       <Sidebar active="hq" />
       <div className="flex-1 p-6 md:p-10 min-w-0">
-        <div className="max-w-[1100px] flex flex-col gap-6">
+        <div className="w-full max-w-[1600px] flex flex-col gap-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-wide text-signal"><Link href="/hq">RANA HQ</Link> · Sign-ins</div>
