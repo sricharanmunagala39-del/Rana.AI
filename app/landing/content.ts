@@ -7,7 +7,7 @@ export const PLANS = PAID_PLAN_KEYS.map((k) => {
   return { name: p.name, price: inr0(p.pricePerMonth || 0), min: inr0(p.minutes), extra: `₹${p.overagePerMin}`, pts: planHighlights(p), fee: `₹${inr0(p.onboardingFee || 0)} setup`, hi: k === "growth" };
 });
 export const ENGINES_LINE = enginesPricingLine();
-const START = PRICE_LIST.starter;
+const START = PRICE_LIST[PAID_PLAN_KEYS[0]];
 
 export const FAQ: [string, string][] = [
   ["Which businesses is RANA AI for?", "Any business that answers or makes a lot of phone calls: clinics and hospitals, real estate, schools and coaching, e-commerce and D2C brands, insurance and loan companies, hotels and restaurants, automobile dealers and local service businesses. If your team misses calls, calls back late or repeats the same answers all day, RANA can take those calls."],

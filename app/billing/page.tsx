@@ -5,7 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import { inr } from "@/lib/money";
 import WalletCard from "@/components/WalletCard";
 
-const SELF = ["starter", "growth", "scale"];
+const SELF = ["launch", "starter", "growth", "scale"];
 const STATUS: Record<string, string> = { issued: "Due", paid: "Paid", void: "Cancelled" };
 const field = "mt-1 w-full border border-line rounded-lg px-3 py-2 text-[13px] font-normal";
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—");
@@ -172,7 +172,7 @@ export default function BillingPage() {
                       ))}
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-3">
                     {SELF.map((k) => {
                       const p = plans.find((x) => x.key === k); const q = b.quotes[`${k}:${interval}`];
                       if (!p || !q) return null;

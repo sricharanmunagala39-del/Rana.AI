@@ -2,7 +2,7 @@
 // agent builder and HQ all read from here, so a price change is made once and shows the same everywhere.
 // Pure data (no server imports): safe in the browser. Prices exclude GST.
 
-export type PlanKey = "trial" | "starter" | "growth" | "scale" | "enterprise";
+export type PlanKey = "trial" | "launch" | "starter" | "growth" | "scale" | "enterprise";
 export type Plan = {
   key: PlanKey; name: string; pricePerMonth: number | null; minutes: number; overagePerMin: number | null;
   employees: number; concurrency: number; campaignSize: number; ownNumber: boolean; onboardingFee: number | null; trialDays?: number;
@@ -12,13 +12,16 @@ export type Plan = {
 
 export const PLANS: Record<PlanKey, Plan> = {
   trial:      { key: "trial",      name: "Trial",      pricePerMonth: 0,     minutes: 100,   overagePerMin: null, employees: 1,   concurrency: 1,  campaignSize: 50,     ownNumber: false, onboardingFee: 0, trialDays: 14, numberAddon: null },
+  launch:     { key: "launch",     name: "Launch",     pricePerMonth: 4999,  minutes: 400,   overagePerMin: 10,   employees: 1,   concurrency: 1,  campaignSize: 500,    ownNumber: false, onboardingFee: 4999, numberAddon: null },
   starter:    { key: "starter",    name: "Starter",    pricePerMonth: 9999,  minutes: 1000,  overagePerMin: 9,    employees: 1,   concurrency: 2,  campaignSize: 2000,   ownNumber: false, onboardingFee: 14999, numberAddon: 500 },
   growth:     { key: "growth",     name: "Growth",     pricePerMonth: 29999, minutes: 3500,  overagePerMin: 8,    employees: 3,   concurrency: 5,  campaignSize: 10000,  ownNumber: true,  onboardingFee: 24999 },
   scale:      { key: "scale",      name: "Scale",      pricePerMonth: 89999, minutes: 12000, overagePerMin: 7,    employees: 10,  concurrency: 20, campaignSize: 50000,  ownNumber: true,  onboardingFee: 49999 },
   enterprise: { key: "enterprise", name: "Enterprise", pricePerMonth: null,  minutes: 35000, overagePerMin: null, employees: 999, concurrency: 50, campaignSize: 200000, ownNumber: true,  onboardingFee: null },
 };
 export const PLAN_KEYS = Object.keys(PLANS) as PlanKey[];
-export const PAID_PLAN_KEYS: PlanKey[] = ["starter", "growth", "scale"];
+export const PAID_PLAN_KEYS: PlanKey[] = ["launch", "starter", "growth", "scale"];
+/** The cheapest paid plan — "from ₹X a month" everywhere. */
+export const ENTRY_PLAN = PLANS[PAID_PLAN_KEYS[0]];
 export const TRIAL_MINUTES = PLANS.trial.minutes;
 export const TRIAL_DAYS = PLANS.trial.trialDays || 14;
 export const ENTERPRISE_FROM = 250000; // "From ₹2.5 lakh"
@@ -50,6 +53,14 @@ export function enginesPricingLine(): string {
 }
 
 export const inr0 = (n: number) => n.toLocaleString("en-IN");
+/** ₹ in Indian short form: ₹4,999 · ₹2.5 L · ₹1.2 Cr. */
+export function inrShort(n: number): string {
+  const a = Math.abs(n);
+  const trim = (x: number) => (x >= 100 ? Math.round(x).toLocaleString("en-IN") : String(Math.round(x * 10) / 10));
+  if (a >= 1e7) return `₹${trim(n / 1e7)} Cr`;
+  if (a >= 1e5) return `₹${trim(n / 1e5)} L`;
+  return `₹${Math.round(n).toLocaleString("en-IN")}`;
+}
 
 /** What each plan includes, worded once for the website and the Billing page. */
 export function planHighlights(p: Plan): string[] {

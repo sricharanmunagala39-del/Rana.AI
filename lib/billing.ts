@@ -6,7 +6,7 @@ import { razorpayConfigured, createPaymentLink, cancelPaymentLink } from "./razo
 
 export const GRACE_DAYS = 7;          // unpaid this many days past the due date → calling pauses
 export const RENEW_AHEAD_DAYS = 5;    // renewal invoice goes out this many days before the plan runs out
-export const SELF_SERVE: PlanKey[] = ["starter", "growth", "scale"];
+export const SELF_SERVE: PlanKey[] = ["launch", "starter", "growth", "scale"];
 export type Interval = "monthly" | "annual";
 
 export const GST_STATES: Record<string, string> = {
