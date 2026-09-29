@@ -1,5 +1,5 @@
 // Pricing and FAQ copy shared by the website and its structured data (app/landing/page.tsx).
-import { PLANS as PRICE_LIST, PAID_PLAN_KEYS, planHighlights, inr0, TRIAL_DAYS, TRIAL_MINUTES, enginesPricingLine } from "@/lib/pricing";
+import { PLANS as PRICE_LIST, PAID_PLAN_KEYS, planHighlights, inr0, TRIAL_DAYS, TRIAL_MINUTES, enginesPricingLine, engineMinuteRate } from "@/lib/pricing";
 
 // Website plan cards come from the shared price list (lib/pricing), so they always match Billing and HQ.
 export const PLANS = PAID_PLAN_KEYS.map((k) => {
@@ -20,7 +20,7 @@ export const FAQ: [string, string][] = [
   ["What is an AI voice agent?", "An AI voice agent is software that talks on the phone like a trained staff member. RANA AI answers incoming calls and calls your leads, understands what people say in their own language, answers from your business information, and records, transcribes and scores every call for your team."],
   ["How much does an AI calling agent cost in India?", `RANA AI plans start at ₹${inr0(START.pricePerMonth || 0)} a month for ${inr0(START.minutes)} connected minutes (about ₹${Math.round((START.pricePerMonth || 0) / START.minutes)} a minute), with lower per-minute rates on bigger plans. Calls are billed in 30-second pulses, and every workspace starts with a ${TRIAL_DAYS}-day free trial with ${TRIAL_MINUTES} minutes. ${enginesPricingLine()}`],
   ["Is AI calling allowed in India? What about TRAI and DND rules?", "Yes, when it follows TRAI's commercial-communication rules. RANA AI only dials inside the calling hours you set (9 AM to 9 PM, Monday to Saturday, by default), keeps a do-not-call list that grows automatically when someone asks not to be called, and stops a campaign outside those hours. For promotional lists you need DLT registration and the right number series, and you should only call people who enquired or agreed to be contacted — we help you set this up."],
-  ["What are the R1 and R2 voice engines?", "They are the two voice engines behind every RANA AI employee, and both are included in every plan. R1 is built for Indian languages and follows the caller when they switch language mid-call. R2 offers 900+ voices, very fast replies and your own cloned voice, and keeps each call in the language it opens with. You choose the engine for each AI employee and can switch any time."],
+  ["What are the R1 and R2 voice engines?", `They are the two voice engines behind every RANA AI employee, and both are included in every plan. R1 is built for Indian languages and follows the caller when they switch language mid-call. R2 offers 900+ voices, very fast replies and your own cloned voice, and keeps each call in the language it opens with. You choose the engine for each AI employee and can switch any time.${engineMinuteRate("cartesia") !== engineMinuteRate("sarvam") ? ` R1 calls use 1 plan minute per call minute; R2 calls use ${engineMinuteRate("cartesia")} plan minutes per call minute.` : ""}`],
   ["Do I get an invoice?", "Yes. Every payment comes with a proper invoice you can download any time from the Billing page."],
 ];
 

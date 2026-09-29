@@ -34,7 +34,7 @@ export const ENTERPRISE_FROM = 250000; // "From ₹2.5 lakh"
  */
 export const ENGINE_PRICING = {
   sarvam:   { label: "R1", minuteRate: 1, summary: "Built for Indian languages, switches language mid-call" },
-  cartesia: { label: "R2", minuteRate: 1, summary: "900+ voices and your own cloned voice" },
+  cartesia: { label: "R2", minuteRate: 1.5, summary: "900+ voices and your own cloned voice" },
 } as const;
 export type EngineKey = keyof typeof ENGINE_PRICING;
 export const engineMinuteRate = (engine?: string | null) => (ENGINE_PRICING as any)[engine || "sarvam"]?.minuteRate ?? 1;
@@ -46,10 +46,10 @@ export function engineRateText(engine: EngineKey): string {
 }
 /** One line for pricing pages. */
 export function enginesPricingLine(): string {
-  const r1 = ENGINE_PRICING.sarvam.minuteRate, r2 = ENGINE_PRICING.cartesia.minuteRate;
+  const r1: number = ENGINE_PRICING.sarvam.minuteRate, r2: number = ENGINE_PRICING.cartesia.minuteRate;
   return r1 === r2
     ? "Every plan includes both voice engines, R1 and R2, at the same per-minute price."
-    : `Every plan includes both voice engines. R1 uses ${engineRateText("sarvam")}; R2 (premium voices and voice cloning) uses ${engineRateText("cartesia")}.`;
+    : `Every plan includes both voice engines. Premium voices and voice cloning (R2) use ${r2 / r1} minutes of your plan per call minute.`;
 }
 
 export const inr0 = (n: number) => n.toLocaleString("en-IN");
