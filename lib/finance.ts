@@ -8,6 +8,9 @@ import { razorpayConfigured, fetchPaymentFee } from "./razorpay";
 import { r2, todayIST, addDays } from "./billing";
 
 export const costPerMin = () => Number(process.env.RANA_COST_PER_MIN || 4.5) || 4.5;
+/** What a minute costs RANA on each engine (R1 = Sarvam incl. carrier; R2 = Cartesia agent + LLM + SIP carrier). */
+export const costPerMinR2 = () => Number(process.env.RANA_COST_PER_MIN_R2 || 7.4) || 7.4;
+export const engineCostPerMin = (engine?: string | null) => (engine === "cartesia" ? costPerMinR2() : costPerMin());
 const RZP_FEE_PCT = () => Number(process.env.RAZORPAY_FEE_PCT || 2) || 2;
 
 /** "2026-09" → IST month window as UTC ISO strings. */
@@ -39,8 +42,8 @@ async function feeOf(inv: any): Promise<{ fee: number; tax: number; estimated: b
 async function callsBetween(from: Date, to: Date) {
   // Sarvam bills every conversation minute — phone calls AND browser practice. Practice is metered in
   // practice_sessions (the webhook doesn't always report browser sessions), so "manual" call rows are skipped here.
-  const rows = (await sbAll<any>(`/calls?created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=client_id,duration_seconds,created_at,source&order=created_at.asc,id.asc`).catch(() => [])) || [];
-  const practice = (await practiceRows(from, to)).map((r: any) => ({ client_id: r.client_id, duration_seconds: practiceSeconds(r), created_at: r.started_at, source: "practice" }));
+  const rows = (await sbAll<any>(`/calls?created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}&duration_seconds=gt.0&select=client_id,duration_seconds,created_at,source,engine&order=created_at.asc,id.asc`).catch(() => [])) || [];
+  const practice = (await practiceRows(from, to)).map((r: any) => ({ client_id: r.client_id, duration_seconds: practiceSeconds(r), created_at: r.started_at, source: "practice", engine: "sarvam" }));
   return [...rows.filter((r) => r.source !== "manual"), ...practice];
 }
 
@@ -58,8 +61,10 @@ export async function sarvamBalance(now = new Date()) {
   // Top-ups are paid incl. 18% GST; Sarvam credits = amount before GST.
   const credited = topups.reduce((a, e) => a + (e.gst_included ? Number(e.amount) / 1.18 : Number(e.amount)), 0);
   const since = from ? new Date(Date.parse(from + "T00:00:00+05:30")) : null;
-  const spent = since ? pulseMinutes((await callsBetween(since, now)).map((c) => Number(c.duration_seconds) || 0)) * cpm : 0;
-  const week = pulseMinutes((await callsBetween(new Date(now.getTime() - 7 * 86400e3), now)).map((c) => Number(c.duration_seconds) || 0));
+  // Only R1 (Sarvam) minutes use Sarvam credits; R2 minutes are paid to the other provider.
+  const r1 = (rows: any[]) => rows.filter((c) => c.engine !== "cartesia").map((c) => Number(c.duration_seconds) || 0);
+  const spent = since ? pulseMinutes(r1(await callsBetween(since, now))) * cpm : 0;
+  const week = pulseMinutes(r1(await callsBetween(new Date(now.getTime() - 7 * 86400e3), now)));
   const perDay = (week * cpm) / 7;
   const balance = r2(base + credited - spent);
   const daysLeft = perDay > 0 ? Math.floor(balance / perDay) : null;
@@ -94,11 +99,15 @@ export async function financeReport(ym?: string | null, now = new Date()) {
     row.gst += Number(inv.cgst) + Number(inv.sgst) + Number(inv.igst); row.fees += fees[i].fee; row.invoices++;
   });
   const byClient: Record<string, number[]> = {};
-  calls.forEach((c) => { (byClient[c.client_id] ||= []).push(Number(c.duration_seconds) || 0); });
+  const costBy: Record<string, number> = {};
+  calls.forEach((c) => {
+    (byClient[c.client_id] ||= []).push(Number(c.duration_seconds) || 0);
+    costBy[c.client_id] = (costBy[c.client_id] || 0) + pulseMinutes([Number(c.duration_seconds) || 0]) * engineCostPerMin(c.engine);
+  });
   for (const [id, d] of Object.entries(byClient)) if (per[id]) per[id].minutes = pulseMinutes(d);
   open.forEach((o) => { if (per[o.client_id]) per[o.client_id].outstanding += Number(o.total); });
   const rows = Object.values(per).map((r: any) => {
-    r.sarvamCost = r2(r.minutes * cpm);
+    r.sarvamCost = r2(costBy[r.id] || 0); // voice cost across both engines (name kept for the HQ Money page)
     r.profit = r2(r.revenue - r.fees - r.sarvamCost);
     // What the month looks like at the plan's list price (useful for clients billed outside RANA, like pilots).
     r.marginAtPlan = r.planPrice ? r2(r.planPrice - r.sarvamCost) : null;
@@ -111,7 +120,7 @@ export async function financeReport(ym?: string | null, now = new Date()) {
   const itcRazorpay = r2(fees.reduce((a, f) => a + f.tax, 0));
   const itcSarvam = r2(topups.reduce((a, t) => a + (t.gst_included ? Number(t.amount) - Number(t.amount) / 1.18 : 0), 0));
   return {
-    month, costPerMin: cpm,
+    month, costPerMin: cpm, costPerMinR2: costPerMinR2(),
     totals: {
       received: sum("received"), revenue: sum("revenue"), gst: gstOut, fees: sum("fees"), minutes: sum("minutes"),
       sarvamCost: sum("sarvamCost"), profit: r2(sum("revenue") - sum("fees") - sum("sarvamCost")), outstanding: sum("outstanding"),
