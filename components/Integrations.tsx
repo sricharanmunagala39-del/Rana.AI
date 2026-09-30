@@ -1,6 +1,7 @@
 // "Where your leads go": lead-alert channels (built in) and CRMs / apps (through the webhook, Zapier or Make).
-// Official brand logo files go in /public/integrations/<key>.svg — list the key in LOGO_FILES once a file is added;
-// until then each brand shows as a labelled chip in its brand colour.
+// Brand logos live in /public/integrations/<key>.svg: Slack from Slack's own media kit (slack.com/media-kit);
+// WhatsApp, HubSpot, Zoho, Google Sheets, Zapier and Make from the Simple Icons set (each traced from the brand's
+// official assets, in the brand colour). Salesforce restricts logo use to partners, so it stays a name chip.
 type Item = { key: string; name: string; color: string };
 
 export const ALERT_CHANNELS: Item[] = [
@@ -18,15 +19,19 @@ export const CRM_APPS: Item[] = [
   { key: "make", name: "Make", color: "#9B5CFF" },
 ];
 /** Keys that have an official logo file in /public/integrations. */
-const LOGO_FILES: string[] = [];
+const LOGO_FILES: string[] = ["whatsapp", "slack", "hubspot", "zoho", "sheets", "zapier", "make"];
 
 function Chip({ it }: { it: Item }) {
   const logo = LOGO_FILES.includes(it.key);
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[.03] px-3.5 py-2 text-[13.5px] font-medium" data-testid={"integration-" + it.key}>
+    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[.03] pl-1.5 pr-3.5 py-1.5 text-[13.5px] font-medium" data-testid={"integration-" + it.key}>
       {logo
-        ? <img src={"/integrations/" + it.key + ".svg"} alt="" width={18} height={18} className="w-[18px] h-[18px] object-contain" />
-        : <span className="w-2.5 h-2.5 rounded-full" style={{ background: it.color, boxShadow: "0 0 10px " + it.color }} aria-hidden />}
+        ? <span className="w-6 h-6 rounded-md bg-white grid place-items-center shrink-0" aria-hidden><img src={"/integrations/" + it.key + ".svg"} alt="" width={16} height={16} className="w-4 h-4 object-contain" /></span>
+        : it.key === "email"
+          ? <span className="w-6 h-6 rounded-md bg-white/10 grid place-items-center shrink-0 text-ink" aria-hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg></span>
+          : it.key === "webhook"
+            ? <span className="w-6 h-6 rounded-md bg-white/10 grid place-items-center shrink-0 text-signal" aria-hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" /><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" /></svg></span>
+            : <span className="w-6 h-6 rounded-md grid place-items-center shrink-0" style={{ background: it.color }} aria-hidden><span className="text-[11px] font-bold text-white">{it.name[0]}</span></span>}
       {it.name}
     </span>
   );
