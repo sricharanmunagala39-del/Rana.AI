@@ -9,6 +9,7 @@ import { DEFAULT_AGENT_SETTINGS, getAgentSettings, LANGUAGES } from "@/lib/stora
 import { CartesiaVoiceCall } from "@/lib/cartesia-voice-client";
 import { SarvamVoiceCall } from "@/lib/sarvam-voice-client";
 import { LANG_NAMES, baseLang } from "@/lib/playbook";
+import RanaCore, { CORE_LABEL } from "@/components/RanaCore";
 
 type CallStatus = "idle" | "connecting" | "live" | "ending" | "error";
 
@@ -58,6 +59,14 @@ function TalkInner() {
   const [phoneMsg, setPhoneMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const [coreMode, setCoreMode] = useState("idle");
+  // AI test coach: grades each test call against the employee's own script.
+  const [grade, setGrade] = useState<any>(null);
+  const [grading, setGrading] = useState(false);
+  const [gradeErr, setGradeErr] = useState("");
+  const prevStatus = useRef<CallStatus>("idle");
+  const transcriptNow = useRef<{ role: string; text: string }[]>([]);
+  transcriptNow.current = transcript;
 
   useEffect(() => {
     setStatusLoading(true);
@@ -101,6 +110,23 @@ function TalkInner() {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
   }, [transcript]);
 
+  async function gradeCall() {
+    if (!scriptId) return;
+    setGrading(true); setGradeErr(""); setGrade(null);
+    try {
+      const res = await fetch(`/api/scripts/${scriptId}/grade`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transcript: transcriptNow.current }) });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Couldn't grade this call.");
+      setGrade(d);
+    } catch (e: any) { setGradeErr(e.message); }
+    finally { setGrading(false); }
+  }
+  useEffect(() => {
+    const was = prevStatus.current; prevStatus.current = callStatus;
+    const users = transcriptNow.current.filter((t) => t.role === "user").length;
+    if ((was === "live" || was === "ending") && (callStatus === "idle" || callStatus === "error") && users >= 2 && scriptId) gradeCall();
+  }, [callStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const startCall = useCallback(async () => {
     if (callStatus !== "idle" && callStatus !== "error") return;
     if (!publishInfo?.agentId) {
@@ -109,6 +135,7 @@ function TalkInner() {
       return;
     }
     setCallError("");
+    setGrade(null); setGradeErr("");
     setTranscript([]);
     setCallDuration(0);
     setCallStatus("connecting");
@@ -164,7 +191,6 @@ function TalkInner() {
 
   const endCall = useCallback(async () => {
     if (!cartesiaCallRef.current) return;
-    setCallStatus("ending");
     cartesiaCallRef.current.stop();
     cartesiaCallRef.current = null;
     if (durationRef.current) { clearInterval(durationRef.current); durationRef.current = null; }
@@ -272,20 +298,17 @@ function TalkInner() {
         )}
 
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="w-full max-w-[640px] rounded-3xl stage-glow text-white overflow-hidden relative">
-            <div className="px-8 py-14 flex flex-col items-center text-center gap-1">
+          <div className="w-full max-w-[640px] rounded-3xl hud-stage border border-white/10 text-white overflow-hidden relative" data-testid="talk-stage">
+            <div className="hud-scan" aria-hidden />
+            <div className="relative px-8 py-12 flex flex-col items-center text-center gap-1">
 
-              <div className="relative w-[120px] h-[120px] mb-7">
-                {isLive && <div className="absolute inset-0 rounded-full bg-signal/25 animate-ping" />}
-                {isConnecting && <div className="absolute inset-0 rounded-full bg-white/10 animate-pulse" />}
-                <div className="absolute inset-3 rounded-full border-2 border-white/15" />
-                <div className="absolute inset-0 rounded-full flex items-center justify-center">
-                  <div className="w-[74px] h-[74px] rounded-full bg-gradient-to-br from-signal to-violet flex items-center justify-center text-2xl font-display font-bold">
-                    {agentName.charAt(0)}
-                  </div>
-                </div>
-              </div>
-
+              <RanaCore size={260} className="mb-2 max-w-[70vw]"
+                mode={isLive ? "auto" : isConnecting ? "thinking" : callStatus === "error" ? "alert" : "idle"}
+                levels={() => (cartesiaCallRef.current as any)?.levels?.() || { agent: 0, user: 0 }} onMode={setCoreMode}
+                onClick={isIdleOrError && !statusLoading ? startCall : undefined} label={`Start talking to ${agentName}`}>
+                {isIdleOrError && <span className="font-display text-[34px] font-bold text-white/90 drop-shadow-[0_0_14px_rgb(45_225_194)]">{agentName.charAt(0)}</span>}
+              </RanaCore>
+              <div className="hud-state mb-4" data-testid="talk-core-state">{isLive ? (isMuted ? "MUTED" : CORE_LABEL[coreMode] || "LISTENING") : isConnecting ? "CONNECTING" : callStatus === "error" ? "CHECK" : "STANDBY"}</div>
               <div className="text-[11px] font-semibold tracking-[0.2em] text-white/40 mb-2">RANA AI</div>
               <div className="text-[26px] font-display font-semibold">Talk to {agentName}</div>
               <div className="text-[13.5px] text-white/60 mt-2 max-w-[420px] leading-relaxed">
@@ -392,6 +415,36 @@ function TalkInner() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {scriptId && (grading || grade || gradeErr) && !isLive && (
+          <div className="px-8 pb-6 flex justify-center">
+            <div className="w-full max-w-[640px] hud-stage hud-panel rounded-2xl p-5 text-white" data-testid="test-coach">
+              <div className="flex items-center justify-between gap-3">
+                <div className="hud-label !text-signal">AI test coach</div>
+                {grade && <div className="flex items-center gap-2"><span className="hud-gauge w-[46px] h-[46px]" style={{ ["--p" as any]: grade.score }}><span className="font-mono text-[13px] font-bold">{grade.score}</span></span></div>}
+              </div>
+              {grading && <div className="font-mono text-[12px] text-signal mt-3">▸ Grading the call against {agentName}&apos;s script<span className="hud-caret" /></div>}
+              {gradeErr && <div className="text-[12.5px] text-hot mt-2">{gradeErr}</div>}
+              {grade && (
+                <>
+                  {grade.verdict && <p className="text-[13.5px] mt-2 leading-relaxed">{grade.verdict}</p>}
+                  <div className="mt-3 flex flex-col gap-1.5">
+                    {TEST_CHECKS.map((c) => { const g = grade.checks?.[c.key] || {}; return (
+                      <div key={c.key} className="flex items-start gap-2.5 text-[12.5px]">
+                        <span className={`shrink-0 font-mono text-[10.5px] w-[64px] text-center rounded border px-1 py-0.5 ${g.pass === true ? "text-signal border-signal/40 bg-signal/10" : g.pass === false ? "text-miss border-miss/40 bg-miss/10" : "text-ink-soft border-white/10"}`}>{g.pass === true ? "PASS" : g.pass === false ? "FIX" : "NOT TESTED"}</span>
+                        <span><b className="font-semibold">{c.label}</b>{g.note ? <span className="text-ink-soft"> — {g.note}</span> : null}</span>
+                      </div>); })}
+                  </div>
+                  {grade.fixes?.length > 0 && <div className="mt-3"><div className="hud-label">Suggested fixes</div><ul className="mt-1 text-[12.5px] list-disc pl-5 text-ink-soft">{grade.fixes.map((f: string) => <li key={f}>{f}</li>)}</ul></div>}
+                  <div className="flex flex-wrap gap-3 mt-4">
+                    <button onClick={() => setChecks({ ...checks, ...Object.fromEntries(TEST_CHECKS.filter((c) => grade.checks?.[c.key]?.pass === true).map((c) => [c.key, true])) })} className="bg-signal text-on-accent rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold" data-testid="coach-apply">Tick the checks that passed</button>
+                    <a href={profileHref} className="text-[12.5px] font-semibold text-white/70 hover:text-white self-center">Fix the script →</a>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
