@@ -265,4 +265,214 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
   };
   if (!open) return null;
 
-//@@RANA_SPLIT@@
+  const inCall = step === "connecting" || step === "live" || step === "sample" || step === "summing" || step === "done";
+  const mm = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  const title = mode === "talk" ? "Talk to Rana" : step === "pick" ? "Try an instant demo" : s.title;
+  const chip = (on: boolean) => `rounded-full border px-3 py-1.5 font-mono text-[11.5px] tracking-wider transition-colors ${on ? "border-signal/60 bg-signal/10 text-signal shadow-[0_0_14px_-4px_rgb(45_225_194)]" : "border-white/10 text-ink-soft hover:text-ink hover:border-white/25"}`;
+  const coreModeProp: CoreMode = step === "live" ? "auto" : step === "sample" ? sampleMode : step === "connecting" || step === "summing" ? "thinking" : "idle";
+  const stateText = step === "connecting" ? "CONNECTING" : step === "summing" ? "WRAPPING UP" : step === "done" ? (mode === "talk" ? "LEAD CARD READY" : "CALL COMPLETE") : step === "live" && muted ? "MUTED" : CORE_LABEL[coreMode] || "STANDBY";
+  const subText = step === "connecting" ? "Allow the microphone if your browser asks." : step === "live" ? (coreMode === "speaking" ? "Rana is talking — interrupt any time." : "Go ahead, Rana is listening…") : step === "sample" ? "Sample call · no microphone needed" : step === "summing" ? "Writing up what your team would get…" : step === "done" ? "Here's what your team would see." : "";
+  const agentTag = mode === "demo" ? `RANA · ${s.business.split(" — ")[0].toUpperCase()}` : "RANA";
+
+  return createPortal(
+    <div className="fixed inset-0 z-[120] hud-stage overflow-y-auto overflow-x-hidden" data-testid="rana-live" role="dialog" aria-modal="true" aria-labelledby="live-title">
+      <div className="hud-scan" aria-hidden />
+      {/* ---------- Top bar ---------- */}
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 sm:px-6 py-3.5 bg-[#070a10]/70 backdrop-blur">
+        <div className="flex items-center gap-2.5 font-mono text-[12px] tracking-[0.18em] font-semibold">
+          <span className={`w-2 h-2 rounded-full ${step === "live" ? "bg-signal live-dot" : "bg-signal/60"}`} />
+          <span id="live-title">{mode === "talk" ? "RANA · LIVE" : "RANA · INSTANT DEMO"}</span>
+          {inCall && <span className="hidden sm:inline text-ink-soft font-normal tracking-[0.12em]">/ {title.toUpperCase()}</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          {inCall && langs.length > 1 && <div className="hidden md:flex gap-1.5" aria-label="Language">{langs.map((l) => <span key={l.code} className={chip(l.code === lang || (!!spoken && LANG_FOR_FORM[l.code]?.toLowerCase() === spoken.toLowerCase().split(/[-\s]/)[0]))}>{l.label}</span>)}</div>}
+          <button onClick={close} className="w-9 h-9 rounded-full border border-white/10 text-ink-soft hover:text-ink hover:border-white/30 text-[20px] leading-none" aria-label="Close" data-testid="live-close">×</button>
+        </div>
+      </div>
+
+      {/* ---------- Pick a demo / brief ---------- */}
+      {!inCall && (
+        <div className="relative max-w-[980px] mx-auto px-4 sm:px-6 pb-12 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[340px_1fr] gap-8 items-center min-h-[calc(100vh-70px)]">
+          <div className="flex flex-col items-center">
+            <RanaCore size={320} mode={step === "error" ? "alert" : "idle"} className="max-w-[78vw]" onClick={step === "pick" ? undefined : begin} label={mode === "talk" ? "Start talking to Rana" : "Start the live demo"}>
+              {step !== "pick" && <span className="flex flex-col items-center gap-2 font-mono text-[11px] tracking-[0.2em] text-ink"><Mic className="w-7 h-7 text-signal drop-shadow-[0_0_8px_rgb(45_225_194)]" />TAP TO TALK</span>}
+            </RanaCore>
+            <div className="hud-state mt-3">{step === "error" ? "CHECK MIC" : "STANDBY"}</div>
+          </div>
+          <div>
+            <div className="hud-label">{mode === "talk" ? "// Live voice · no sign-up" : "// Instant demo · ~90 seconds"}</div>
+            <h2 className="font-display text-[30px] sm:text-[38px] font-semibold tracking-tight mt-1.5">{title}</h2>
+            {step === "pick" && (
+              <>
+                <p className="text-ink-soft text-[15px] mt-2">Pick a call. You play the customer, Rana plays the business — live.</p>
+                <div className="grid sm:grid-cols-2 gap-2.5 mt-5" data-testid="demo-picker">
+                  {SCENARIOS.map((x) => (
+                    <button key={x.key} type="button" onClick={() => { setScenario(x.key); setStep("ready"); }} data-testid={`scenario-${x.key}`}
+                      className="hud-panel text-left p-4 hover:border-signal/50 hover:bg-signal/5 transition-colors">
+                      <div className="text-[15px] font-semibold"><span className="mr-2" aria-hidden>{x.icon}</span>{x.title}</div>
+                      <div className="text-[13px] text-ink-soft mt-1 leading-snug">{x.line}</div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            {(step === "ready" || step === "error") && (
+              <>
+                {mode === "talk" ? (
+                  <p className="text-ink-soft text-[15px] mt-2 leading-relaxed max-w-[560px]">Rana is RANA AI&apos;s own AI employee. Tell her about your business — she&apos;ll ask a few questions, show how an AI employee would handle <i>your</i> calls, and build your lead card <b className="text-ink">live while you talk</b>.</p>
+                ) : (
+                  <div className="grid sm:grid-cols-2 gap-2.5 mt-4 text-[13.5px]" data-testid="demo-brief">
+                    <div className="hud-panel p-4"><div className="hud-label !text-signal">Rana plays</div><div className="font-semibold mt-1">{s.business}</div><div className="text-ink-soft mt-1">{s.ranaPlays}</div></div>
+                    <div className="hud-panel p-4"><div className="hud-label !text-violet">You play</div><div className="text-ink-soft mt-1">{s.youPlay}</div>
+                      <div className="hud-label mt-3">Try saying</div><ul className="mt-1 flex flex-col gap-0.5">{s.tryThis.map((t) => <li key={t}>“{t}”</li>)}</ul></div>
+                  </div>
+                )}
+                {langs.length > 1 && (
+                  <div className="mt-5">
+                    <div className="hud-label mb-2">Talk in</div>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label="Language">
+                      {langs.map((l) => <button key={l.code} type="button" onClick={() => setLang(l.code)} className={chip(lang === l.code)} data-testid={`lang-${l.code}`}>{l.label}</button>)}
+                    </div>
+                    {mode === "talk" && india && <div className="text-[11.5px] text-ink-soft mt-2">Speak any of 11 Indian languages — Rana follows you if you switch.</div>}
+                  </div>
+                )}
+                {step === "error" && err && <div className="mt-5 rounded-xl border border-hot/40 bg-hot/10 text-hot px-4 py-3 text-[13.5px]" data-testid="live-error">{err}</div>}
+                <div className="flex flex-wrap gap-3 mt-6">
+                  <button type="button" onClick={begin} className="btn-glow rounded-full px-6 py-3 text-[14.5px] font-semibold flex items-center gap-2" data-testid="live-start"><Mic />{mode === "talk" ? "Start talking" : "Start live demo"}</button>
+                  {mode === "demo" && <button type="button" onClick={playSample} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium" data-testid="live-sample">▶ Watch a sample call</button>}
+                  {mode === "demo" && <button type="button" onClick={() => setStep("pick")} className="text-[13.5px] text-ink-soft hover:text-ink px-2">← Other demos</button>}
+                </div>
+                <p className="text-[11.5px] text-ink-soft/80 mt-4">Uses your microphone. {mode === "talk" ? "Up to 3 minutes" : "About 90 seconds"}. The conversation is recorded so our team can follow up — see our <Link href="/legal/privacy" className="underline">privacy policy</Link>.</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ---------- The call: transcript | core | live lead card ---------- */}
+      {inCall && (
+        <div className="relative max-w-[1320px] mx-auto px-4 sm:px-6 pb-10 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(260px,1fr)_minmax(320px,1.2fr)_minmax(280px,1fr)] gap-5 lg:gap-6 items-center lg:min-h-[calc(100vh-70px)]">
+          {/* Core */}
+          <div className="flex flex-col items-center lg:order-2">
+            <RanaCore size={420} mode={coreModeProp} levels={getLevels} onMode={setCoreMode} className="max-w-[80vw]" />
+            <div className="hud-state mt-1" data-testid="live-state">{stateText}</div>
+            <div className="text-ink-soft text-[13px] mt-2 text-center min-h-[20px]">{subText}</div>
+            {(step === "live" || step === "connecting" || step === "sample") && (
+              <div className="flex items-center gap-3 mt-5 flex-wrap justify-center">
+                <LevelBars get={barLevel} className="w-[150px]" />
+                {step === "live" && <span className="font-mono text-[12.5px] text-ink-soft min-w-[70px] text-center" data-testid="live-timer">{mm} left</span>}
+                {step === "live" && <button type="button" onClick={() => { const c = call.current; if (!c) return; if (muted) c.unmute(); else c.mute(); setMuted(!muted); }} className={`w-11 h-11 rounded-full border grid place-items-center ${muted ? "border-hot/50 text-hot bg-hot/10" : "border-white/15 text-ink bg-white/[.04] hover:border-white/30"}`} aria-label={muted ? "Unmute" : "Mute"} data-testid="live-mute"><Mic /></button>}
+                {(step === "live" || step === "connecting") && <button type="button" onClick={() => { const c = call.current; if (c) c.stop(); else { setStep("ready"); } }} className="rounded-full px-5 h-11 text-[13.5px] font-semibold bg-miss/80 hover:bg-miss text-white" data-testid="live-end">End call</button>}
+                {step === "sample" && <button type="button" onClick={() => { sampleAlive.current = false; stopSampleAudio(); setStep("ready"); }} className="btn-ghost rounded-full px-5 h-11 text-[13.5px]">Stop</button>}
+              </div>
+            )}
+            {err && step === "live" && <div className="text-[12.5px] text-hot mt-2">{err}</div>}
+            {step === "done" && (
+              <div className="mt-5 hud-panel p-5 w-full max-w-[460px] text-center" data-testid="live-done">
+                <div className="font-display text-[20px] font-semibold">Want Rana to do this for your business?</div>
+                <p className="text-ink-soft text-[13.5px] mt-1">A 20-minute call: we set her up with your scripts, prices and languages — and she starts taking your calls.</p>
+                <div className="flex flex-wrap gap-3 mt-4 justify-center">
+                  <button type="button" onClick={book} className="btn-glow hud-cta-ready rounded-full px-6 py-3 text-[14px] font-semibold" data-testid="live-book">Book a demo</button>
+                  <Link href="/signup" className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Start free — 14 days</Link>
+                </div>
+                <div className="mt-3">
+                  {mode === "demo" && <button type="button" onClick={() => { resetCall(); setStep("pick"); }} className="text-[13px] text-ink-soft hover:text-ink px-2" data-testid="live-another">Try another demo →</button>}
+                  {mode === "talk" && <button type="button" onClick={() => { resetCall(); setStep("ready"); }} className="text-[13px] text-ink-soft hover:text-ink px-2">Talk again</button>}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Transcript */}
+          <section className="hud-panel p-4 lg:order-1 flex flex-col">
+            <div className="flex items-center justify-between mb-3"><span className="hud-label">Transcript</span><span className="hud-label !text-signal" data-testid="live-latency">{latency ? `RESPONSE ${(latency / 1000).toFixed(1)} s` : step === "sample" ? "SAMPLE" : "— —"}</span></div>
+            <div ref={boxRef} className="h-[260px] lg:h-[430px] overflow-y-auto flex flex-col gap-2.5 pr-1" data-testid="live-transcript" aria-live="polite">
+              {boot.length > 0 && !lines.length && boot.map((b, i) => <div key={i} className="font-mono text-[12px] text-signal/80 hud-pop">▸ {b}{i === boot.length - 1 && step === "connecting" && <span className="hud-caret" />}</div>)}
+              {!lines.length && !boot.length && <div className="text-ink-soft text-[13.5px] m-auto text-center max-w-[220px]">{step === "sample" ? "Starting the sample call…" : "What you both say shows up here as you speak."}</div>}
+              {lines.map((l, i) => (
+                <div key={i} className={`max-w-[92%] rounded-xl px-3 py-2 text-[13.5px] leading-snug hud-pop ${l.role === "agent" ? "self-start bg-signal/[.08] border border-signal/25" : "self-end bg-violet/[.08] border border-violet/25"}`}>
+                  <div className={`font-mono text-[10px] tracking-[0.12em] mb-1 ${l.role === "agent" ? "text-signal" : "text-violet"}`}>{l.role === "agent" ? agentTag : "YOU"}</div>
+                  {l.text}{l.typing && <span className="hud-caret" />}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Live lead card */}
+          <section className="hud-panel p-4 lg:order-3" data-testid="live-card">
+            <div className="flex items-center justify-between mb-2"><span className="hud-label">{mode === "talk" ? "Live lead card" : "Live CRM card"}</span>
+              <span className="hud-label !text-signal">{step === "done" ? "READY" : peek ? "BUILDING" : "WAITING"}</span></div>
+            {step === "done" ? (mode === "talk" ? <TalkCard r={result} /> : <DemoCard r={result} scenarioTitle={s.title} />) : <LiveCard mode={mode} peek={peek} />}
+          </section>
+        </div>
+      )}
+    </div>,
+    document.body,
+  );
+}
+
+/** The card while the call is happening: fields light up as Rana learns them, the score climbs. */
+function LiveCard({ mode, peek }: { mode: LiveMode; peek: Peek | null }) {
+  const seen = useRef<Record<string, string>>({});
+  const rows: [string, string | null][] = mode === "talk"
+    ? TALK_FIELDS.map(([k, label]) => [label, peek?.fields?.[k] || null])
+    : [...(Array.isArray(peek?.fields) ? peek!.fields : []).map((f: any) => [f.label, f.value] as [string, string]), ...Array.from({ length: Math.max(0, 4 - (Array.isArray(peek?.fields) ? peek!.fields.length : 0)) }, () => ["· · ·", null] as [string, null])];
+  const fresh = (k: string, v: string | null) => { if (!v) return false; const was = seen.current[k]; seen.current[k] = v; return was !== v; };
+  const score = peek?.score || 0;
+  const hot = mode === "talk" ? peek?.interest === "hot" || score >= 75 : score >= 75;
+  const tag = mode === "talk" ? (peek ? (hot ? "HOT LEAD" : peek.interest === "cold" ? "COLD" : "QUALIFYING") : "SCORING…") : peek?.tag || "SCORING…";
+  return (
+    <div>
+      {rows.map(([k, v], i) => (
+        <div key={`${k}-${i}`} className="flex justify-between gap-3 py-2.5 border-b border-white/[.07] text-[13px]">
+          <span className="text-ink-soft shrink-0">{k}</span>
+          <b className={`text-right font-semibold ${v ? (fresh(k, v) ? "hud-new" : "") : "text-white/20 font-mono tracking-[0.2em]"}`}>{v || "· · ·"}</b>
+        </div>
+      ))}
+      <div className="flex items-center gap-4 mt-4">
+        <div className="hud-gauge w-[72px] h-[72px] shrink-0" style={{ ["--p" as any]: score }}><span className="font-mono text-[18px] font-bold" data-testid="live-score">{score}</span></div>
+        <div>
+          <span className={`inline-block font-mono text-[11px] tracking-[0.16em] font-bold rounded-md px-2.5 py-1.5 ${hot ? "bg-hot/15 text-hot shadow-[0_0_16px_-6px_rgb(245_179_86)]" : "bg-white/[.06] text-ink-soft"}`}>{tag}</span>
+          <div className="text-[12px] text-ink-soft mt-2 leading-snug">{peek ? "Updated live from what you say." : "Rana scores the lead while you talk."}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ k, v }: { k: string; v?: any }) {
+  if (!v || (Array.isArray(v) && !v.length)) return null;
+  return <div className="flex gap-3 py-1.5 border-b border-white/[.06] last:border-0 text-[13.5px]"><span className="w-[110px] shrink-0 text-ink-soft">{k}</span><span className="font-medium">{Array.isArray(v) ? v.join(", ") : String(v)}</span></div>;
+}
+
+function TalkCard({ r }: { r: any }) {
+  if (!r) return <p className="text-ink-soft text-[14px]">Rana didn&apos;t catch enough to fill a lead card this time — no problem. Book a demo and we&apos;ll show you everything for your business.</p>;
+  const tone = r.interest === "hot" ? "text-hot bg-hot/10 border-hot/40" : r.interest === "warm" ? "text-warm bg-warm/10 border-warm/40" : "text-ink-soft bg-white/5 border-white/15";
+  return (
+    <div data-testid="lead-card">
+      <div className="flex items-center justify-between gap-3">
+        <div className="hud-label !text-signal">The lead card your team gets</div>
+        {r.interest && <span className={`text-[11px] font-mono font-semibold uppercase rounded-full border px-2.5 py-0.5 ${tone}`}>{r.interest} lead</span>}
+      </div>
+      {r.summary && <p className="text-[14px] mt-3 leading-relaxed">{r.summary}</p>}
+      <div className="mt-3">
+        <Field k="Name" v={r.name} /><Field k="Company" v={r.company} /><Field k="Business" v={r.business} /><Field k="City" v={r.city} />
+        <Field k="Calls" v={r.calls} /><Field k="Languages" v={r.languages} /><Field k="Main problem" v={r.pain} /><Field k="Next step" v={r.next_step} />
+      </div>
+      <div className="text-[11.5px] text-ink-soft mt-3">Every call RANA takes ends like this — sent to your dashboard, WhatsApp, Slack or email.</div>
+    </div>
+  );
+}
+
+function DemoCard({ r, scenarioTitle }: { r: any; scenarioTitle: string }) {
+  if (!r) return <p className="text-ink-soft text-[14px]">That was quick! Try it again and play along a little longer — or book a demo and we&apos;ll run it on your own business.</p>;
+  return (
+    <div data-testid="demo-outcome">
+      <div className="hud-label !text-signal">{r.sample ? "Sample · " : ""}After this {scenarioTitle.toLowerCase()} call</div>
+      {r.outcome && <div className="mt-3 inline-block text-[12px] font-mono text-hot border border-hot/60 bg-hot/10 rounded px-2.5 py-1 shadow-[0_0_16px_-6px_rgb(245_179_86)]">{r.outcome}</div>}
+      {r.summary && <p className="text-[14px] mt-3 leading-relaxed">{r.summary}</p>}
+      {Array.isArray(r.fields) && r.fields.length > 0 && <div className="mt-3">{r.fields.slice(0, 5).map((f: any) => <Field key={f.label} k={f.label} v={f.value} />)}</div>}
+      <div className="text-[11.5px] text-ink-soft mt-3">Recorded, transcribed and scored automatically — the next step lands with the right person on your team.</div>
+    </div>
+  );
+}
