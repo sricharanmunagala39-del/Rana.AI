@@ -76,6 +76,8 @@ export default function RanaCore({ size = 420, mode = "idle", levels, hud = true
     function frame() {
       raf = 0;
       if (!visible) return;
+      // While the page is scrolling, hold the last frame (keeps scrolling smooth on slower phones and laptops).
+      if (document.documentElement.classList.contains("is-scrolling")) { raf = requestAnimationFrame(frame); return; }
       t += reduce ? 0.004 : 0.016;
       const { m, target } = current();
       // Report mode changes (steadied, so the label doesn't flicker between words).

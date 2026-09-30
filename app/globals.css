@@ -118,9 +118,8 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
   box-shadow: 0 0 22px -4px rgb(var(--c-signal) / 0.6);
 }
 .glass {
-  background: rgb(var(--c-raised) / 0.72);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  /* Solid (no backdrop blur): a blurred sticky header repaints on every scroll frame. */
+  background: rgb(var(--c-raised) / 0.96);
 }
 .stage-glow {
   background:
@@ -173,7 +172,9 @@ html { zoom: var(--z); }
 .rana-core.group:hover .hud-r2 { animation-duration: 3s; }
 @keyframes hud-spin { to { transform: rotate(360deg); } }
 
-.hud-stage { position: relative; color: rgb(236 238 243); overflow: hidden;
+/* Position and overflow at zero specificity, so utilities like `fixed inset-0 overflow-y-auto` on the same element win. */
+:where(.hud-stage) { position: relative; overflow: hidden; }
+.hud-stage { color: rgb(236 238 243);
   background:
     radial-gradient(900px 520px at 50% 40%, rgb(45 225 194 / .10), transparent 60%),
     radial-gradient(700px 420px at 75% 80%, rgb(146 132 255 / .08), transparent 60%),

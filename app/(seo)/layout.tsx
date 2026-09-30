@@ -17,7 +17,7 @@ export default function SeoLayout({ children }: { children: React.ReactNode }) {
             <Link href="/industries" className="hidden md:inline hover:text-signal">Industries</Link>
             <Link href="/pricing" className="hover:text-signal">Pricing</Link>
             <Link href="/blog" className="hidden sm:inline hover:text-signal">Blog</Link>
-            <Link href="/?talk=1" className="btn-glow rounded-full px-4 py-2 text-[13px] font-semibold text-on-accent">Talk to Rana</Link>
+            <Link href="/signup" className="btn-glow rounded-full px-4 py-2 text-[13px] font-semibold text-on-accent">Start free trial</Link>
           </nav>
         </div>
       </header>

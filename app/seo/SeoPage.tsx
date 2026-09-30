@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { SeoPageData, SeoSection } from "./types";
 import { labelFor } from "./index";
 import { SOCIAL_LINKS } from "../legal/legal";
+import Integrations from "@/components/Integrations";
 
 const SITE = "https://ranaai.in";
 const KIND_CRUMB: Record<string, [string, string] | null> = {
@@ -98,6 +99,13 @@ export default function SeoPage({ p, children }: { p: SeoPageData; children?: Re
 
       {p.sections.map((s) => <Section key={s.h2} s={s} />)}
 
+      {p.kind !== "glossary" && p.kind !== "tool" && (
+        <section className="mt-12">
+          <h2 className="font-display text-[24px] sm:text-[28px] font-semibold tracking-tight">Where your leads go</h2>
+          <div className="mt-5"><Integrations /></div>
+        </section>
+      )}
+
       {p.faqs.length > 0 && (
         <section className="mt-14">
           <h2 className="font-display text-[24px] sm:text-[28px] font-semibold tracking-tight">Frequently asked questions</h2>
@@ -120,10 +128,10 @@ export default function SeoPage({ p, children }: { p: SeoPageData; children?: Re
       )}
 
       <section className="mt-14 rounded-2xl border border-signal/30 bg-signal/[.06] p-6 sm:p-8">
-        <div className="font-display text-[24px] font-semibold">Hear it for yourself</div>
-        <p className="text-ink-soft text-[15px] mt-2 max-w-[620px]">Talk to Rana, our own AI employee, right now in your browser — in English, Telugu, Hindi, Tamil or Kannada. No sign-up.</p>
+        <div className="font-display text-[24px] font-semibold">Ready to stop missing calls?</div>
+        <p className="text-ink-soft text-[15px] mt-2 max-w-[620px]">Build your first AI employee on the free trial and test it in your browser today — no card needed. Or see every plan and price.</p>
         <div className="flex flex-wrap gap-3 mt-5">
-          <Link href="/?talk=1" className="btn-glow rounded-full px-6 py-3 text-[15px] font-semibold">🎙️ Talk to Rana</Link>
+          <Link href="/signup" className="btn-glow rounded-full px-6 py-3 text-[15px] font-semibold">Start free trial</Link>
           <Link href="/pricing" className="btn-ghost rounded-full px-6 py-3 text-[15px] font-medium">See pricing</Link>
         </div>
       </section>
