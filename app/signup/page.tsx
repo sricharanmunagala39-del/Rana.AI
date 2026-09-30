@@ -15,7 +15,7 @@ export default function SignupPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr("");
     try {
-      const r = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, source: utmTag() }) });
+      const r = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, source: utmTag(), market: (document.cookie.match(/(?:^|; )rana_market=([a-z]+)/) || [])[1] || "in" }) });
       const j = await r.json(); if (!r.ok) { setErr(j.error || "Sign-up failed"); return; }
       setDone(true);
     } finally { setBusy(false); }
@@ -33,13 +33,13 @@ export default function SignupPage() {
         <form onSubmit={submit} className="flex flex-col gap-3" data-testid="signup-form">
           <div className="text-[11px] font-mono text-signal tracking-wider">// {TRIAL_DAYS} DAYS · {TRIAL_MINUTES} MINUTES · NO CARD</div>
           <h1 className="font-display text-[30px] font-semibold tracking-tight -mt-0.5">Hire your first<br /><span className="text-gradient">AI employee</span></h1>
-          <p className="text-[13.5px] text-ink-soft mb-2">Set up in minutes. It calls in 11 Indian languages, on two voice engines (R1 and R2) — pick one per employee.</p>
+          <p className="text-[13.5px] text-ink-soft mb-2">Set up in minutes. It calls in 11 Indian languages plus Spanish, French and Japanese, on two voice engines (R1 and R2) — pick one per employee.</p>
           <div className="grid grid-cols-2 gap-3">
             <input id="su-company" className={field} placeholder="Company name" value={f.company} onChange={(e) => setF({ ...f, company: e.target.value })} />
             <input id="su-name" className={field} placeholder="Your name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
           </div>
           <input id="su-email" className={field} placeholder="Work email" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
-          <input id="su-phone" className={field} placeholder="Mobile number" inputMode="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+          <input id="su-phone" className={field} placeholder="Mobile number (add country code outside India)" inputMode="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
           <select id="su-industry" className={field} value={f.industry} onChange={(e) => setF({ ...f, industry: e.target.value })}>
             <option value="edtech">Education / coaching</option><option value="realestate">Real estate</option><option value="hospitality">Hospitality</option><option value="saas">Software / SaaS</option><option value="other">Other</option>
           </select>

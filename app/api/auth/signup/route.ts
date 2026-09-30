@@ -23,9 +23,10 @@ export async function POST(req: Request) {
   const phone = String(b.phone || "").replace(/[^\d+]/g, "").slice(0, 15);
   const password = String(b.password || "");
   const sourceTag = String(b.source || "").replace(/[^\w.=&-]/g, "").slice(0, 250);
+  const market = ["in", "global", "us", "ae", "eu", "jp"].includes(b.market) ? b.market : "in";
   if (company.length < 2) return Response.json({ error: "Enter your company name." }, { status: 400 });
   if (!validEmail(email)) return Response.json({ error: "Enter a valid work email." }, { status: 400 });
-  if (!/^\+?\d{10,13}$/.test(phone)) return Response.json({ error: "Enter your 10-digit mobile number." }, { status: 400 });
+  if (!/^\+?\d{10,13}$/.test(phone)) return Response.json({ error: "Enter your mobile number (with country code if you are outside India)." }, { status: 400 });
   if (password.length < 8) return Response.json({ error: "Use a password of at least 8 characters." }, { status: 400 });
   if (await getUserByEmail(email)) return Response.json({ error: "That email already has a RANA login. Sign in instead." }, { status: 409 });
   const owned = await sb<any[]>(`/clients?login_email=eq.${encodeURIComponent(email)}&select=id&limit=1`).catch(() => []);
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
     body: JSON.stringify({
       name: company, company_name: company, login_email: email, industry: INDUSTRIES.includes(b.industry) ? b.industry : "other",
       login_password: hashPassword(tempPassword() + tempPassword()), plan: "trial", status: "pending", signup_source: sourceTag ? `web|${sourceTag}` : "web",
-      contact_phone: phone, hq_notes: `Signed up on the website by ${name || email} (${phone}).`,
+      contact_phone: phone, market, hq_notes: `Signed up on the website by ${name || email} (${phone}).`,
     }),
   });
   const user = await createUser({ clientId: client.id, email, name: name || company, password, role: "owner", mustChange: false });

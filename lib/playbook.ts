@@ -29,11 +29,11 @@ export type KnowledgeItem = { title: string; kind: string; summary: string | nul
 
 export const LANG_NAMES: Record<string, string> = {
   en: "English", hi: "Hindi", te: "Telugu", ta: "Tamil", kn: "Kannada", ml: "Malayalam", mr: "Marathi",
-  bn: "Bengali", gu: "Gujarati", pa: "Punjabi", or: "Odia", ur: "Urdu", ar: "Arabic", es: "Spanish", fr: "French", de: "German", pt: "Portuguese",
+  bn: "Bengali", gu: "Gujarati", pa: "Punjabi", or: "Odia", ur: "Urdu", ar: "Arabic", es: "Spanish", fr: "French", de: "German", pt: "Portuguese", ja: "Japanese",
 };
 const SCRIPT_NOTE: Record<string, string> = {
   te: "Telugu script (తెలుగు)", hi: "Devanagari (हिन्दी)", ta: "Tamil script", kn: "Kannada script", ml: "Malayalam script",
-  mr: "Devanagari", bn: "Bengali script", gu: "Gujarati script", pa: "Gurmukhi", or: "Odia script", ur: "Urdu script", ar: "Arabic script",
+  mr: "Devanagari", bn: "Bengali script", gu: "Gujarati script", pa: "Gurmukhi", or: "Odia script", ur: "Urdu script", ar: "Arabic script", ja: "Japanese (kanji and kana)",
 };
 export const baseLang = (l?: string | null) => String(l || "en").toLowerCase().split(/[-_]/)[0] || "en";
 

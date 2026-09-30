@@ -382,7 +382,7 @@ function WizardInner() {
                       </div>
                     )}
                   </div>
-                  {(openBase !== "en" || (policy.mode === "match_caller" && policy.allowed.some((l) => l !== "en"))) && (
+                  {!["es", "fr", "ja"].includes(openBase) && (openBase !== "en" || (policy.mode === "match_caller" && policy.allowed.some((l) => l !== "en"))) && (
                     <div data-testid="speaking-style">
                       <label className="text-[13px] font-semibold block mb-2">How it speaks</label>
                       <div className="flex flex-col gap-2">
@@ -476,7 +476,7 @@ function WizardInner() {
                   )}
                   {engine === "sarvam" && <div>
                     <label className="text-[13px] font-semibold block mb-1">Voice</label>
-                    <div className="text-[12px] text-ink-soft mb-3">Pick who your callers hear. Every voice speaks Telugu, Hindi, Tamil and 8 more Indian languages, and switches when the caller does.</div>
+                    <div className="text-[12px] text-ink-soft mb-3">Pick who your callers hear. Every voice speaks all 11 Indian languages, and switches when the caller does.</div>
                     {sarvamStatus && !sarvamStatus.sarvam?.ready && (
                       <div className="text-[12px] text-miss mb-3">Calling isn't set up yet — RANA support has been notified.</div>
                     )}

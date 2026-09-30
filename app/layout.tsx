@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://ranaai.in"),
   title: { default: "RANA AI — AI Voice Agents for Indian Businesses", template: "%s · RANA AI" },
-  description: "RANA AI answers and places your business calls in 11 Indian languages, qualifies every lead and hands the hot ones to your team.",
+  description: "RANA AI answers and places your business calls in Indian and global languages, qualifies every lead and hands the hot ones to your team.",
   applicationName: "RANA AI",
   openGraph: { type: "website", siteName: "RANA AI", locale: "en_IN" },
   twitter: { card: "summary_large_image" },

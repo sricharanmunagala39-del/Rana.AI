@@ -24,6 +24,11 @@ export type EngineInfo = {
 };
 
 export const RANA_CALL_LANGUAGES = ["en", "hi", "te", "ta", "kn", "ml", "mr", "bn", "gu", "pa", "or"];
+/** R2 call languages = what its speech recognition (Ink 2) documents: English, Hindi, Spanish, French, Japanese
+ *  (docs.cartesia.ai, checked 30 Sep 2026). Its voices speak 44 languages, but a call also has to UNDERSTAND the
+ *  caller, and R2's agent API accepts any language code (even "xx"), so acceptance proves nothing. Add a language here
+ *  only after a real test call in it. */
+export const R2_CALL_LANGUAGES = ["en", "hi", "es", "fr", "ja"];
 
 export const ENGINES: Record<EngineId, EngineInfo> = {
   sarvam: {
@@ -40,10 +45,9 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
   cartesia: {
     id: "cartesia",
     label: "R2",
-    // Cartesia accepted call agents in all 11 of our languages (tested 27 Sep 2026). Each agent holds one primary
-    // language; switching language mid-call is "coming soon" on their side.
-    blurb: "900+ voices, your own cloned voice and very fast replies. Each call stays in the opening language.",
-    callLanguages: RANA_CALL_LANGUAGES,
+    // Each agent holds one primary language; switching language mid-call is "coming soon" on their side.
+    blurb: "900+ voices, your own cloned voice, very fast replies and global languages. Each call stays in the opening language.",
+    callLanguages: R2_CALL_LANGUAGES,
     cloning: true,
     indianNumbers: false,
     results: "poll",
@@ -65,8 +69,9 @@ export function baseLanguage(code?: string | null): string {
 
 /** Can an agent that speaks `language` (plus any extra languages it may switch to) run on `engine`? */
 export function engineSupports(engine: EngineId, language?: string | null, alsoSpeaks: string[] = []): boolean {
-  const langs = ENGINES[engine].callLanguages;
-  return [language, ...alsoSpeaks].every((l) => langs.includes(baseLanguage(l)));
+  const e = ENGINES[engine];
+  // An engine that can't switch mid-call only ever speaks the opening language, so only that one has to fit.
+  return [language, ...(e.switchesLanguage ? alsoSpeaks : [])].every((l) => e.callLanguages.includes(baseLanguage(l)));
 }
 
 /** Engines HQ has switched on for this client. Sarvam is always available; others are opt-in. */
@@ -96,12 +101,13 @@ export function engineBlocker(engine: EngineId, client: any, language?: string |
   if (!clientEngines(client).includes(engine)) return `${ENGINES[engine].label} isn't switched on for your account. Ask RANA support to enable it.`;
   if (!engineSupports(engine, language, alsoSpeaks)) {
     const names = ENGINES[engine].callLanguages.map((l) => LANGUAGE_LABELS[l] || l).join(" and ");
-    return `${ENGINES[engine].label} agents can only talk in ${names} for now. Pick ${ENGINES.sarvam.label} for other languages.`;
+    const other = ENGINE_IDS.find((id) => id !== engine && engineSupports(id, language, alsoSpeaks));
+    return `${ENGINES[engine].label} agents can only talk in ${names} for now.${other ? ` Pick ${ENGINES[other].label} for this employee.` : ""}`;
   }
   return null;
 }
 
 export const LANGUAGE_LABELS: Record<string, string> = {
   en: "English", hi: "Hindi", te: "Telugu", ta: "Tamil", kn: "Kannada", ml: "Malayalam", mr: "Marathi",
-  bn: "Bengali", gu: "Gujarati", pa: "Punjabi", or: "Odia",
+  bn: "Bengali", gu: "Gujarati", pa: "Punjabi", or: "Odia", es: "Spanish", fr: "French", ja: "Japanese",
 };
