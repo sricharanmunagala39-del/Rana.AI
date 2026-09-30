@@ -80,12 +80,19 @@ export class SarvamVoiceCall {
     const res = await fetch("/api/sarvam/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scriptId }) });
     const session = await res.json();
     if (!res.ok) throw new Error(session.error || "Couldn't start the call");
+    return this.startWith(session);
+  }
+
+  /** Start from a session the caller already fetched ({ url, start, maxSeconds, practiceId? }), e.g. the website's Talk to Rana.
+   *  `limitMessage` null = end quietly at the limit (the caller shows its own ending). */
+  async startWith(session: any, opts: { limitMessage?: string | null } = {}) {
     this.greeting = String(session.start?.initial_bot_message || "").trim();
     this.practiceId = session.practiceId || null;
     // Practice calls are billed per minute by the voice provider: end them automatically at the limit,
     // and when the tab is closed, so a forgotten tab never keeps a call running.
     const max = Number(session.maxSeconds) || 600;
-    this.maxTimer = setTimeout(() => { this.stop(); this.onEvent({ type: "error", message: `Practice calls end automatically after ${Math.round(max / 60)} minutes. Start a new one to keep going.` } as any); }, max * 1000);
+    const limitMessage = opts.limitMessage === undefined ? `Practice calls end automatically after ${Math.round(max / 60)} minutes. Start a new one to keep going.` : opts.limitMessage;
+    this.maxTimer = setTimeout(() => { this.stop(); if (limitMessage) this.onEvent({ type: "error", message: limitMessage } as any); }, max * 1000);
     try { window.addEventListener("pagehide", this.onPageHide); } catch {}
 
     this.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });

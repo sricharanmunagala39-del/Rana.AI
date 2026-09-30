@@ -16,6 +16,7 @@ export default function Privacy() {
           <li><b>Call data</b> — phone numbers called or calling in, call recordings, transcripts, summaries and lead scores created while providing the service.</li>
           <li><b>Contact lists</b> — the leads you upload so your AI employee can call them.</li>
           <li><b>Usage data</b> — log-ins, pages used and technical logs needed to run and secure the service.</li>
+          <li><b>Website conversations</b> — if you use &ldquo;Talk to Rana&rdquo; or an instant demo on our website, we record the conversation&apos;s transcript and a short summary (and any name, company or contact details you choose to say) so our team can follow up. You can ask us to delete it at any time.</li>
           <li><b>Payments</b> — handled by Razorpay. We receive payment status and reference numbers; we never see or store your card, UPI PIN or bank passwords.</li>
         </ul>
       </Sec>
