@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/api/auth/login", "/api/auth/signup", "/api/auth/2fa", "/api/auth/forgot", "/api/auth/reset", "/api/demo", "/api/public", "/api/webhooks", "/api/cron", "/landing", "/global", "/us", "/ae", "/eu", "/jp", "/legal", "/blog", "/robots.txt", "/sitemap.xml", "/opengraph-image", "/api/sarvam/diagnose"];
+import { SEO_PUBLIC_PATHS } from "./app/seo/paths";
+const PUBLIC_PATHS = [...SEO_PUBLIC_PATHS, "/login", "/signup", "/forgot-password", "/reset-password", "/api/auth/login", "/api/auth/signup", "/api/auth/2fa", "/api/auth/forgot", "/api/auth/reset", "/api/demo", "/api/public", "/api/webhooks", "/api/cron", "/landing", "/global", "/us", "/ae", "/eu", "/jp", "/legal", "/blog", "/robots.txt", "/sitemap.xml", "/opengraph-image", "/api/sarvam/diagnose"];
 // While RANA HQ looks inside a client's workspace read-only, these are the only writes allowed.
 const RO_ALLOWED = ["/api/hq/return", "/api/auth/me"];
 

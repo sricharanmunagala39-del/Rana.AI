@@ -10,9 +10,9 @@ const SITE = "https://ranaai.in";
 
 const COPY: Record<MarketKey, { title: string; description: string; keywords: string[]; area: string[] }> = {
   in: {
-    title: "RANA AI — AI Voice Calling Agents in Indian & Global Languages",
-    description: "AI voice agents that answer and make your business calls in Telugu, Hindi, Tamil and 8 more Indian languages — plus Spanish, French and Japanese — qualify every lead and book the next step. 14-day free trial.",
-    keywords: ["AI voice agent India", "AI calling agent", "AI voice agent for business", "AI telecaller", "Telugu AI voice agent", "Hindi AI voice agent", "AI receptionist India", "lead qualification calls", "outbound AI calling", "inbound call answering AI", "AI receptionist for clinics", "AI calling for real estate", "COD order confirmation calls", "AI calling for insurance renewals", "AI telecaller for education"],
+    title: "AI Voice Agent & AI Calling Agent in India | RANA AI",
+    description: "RANA AI is an AI voice agent and AI calling agent for Indian businesses: answers every call and calls every lead in Telugu, Hindi, Tamil and 8 more languages, 24×7. Free trial.",
+    keywords: ["AI voice agent India", "AI calling agent", "AI calling agent India", "AI voice agent", "AI calling", "AI voice agent for business", "AI telecaller", "Telugu AI voice agent", "Hindi AI voice agent", "AI receptionist India", "lead qualification calls", "outbound AI calling", "inbound call answering AI", "AI receptionist for clinics", "AI calling for real estate", "COD order confirmation calls", "AI calling for insurance renewals", "AI telecaller for education"],
     area: ["IN"],
   },
   global: {

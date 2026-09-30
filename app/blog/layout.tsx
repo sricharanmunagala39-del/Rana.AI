@@ -2,6 +2,7 @@ import Link from "next/link";
 import "../landing/landing.css";
 import { Logo } from "@/components/Sidebar";
 import { LEGAL, LEGAL_LINKS } from "../legal/legal";
+import { LINK_GROUPS, labelFor, HUB_LABELS } from "../seo/index";
 
 export default function BlogLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -19,6 +20,14 @@ export default function BlogLayout({ children }: { children: React.ReactNode }) 
       </header>
       <main className="max-w-[860px] mx-auto px-5 sm:px-8 py-12 sm:py-16">{children}</main>
       <footer className="border-t border-white/[.06]">
+        <div className="max-w-[1080px] mx-auto px-5 sm:px-8 pt-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 text-[13px]">
+          {LINK_GROUPS.map((g) => (
+            <div key={g.title}>
+              <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-soft/70 mb-3">{g.title}</div>
+              <ul className="grid gap-2">{g.links.map((l) => <li key={l}><Link href={l} className="text-ink-soft hover:text-signal">{HUB_LABELS[l] || labelFor(l)}</Link></li>)}</ul>
+            </div>
+          ))}
+        </div>
         <div className="max-w-[860px] mx-auto px-5 sm:px-8 py-8 text-[13px] text-ink-soft space-y-4">
           <nav className="flex flex-wrap gap-x-6 gap-y-2 font-mono text-[12px]">
             <Link href="/" className="hover:text-signal">Home</Link>
