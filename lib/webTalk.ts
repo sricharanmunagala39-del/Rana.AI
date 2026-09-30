@@ -2,11 +2,11 @@
 // (visitor plays a customer, Rana plays the business). Runs on R1 through the same RANA Runtime agent as every
 // other call; the instructions are built here, never taken from the browser.
 //
-// Cost guard (R1 bills per started minute): each session is capped (talk 3 min, demo 90 s), each network gets
+// Cost guard (R1 bills per started minute): each session is capped (talk 5 min, demo 90 s), each network gets
 // RANA_WEB_TALK_PER_IP sessions a day (default 6), and the whole site RANA_WEB_TALK_DAILY_MIN minutes a day
 // (default 180). A session that is never closed counts as its full length.
 import { sb, sbAll } from "./db";
-import { PRICE_BOOK, money, type Currency } from "./pricing";
+import { PRICE_BOOK, PLANS, money, type Currency } from "./pricing";
 import { scenarioOf, TALK_MAX_S, DEMO_MAX_S, type DemoKey, type TalkLang } from "@/app/landing/talkContent";
 import { MARKETS, isMarket } from "@/app/landing/markets";
 
@@ -16,7 +16,7 @@ export const DAILY_MINUTES = Number(process.env.RANA_WEB_TALK_DAILY_MIN) || 180;
 export const LANG_NAME: Record<TalkLang, string> = { en: "English", hi: "Hindi", te: "Telugu", ta: "Tamil", kn: "Kannada" };
 
 const TALK_GREETING: Record<TalkLang, string> = {
-  en: "Hi, I'm Rana, the AI voice assistant from RANA AI. Tell me a little about your business — what do you do, and how do you handle customer calls today?",
+  en: "Hi, I'm Rana from RANA AI. Ask me anything about our AI calling agents — pricing, languages, how it works — or tell me about your business and I'll show you how I'd handle your calls.",
   hi: "नमस्ते, मैं राना हूँ, RANA AI की AI वॉइस असिस्टेंट। अपने बिज़नेस के बारे में थोड़ा बताइए — आप क्या करते हैं, और अभी customer calls कैसे संभालते हैं?",
   te: "నమస్కారం, నేను రానా, RANA AI వాయిస్ అసిస్టెంట్‌ని. మీ బిజినెస్ గురించి కొంచెం చెప్పండి — మీరు ఏం చేస్తారు, ఇప్పుడు కస్టమర్ కాల్స్ ఎలా చూసుకుంటున్నారు?",
   ta: "வணக்கம், நான் ராணா, RANA AI-யின் வாய்ஸ் அசிஸ்டன்ட். உங்கள் பிசினஸ் பற்றி கொஞ்சம் சொல்லுங்கள் — நீங்கள் என்ன செய்கிறீர்கள், இப்போது கஸ்டமர் கால்களை எப்படி கையாளுகிறீர்கள்?",
@@ -86,75 +86,4 @@ function pricingLine(cur: Currency): string {
   return `Plans: Launch ${money(cur, p.launch.price)} a month for 400 minutes, Starter ${money(cur, p.starter.price)} for 1,000 minutes, Growth ${money(cur, p.growth.price)} for 3,500 minutes, Scale ${money(cur, p.scale.price)} for 12,000 minutes. Every workspace starts with a 14-day free trial with 100 free minutes, no card needed.`;
 }
 
-/** The instructions + greeting for one website session. */
-export function webTalkScript(kind: "talk" | "demo", o: { scenario?: string | null; lang: TalkLang; market?: string | null }) {
-  const lang = LANG_NAME[o.lang] ? o.lang : "en";
-  const m = MARKETS[isMarket(o.market) ? o.market : "in"];
-  if (kind === "demo") {
-    const s = scenarioOf(String(o.scenario || ""));
-    const greeting = DEMO_GREETING[s.key][lang] || DEMO_GREETING[s.key].en!;
-    const instructions = `${DEMO_BRIEF[s.key]}
-
-This is a 90-second live demo on RANA AI's website: a visitor is role-playing the customer so they can hear how an AI employee handles this kind of call. Stay fully in character as Rana from ${s.business.split(" — ")[0]} the whole time — do not mention the website, the demo or RANA AI. Speak ${LANG_NAME[lang]}.
-Move the call forward quickly: aim to reach the goal within about 60 seconds. When you reach it (or the person clearly declines), confirm the outcome in one sentence and say a warm goodbye.
-If the person goes off-topic or tests you, answer briefly and politely, then steer back to the goal.
-
-${RULES}`;
-    return { instructions, greeting, lang, maxSeconds: DEMO_MAX_S, voice: s.key === "sales" || s.key === "followup" ? "shreya" : "priya" };
-  }
-  const instructions = `You are Rana, the AI voice assistant of RANA AI (ranaai.in). RANA AI builds AI employees that answer and make business phone calls: they pick up every incoming call 24×7, call lead lists, qualify leads as hot, warm or cold, book appointments and site visits, follow up, and send every call's summary, transcript and hot leads to the business's team (dashboard, Slack, WhatsApp or email).
-The visitor clicked "Talk to Rana" on the website${m.key === "in" ? "" : ` (${m.name} page)`}. You are demonstrating the product by being it: have a short, genuinely helpful conversation (about 2 minutes), exactly like a great sales development rep.
-
-Flow — one question at a time, and skip anything they already told you:
-1. Understand their business: what they do and where they are based.
-2. Their calls today: roughly how many calls a day, who answers, what happens after hours or when the line is busy, and whether they call leads back.
-3. Their biggest pain: missed calls, slow follow-up, too many unqualified leads, staff cost, or language.
-4. Explain in one or two sentences exactly how RANA would help THEM, using their own words (for example: "For a clinic like yours, Rana would answer every appointment call in Telugu or English, even at 10 PM, and send your front desk only the confirmed bookings.").
-5. Get their name and company name, and ask for the best phone number or email for the team to reach them.
-6. Close: "Want Rana to do this for your business? You can book a free demo right here — the button is on your screen — or start the 14-day free trial."
-
-Facts you may use:
-- Languages: 11 Indian languages (Telugu, Hindi, Tamil, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, Odia and English) switching mid-call, plus Spanish, French and Japanese for callers abroad.
-- Works for clinics, real estate, education and coaching, e-commerce, insurance and loans, hotels and restaurants, automobile dealers and local services.
-- Setup: build and test your first AI employee the same day on the free trial; done-for-you setups take one to two weeks.
-- ${pricingLine(m.currency)} Calls are billed in 30-second pulses.
-- Proof: RANA is live on the admission line of a medical coaching centre in Hyderabad. Do not name any client.
-- It follows calling rules: calling hours, a do-not-call list, and it introduces itself as the business's assistant.
-If they ask something you don't know (custom integrations, exact contract terms), say the team will cover it on the demo call.
-The conversation ends automatically after 3 minutes, so by about 2 minutes 15 seconds, move to the close.
-Start in ${LANG_NAME[lang]}.
-
-${RULES}`;
-  return { instructions, greeting: TALK_GREETING[lang], lang, maxSeconds: TALK_MAX_S, voice: "priya" };
-}
-
-const secondsOf = (r: any, now = Date.now()) =>
-  r.ended_at ? Math.max(0, Number(r.seconds) || 0) : Math.min(Number(r.max_seconds) || 0, Math.max(0, Math.round((now - Date.parse(r.started_at)) / 1000)));
-
-/** Why a new website session can't start right now, or null. */
-export async function webTalkBlock(ip: string): Promise<string | null> {
-  const since = new Date(Date.now() - 24 * 3600e3).toISOString();
-  const mine = (await sb<any[]>(`/web_talks?ip=eq.${encodeURIComponent(ip)}&started_at=gte.${encodeURIComponent(since)}&select=id`).catch(() => [])) || [];
-  if (mine.length >= PER_IP_PER_DAY) return "You've tried Rana a few times today — thank you! Book a demo and we'll set her up for your own business.";
-  const day = new Date(); day.setUTCHours(0, 0, 0, 0);
-  const today = (await sbAll<any>(`/web_talks?started_at=gte.${encodeURIComponent(day.toISOString())}&select=started_at,ended_at,seconds,max_seconds`).catch(() => [])) || [];
-  const minutes = today.reduce((m: number, r: any) => { const s = secondsOf(r); return s > 0 ? m + Math.ceil(s / 60) : m; }, 0);
-  if (minutes >= DAILY_MINUTES) return "Rana is very busy today. Book a demo and our team will call you with a live one.";
-  return null;
-}
-
-export async function startWebTalk(row: { kind: string; scenario: string | null; language: string; market: string; ip: string; max_seconds: number; secret: string }) {
-  const r = await sb<any[]>(`/web_talks`, { method: "POST", body: JSON.stringify(row) });
-  return r?.[0]?.id as string | undefined;
-}
-
-export async function getWebTalk(id: string) {
-  const r = (await sb<any[]>(`/web_talks?id=eq.${id}&select=*`).catch(() => [])) || [];
-  return r[0] || null;
-}
-
-export async function finishWebTalk(id: string, patch: Record<string, any>) {
-  await sb(`/web_talks?id=eq.${id}`, { method: "PATCH", prefer: "return=minimal", body: JSON.stringify(patch) }).catch(() => {});
-}
-
-export { secondsOf as webTalkSeconds };
+//@@SPLIT@@
