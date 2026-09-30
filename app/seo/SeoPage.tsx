@@ -1,13 +1,15 @@
 // Renders one SEO page (server component) + its metadata and JSON-LD.
 import type { Metadata } from "next";
+import type React from "react";
 import Link from "next/link";
 import type { SeoPageData, SeoSection } from "./types";
 import { labelFor } from "./index";
+import { SOCIAL_LINKS } from "../legal/legal";
 
 const SITE = "https://ranaai.in";
 const KIND_CRUMB: Record<string, [string, string] | null> = {
   compare: ["Compare", "/compare"], industry: ["Industries", "/industries"], glossary: ["Glossary", "/glossary"],
-  solution: null, language: null, city: null, pricing: null,
+  solution: null, language: null, city: null, pricing: null, tool: null,
 };
 
 const clamp = (t: string, n = 160) => (t.length <= n ? t : t.slice(0, t.lastIndexOf(" ", n - 2)) + "…");
@@ -28,13 +30,14 @@ function jsonLd(p: SeoPageData) {
   const url = `${SITE}${p.path}`;
   const crumb = KIND_CRUMB[p.kind];
   const graph: any[] = [
-    { "@type": "Organization", "@id": `${SITE}/#org`, name: "RANA AI", url: SITE, logo: `${SITE}/icon.svg`, email: "hello@ranaai.in", address: { "@type": "PostalAddress", addressLocality: "Hyderabad", addressRegion: "Telangana", addressCountry: "IN" } },
+    { "@type": "Organization", "@id": `${SITE}/#org`, name: "RANA AI", alternateName: ["Rana AI", "RANA"], sameAs: SOCIAL_LINKS.map(([, u]) => u), url: SITE, logo: `${SITE}/icon.svg`, email: "hello@ranaai.in", address: { "@type": "PostalAddress", addressLocality: "Hyderabad", addressRegion: "Telangana", addressCountry: "IN" } },
     { "@type": "WebSite", "@id": `${SITE}/#website`, url: SITE, name: "RANA AI", publisher: { "@id": `${SITE}/#org` } },
     { "@type": "WebPage", "@id": `${url}#page`, url, name: p.h1, description: p.description, inLanguage: "en-IN", isPartOf: { "@id": `${SITE}/#website` }, about: { "@id": `${SITE}/#org` }, ...(p.checked ? { dateModified: "2026-09-30" } : {}) },
     { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: `${SITE}/` }, ...(crumb ? [{ "@type": "ListItem", position: 2, name: crumb[0], item: `${SITE}${crumb[1]}` }] : []), { "@type": "ListItem", position: crumb ? 3 : 2, name: p.label, item: url }] },
   ];
   if (p.kind === "glossary") graph.push({ "@type": "DefinedTerm", name: p.label, description: p.intro, inDefinedTermSet: `${SITE}/glossary` });
-  else if (p.kind !== "compare") graph.push({ "@type": "Service", name: p.h1, serviceType: p.label, description: p.description, provider: { "@id": `${SITE}/#org` }, areaServed: p.kind === "city" ? { "@type": "City", name: p.label.replace(/^AI voice agent /, "") } : { "@type": "Country", name: "India" }, url });
+  else if (p.kind === "tool") graph.push({ "@type": "WebApplication", name: p.label, url, applicationCategory: "BusinessApplication", operatingSystem: "Any (web browser)", isAccessibleForFree: true, offers: { "@type": "Offer", price: "0", priceCurrency: "INR" }, publisher: { "@id": `${SITE}/#org` } });
+  else if (p.kind !== "compare") graph.push({ "@type": "Service", name: p.h1, serviceType: p.label, description: p.description, provider: { "@id": `${SITE}/#org` }, areaServed: p.kind === "city" ? { "@type": "City", name: p.label.includes(" in ") ? p.label.split(" in ").pop() : p.label.replace(/^AI voice agent /, "") } : { "@type": "Country", name: "India" }, url });
   if (p.faqs.length) graph.push({ "@type": "FAQPage", mainEntity: p.faqs.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) });
   return { "@context": "https://schema.org", "@graph": graph };
 }
@@ -69,7 +72,7 @@ function Section({ s }: { s: SeoSection }) {
   );
 }
 
-export default function SeoPage({ p }: { p: SeoPageData }) {
+export default function SeoPage({ p, children }: { p: SeoPageData; children?: React.ReactNode }) {
   const crumb = KIND_CRUMB[p.kind];
   return (
     <article>
@@ -90,6 +93,8 @@ export default function SeoPage({ p }: { p: SeoPageData }) {
           <Link href="/signup" className="btn-ghost rounded-full px-6 py-3 text-[15px] font-medium">Start free trial</Link>
         </div>
       )}
+
+      {children}
 
       {p.sections.map((s) => <Section key={s.h2} s={s} />)}
 

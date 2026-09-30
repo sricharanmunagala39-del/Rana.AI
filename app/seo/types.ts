@@ -1,7 +1,7 @@
 // The shape of every SEO landing page (solutions, languages, cities, industries, comparisons, glossary).
 // Content lives in app/seo/data/*; one renderer (SeoPage) turns it into a page with JSON-LD.
 
-export type SeoKind = "solution" | "language" | "city" | "industry" | "compare" | "glossary" | "pricing";
+export type SeoKind = "solution" | "language" | "city" | "industry" | "compare" | "glossary" | "pricing" | "tool";
 
 export type SeoSection = {
   h2: string;

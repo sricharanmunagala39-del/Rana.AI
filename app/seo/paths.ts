@@ -4,7 +4,10 @@ export const SEO_PUBLIC_PATHS = [
   "/pricing", "/compare", "/industries", "/glossary",
   "/ai-calling-agent", "/ai-receptionist", "/ai-receptionist-for-clinics", "/ai-telecaller",
   "/telugu-ai-voice-agent", "/hindi-ai-voice-agent", "/tamil-ai-voice-agent", "/kannada-ai-voice-agent",
-  "/vapi-alternative-india",
+  "/vapi-alternative-india", "/retell-ai-alternative", "/bland-ai-alternative", "/best-ai-voice-agents-india",
+  "/ai-voice-calling", "/telecaller-software", "/ai-receptionist-for-doctors",
+  "/ai-receptionist-for-hospitals-hyderabad", "/ai-calling-for-real-estate-hyderabad", "/ai-calling-for-coaching-institutes-hyderabad",
+  "/tools",
   "/ai-voice-agent-hyderabad", "/ai-voice-agent-vijayawada", "/ai-voice-agent-visakhapatnam", "/ai-voice-agent-bangalore",
   "/ai-voice-agent-chennai", "/ai-voice-agent-mumbai", "/ai-voice-agent-delhi", "/ai-voice-agent-pune",
 ];
