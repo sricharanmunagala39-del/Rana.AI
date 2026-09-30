@@ -1,0 +1,67 @@
+// City pages — each written for how that city actually does business on the phone (languages, industries).
+import type { SeoPageData } from "../types";
+import { TRUST_FAQS, TRIAL_LINE, CORE_FEATURES } from "./shared";
+
+type City = { slug: string; name: string; state: string; langs: string; local: string; industries: string[]; example: string; faq: { q: string; a: string }[]; related: string[]; alt?: string[] };
+
+const C: City[] = [
+  { slug: "hyderabad", name: "Hyderabad", state: "Telangana", langs: "Telugu, Hindi/Dakhni and English", alt: ["secunderabad", "cyberabad"],
+    local: "RANA AI is built in Hyderabad. Our city's callers switch between Telugu, Hindi and English in a single sentence, and the agent is tuned for exactly that — from Kukatpally real-estate enquiries to Banjara Hills clinic bookings to Ameerpet coaching admissions.",
+    industries: ["Real estate across Kokapet, Tellapur, Kompally and Shamshabad", "Hospitals and clinics in Banjara Hills, Jubilee Hills and Somajiguda", "Coaching and IT-training institutes in Ameerpet and Dilsukhnagar", "Pharma distribution and diagnostics", "Restaurants and cloud kitchens"],
+    example: "A Gachibowli builder can have every 99acres and Meta enquiry called within a minute in Telugu or Hindi, with Saturday site visits booked automatically.",
+    faq: [{ q: "Can we meet your team in Hyderabad?", a: "Yes — we're based in Hyderabad. Book a demo and we can meet or do a video call." }], related: ["/telugu-ai-voice-agent", "/industries/real-estate", "/ai-voice-agent-vijayawada"] },
+  { slug: "vijayawada", name: "Vijayawada", state: "Andhra Pradesh", langs: "Telugu and English",
+    local: "Vijayawada's businesses sell on trust and conversation — and nearly every conversation is in Telugu. An AI voice agent that speaks natural Telugu can answer every enquiry and follow up every lead across Vijayawada, Guntur and the capital region.",
+    industries: ["Plots and apartments around Amaravati, Guntur and Mangalagiri", "Hospitals and multi-speciality clinics", "Coaching centres and junior colleges", "Gold, jewellery and retail showrooms", "Agri-inputs and dealership networks"],
+    example: "A Benz Circle hospital can confirm every next-day appointment with a Telugu reminder call and move no-shows to other slots.",
+    faq: [], related: ["/telugu-ai-voice-agent", "/ai-voice-agent-hyderabad", "/ai-voice-agent-visakhapatnam"] },
+  { slug: "visakhapatnam", name: "Visakhapatnam (Vizag)", state: "Andhra Pradesh", langs: "Telugu, Hindi and English", alt: ["vizag"],
+    local: "From Madhurawada's new apartments to hospitals on Waltair Main Road, Vizag businesses get calls in Telugu, Hindi (from the port and industrial workforce) and English. An AI voice agent handles all three on one number, 24×7.",
+    industries: ["Real estate in Madhurawada, Rushikonda and Bheemili", "Hospitals and diagnostic centres", "Hotels, resorts and travel along the coast", "Engineering and medical-entrance coaching", "Logistics and port-related services"],
+    example: "A beach-road resort can take room enquiries at midnight, share rates and hold the booking for the front desk to confirm.",
+    faq: [], related: ["/telugu-ai-voice-agent", "/industries/hotels-hospitality", "/ai-voice-agent-vijayawada"] },
+  { slug: "bangalore", name: "Bengaluru (Bangalore)", state: "Karnataka", langs: "Kannada, English, Hindi, Tamil and Telugu", alt: ["bengaluru"],
+    local: "Bengaluru is India's most multilingual phone market: a single clinic in Whitefield hears Kannada, English, Hindi, Tamil and Telugu in one morning. RANA's AI voice agent greets in your chosen language and follows each caller into theirs.",
+    industries: ["Clinics, dental chains and diagnostics", "Real estate along Sarjapur Road, Whitefield and North Bengaluru", "Startups and D2C brands (COD confirmation, support)", "Schools and coaching", "Interiors, solar and home services"],
+    example: "A Koramangala D2C brand can confirm every COD order before dispatch and cut returns — in whatever language the customer answers in.",
+    faq: [], related: ["/kannada-ai-voice-agent", "/industries/e-commerce", "/ai-voice-agent-chennai"] },
+  { slug: "chennai", name: "Chennai", state: "Tamil Nadu", langs: "Tamil and English",
+    local: "Chennai customers expect Tamil on the phone. The AI voice agent speaks natural spoken Tamil with English mixed in, so hospitals, builders and colleges can answer every caller the way they'd like to be spoken to.",
+    industries: ["Hospitals and medical tourism", "Real estate along OMR, ECR and GST Road", "Colleges and coaching", "Automobile dealers and service centres", "Textiles, jewellery and retail"],
+    example: "An OMR builder can call every new enquiry in Tamil within a minute and book weekend site visits.",
+    faq: [], related: ["/tamil-ai-voice-agent", "/industries/clinics-hospitals", "/ai-voice-agent-bangalore"] },
+  { slug: "mumbai", name: "Mumbai", state: "Maharashtra", langs: "Hindi, Marathi, English and Gujarati",
+    local: "Mumbai runs on Hinglish, with Marathi and Gujarati close behind. The AI voice agent handles all of them — for real-estate launches in Thane and Navi Mumbai, clinics in Andheri, or insurance renewals across the city.",
+    industries: ["Real estate in Thane, Navi Mumbai and the western suburbs", "Insurance, NBFCs and wealth advisors", "Clinics, diagnostics and wellness", "D2C brands and e-commerce", "Coaching and professional courses"],
+    example: "A Navi Mumbai developer can qualify launch-day leads in Hindi or Marathi and push only site-visit-ready buyers to the sales team.",
+    faq: [], related: ["/hindi-ai-voice-agent", "/industries/insurance", "/ai-voice-agent-pune"] },
+  { slug: "delhi", name: "Delhi NCR", state: "Delhi, Gurugram & Noida", langs: "Hindi, English and Punjabi", alt: ["gurgaon", "noida"],
+    local: "In Delhi, Gurugram and Noida, most business calls are in Hindi or Hinglish. The AI voice agent speaks both naturally, plus Punjabi, and handles the high call volumes NCR businesses deal with every day.",
+    industries: ["Real estate in Gurugram, Noida and Greater Noida", "Coaching hubs in Mukherjee Nagar, Laxmi Nagar and Rajendra Place", "NBFCs, loans and insurance", "Hospitals and diagnostic chains", "Travel agencies"],
+    example: "A Mukherjee Nagar coaching institute can call every admission enquiry within a minute and book counselling sessions.",
+    faq: [], related: ["/hindi-ai-voice-agent", "/industries/education-coaching", "/ai-voice-agent-mumbai"] },
+  { slug: "pune", name: "Pune", state: "Maharashtra", langs: "Marathi, Hindi and English",
+    local: "Pune's callers move between Marathi, Hindi and English. The AI voice agent follows them — for Hinjewadi and Wakad real estate, education institutes and the city's many clinics.",
+    industries: ["Real estate in Hinjewadi, Wakad, Kharadi and Baner", "Colleges, coaching and edtech", "Clinics and hospitals", "Automobile dealers and service", "Solar and home services"],
+    example: "A Kharadi clinic can answer every call during OPD hours and send the front desk a clean booking list.",
+    faq: [], related: ["/hindi-ai-voice-agent", "/ai-voice-agent-mumbai", "/industries/real-estate"] },
+];
+
+export const CITIES: SeoPageData[] = C.map((c) => ({
+  path: `/ai-voice-agent-${c.slug}`, kind: "city", label: `AI voice agent ${c.name.split(" (")[0]}`,
+  title: `AI Voice Agent in ${c.name.split(" (")[0]} — AI Calling in ${c.langs.split(",")[0].split(" and ")[0]}`,
+  description: `AI voice agent and AI receptionist for ${c.name} businesses: answers and makes calls in ${c.langs}, 24×7. Qualifies leads and books appointments. Free trial.`,
+  h1: `AI voice agent for businesses in ${c.name}`,
+  eyebrow: `${c.name} · ${c.state}`,
+  intro: c.local,
+  keywords: [`ai voice agent ${c.slug}`, `ai calling agent ${c.slug}`, `ai receptionist ${c.slug}`, `ai telecaller ${c.slug}`, ...(c.alt || []).map((a) => `ai voice agent ${a}`)],
+  facts: [c.langs, "24×7 inbound + outbound", "Lead cards to WhatsApp", TRIAL_LINE],
+  sections: [
+    { h2: `Who uses AI calling in ${c.name.split(" (")[0]}`, bullets: c.industries },
+    { h2: "An example", body: c.example },
+    { h2: "What you get", bullets: CORE_FEATURES },
+    { h2: "How to start", steps: ["Talk to Rana on our homepage — in your language — to hear the quality yourself", "Book a 20-minute demo; we set your AI employee up with your script and prices", "Test it in your browser, then connect your number and go live"] },
+  ],
+  faqs: [...c.faq, ...TRUST_FAQS],
+  related: [...c.related, "/ai-receptionist", "/pricing"],
+}));
