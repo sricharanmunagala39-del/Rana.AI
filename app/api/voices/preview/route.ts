@@ -1,6 +1,5 @@
 export const runtime = "nodejs";
-import crypto from "crypto";
-import { sb } from "@/lib/db";
+import { loadSavedTts as loadSaved, saveTts as saveForGood, r1TtsKey } from "@/lib/ttsCache";
 import { getSession } from "@/lib/session";
 import { unauthorized } from "@/lib/auth";
 import { previewLanguage, sampleLine, synthesizePreview, carrierLine } from "@/lib/voicePreview";
@@ -10,18 +9,6 @@ import { sarvamTts, voiceFor } from "@/lib/sarvamAgent";
 import { friendly } from "@/lib/sarvamHealth";
 
 const sarvamCache = new Map<string, ArrayBuffer>();
-const cacheId = (key: string) => crypto.createHash("sha256").update(key).digest("hex");
-async function loadSaved(key: string): Promise<ArrayBuffer | null> {
-  const rows = (await sb<any[]>(`/tts_cache?key=eq.${cacheId(key)}&select=audio_b64`).catch(() => [])) || [];
-  if (!rows[0]?.audio_b64) return null;
-  const buf = Buffer.from(rows[0].audio_b64, "base64");
-  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
-}
-async function saveForGood(key: string, audio: ArrayBuffer) {
-  if (audio.byteLength > 600_000) return;
-  await sb(`/tts_cache?on_conflict=key`, { method: "POST", prefer: "resolution=merge-duplicates,return=minimal", body: JSON.stringify({ key: cacheId(key), audio_b64: Buffer.from(audio).toString("base64"), bytes: audio.byteLength }) });
-}
-
 /**
  * GET /api/voices/preview?voiceId=…&lang=te&name=Shanti&gender=feminine[&text=…][&speed=1.1]
  * Returns MP3 of this voice saying one line, so every voice can be compared on the same sentence.
@@ -38,7 +25,7 @@ export async function GET(req: Request) {
     const v = voiceFor(sp.get("voice"));
     const text = say ? carrierLine(lang, say) : custom || sampleLine(lang, v.name, v.gender);
     const pace = Number(sp.get("speed")) || 1;
-    const key = `${v.speaker}|${lang}|${pace}|${text}`;
+    const key = r1TtsKey(v.speaker, lang, pace, text);
     try {
       let audio = sarvamCache.get(key);
       // Saved for good after the first time: the same voice saying the same line never costs twice.

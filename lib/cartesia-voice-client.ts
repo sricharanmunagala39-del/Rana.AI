@@ -1,5 +1,6 @@
 "use client";
 import { hideVendors } from "./voice/brand";
+import { LevelMeter, type VoiceLevels } from "./voice/meter";
 
 /**
  * Minimal browser client for Cartesia's Agents WebSocket API.
@@ -83,6 +84,12 @@ export class CartesiaVoiceCall {
   private streamId = `web_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   private muted = false;
   private onEvent: (e: CartesiaCallEvent) => void;
+  private outMeter = new LevelMeter();
+  private inMeter = new LevelMeter();
+  private outNode: AudioNode | null = null;
+
+  /** Live loudness of the AI (agent) and the person (user), 0…1 — for the HUD orb. */
+  levels(): VoiceLevels { return { agent: this.outMeter.level(), user: this.muted ? 0 : this.inMeter.level() }; }
 
   constructor(onEvent: (e: CartesiaCallEvent) => void) {
     this.onEvent = onEvent;
@@ -97,6 +104,7 @@ export class CartesiaVoiceCall {
 
     this.playCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     this.nextPlayTime = this.playCtx.currentTime;
+    try { this.outNode = this.outMeter.tap(this.playCtx, this.playCtx.destination); } catch { this.outNode = null; }
 
     const wsUrl = `wss://api.cartesia.ai/agents/stream/${agentId}?access_token=${encodeURIComponent(
       tokenData.token
@@ -173,6 +181,7 @@ export class CartesiaVoiceCall {
     if (!this.micStream) return;
     this.micCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     this.source = this.micCtx.createMediaStreamSource(this.micStream);
+    try { this.inMeter.listen(this.micCtx, this.source); } catch {}
     // ScriptProcessorNode is deprecated but still broadly supported and is the
     // simplest way to get raw PCM frames without shipping a separate worklet file.
     this.processor = this.micCtx.createScriptProcessor(4096, 1, 1);
@@ -208,7 +217,7 @@ export class CartesiaVoiceCall {
 
     const src = this.playCtx.createBufferSource();
     src.buffer = buffer;
-    src.connect(this.playCtx.destination);
+    src.connect(this.outNode || this.playCtx.destination);
 
     const now = this.playCtx.currentTime;
     const startAt = Math.max(now, this.nextPlayTime);
@@ -246,5 +255,7 @@ export class CartesiaVoiceCall {
     this.micCtx = null;
     this.playCtx = null;
     this.micStream = null;
+    this.outNode = null;
+    this.outMeter.reset(); this.inMeter.reset();
   }
 }

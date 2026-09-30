@@ -17,6 +17,8 @@ export type Scenario = {
   key: DemoKey; icon: string; title: string; line: string;
   business: string; ranaPlays: string; youPlay: string; tryThis: string[];
   sample: { who: "ai" | "caller"; text: string }[]; outcome: string;
+  /** What the live CRM card learns during the sample call: shown once line `at` has been spoken. */
+  card: { at: number; label: string; value: string }[];
 };
 
 export const SCENARIOS: Scenario[] = [
@@ -36,6 +38,7 @@ export const SCENARIOS: Scenario[] = [
       { who: "caller", text: "Saturday 11 works." },
     ],
     outcome: "HOT LEAD · budget ₹1.3 Cr · loan · 6 months · site visit Sat 11 AM → sent to sales",
+    card: [{ at: 1, label: "Interest", value: "3BHK flat" }, { at: 3, label: "Budget", value: "₹1.3 Cr" }, { at: 3, label: "Home loan", value: "Yes" }, { at: 5, label: "Timeline", value: "~6 months" }, { at: 7, label: "Site visit", value: "Sat 11 AM" }],
   },
   {
     key: "sales", icon: "📞", title: "Outbound sales", line: "Dials your lead list, pitches, handles objections and books the next step.",
@@ -51,6 +54,7 @@ export const SCENARIOS: Scenario[] = [
       { who: "caller", text: "Yes, let's try the demo." },
     ],
     outcome: "WARM → HOT · objection: fees (EMI offered) · demo class Sunday 10 AM → sent to counsellor",
+    card: [{ at: 1, label: "Objection", value: "Fees too high" }, { at: 2, label: "Offer", value: "Early-bird + EMI" }, { at: 3, label: "Asked", value: "Weekend timings" }, { at: 5, label: "Next step", value: "Free demo, Sun 10 AM" }],
   },
   {
     key: "support", icon: "☎️", title: "Inbound support", line: "Answers every customer call, solves the common ones and hands the rest to your team.",
@@ -66,6 +70,7 @@ export const SCENARIOS: Scenario[] = [
       { who: "ai", text: "Understood — I've noted that. If it isn't delivered by tomorrow, our team will process the refund." },
     ],
     outcome: "COMPLAINT · late delivery · refund if not delivered tomorrow → sent to support team",
+    card: [{ at: 0, label: "Issue", value: "Order late" }, { at: 2, label: "Order", value: "Found by phone" }, { at: 3, label: "Action", value: "Delivery call today" }, { at: 4, label: "Ask", value: "Refund if late" }, { at: 5, label: "Promise", value: "Refund after tomorrow" }],
   },
   {
     key: "booking", icon: "📅", title: "Appointment booking", line: "Books, reschedules and confirms appointments — even at 11 PM.",
@@ -81,6 +86,7 @@ export const SCENARIOS: Scenario[] = [
       { who: "ai", text: "Done, Ananya — Thursday at 5 PM. You'll get a reminder the day before." },
     ],
     outcome: "APPOINTMENT · Thu 5 PM · Ananya Rao → added for the front desk",
+    card: [{ at: 0, label: "Needs", value: "Dental check-up" }, { at: 2, label: "Slot", value: "Thu 5 PM" }, { at: 3, label: "Fee told", value: "₹500" }, { at: 4, label: "Patient", value: "Ananya Rao" }, { at: 5, label: "Reminder", value: "Day before" }],
   },
   {
     key: "followup", icon: "💬", title: "Customer follow-up", line: "Follows up every lead and customer so nobody goes cold.",
@@ -96,7 +102,15 @@ export const SCENARIOS: Scenario[] = [
       { who: "caller", text: "Sure, tomorrow evening." },
     ],
     outcome: "RE-ENGAGED · objection: price · manager callback tomorrow evening → sent to sales",
+    card: [{ at: 1, label: "Trial", value: "Liked it" }, { at: 3, label: "Objection", value: "Price" }, { at: 4, label: "Offer", value: "Monthly, no joining fee" }, { at: 5, label: "Next step", value: "Callback tomorrow eve" }],
   },
 ];
 
 export const scenarioOf = (k: string) => SCENARIOS.find((s) => s.key === k) || SCENARIOS[0];
+
+/** Voices for the sample calls (Rana → the business's voice; the customer → a second voice). Same on the site, the reel studio and the audio cache. */
+export const SAMPLE_VOICES: Record<DemoKey, { ai: string; caller: string }> = {
+  qualify: { ai: "priya", caller: "rahul" }, sales: { ai: "shreya", caller: "kavya" }, support: { ai: "priya", caller: "aditya" },
+  booking: { ai: "priya", caller: "kavya" }, followup: { ai: "shreya", caller: "rahul" },
+};
+export const sampleText = (t: string) => t.replace(/\s+/g, " ").trim().slice(0, 240);
