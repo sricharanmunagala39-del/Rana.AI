@@ -94,10 +94,10 @@ function useReveal() {
 
 /** Crawlable links to the SEO pages (kept small here so the client bundle doesn't load their content). */
 const EXPLORE: [string, [string, string][]][] = [
-  ["Solutions", [["AI calling agent", "/ai-calling-agent"], ["AI receptionist", "/ai-receptionist"], ["AI receptionist for clinics", "/ai-receptionist-for-clinics"], ["AI telecaller", "/ai-telecaller"], ["Pricing", "/pricing"]]],
+  ["Solutions", [["AI calling agent", "/ai-calling-agent"], ["AI receptionist", "/ai-receptionist"], ["AI receptionist for clinics", "/ai-receptionist-for-clinics"], ["AI telecaller", "/ai-telecaller"], ["AI voice calling", "/ai-voice-calling"], ["Telecaller software", "/telecaller-software"], ["Pricing", "/pricing"]]],
   ["Languages & cities", [["Telugu AI voice agent", "/telugu-ai-voice-agent"], ["Hindi AI voice agent", "/hindi-ai-voice-agent"], ["Tamil AI voice agent", "/tamil-ai-voice-agent"], ["Kannada AI voice agent", "/kannada-ai-voice-agent"], ["Hyderabad", "/ai-voice-agent-hyderabad"], ["Vijayawada", "/ai-voice-agent-vijayawada"], ["Visakhapatnam", "/ai-voice-agent-visakhapatnam"], ["Bengaluru", "/ai-voice-agent-bangalore"]]],
   ["Industries", [["Real estate", "/industries/real-estate"], ["Clinics & hospitals", "/industries/clinics-hospitals"], ["Education & coaching", "/industries/education-coaching"], ["E-commerce & D2C", "/industries/e-commerce"], ["Banking & NBFC", "/industries/banking-nbfc-loans"], ["Insurance", "/industries/insurance"], ["All industries →", "/industries"]]],
-  ["Compare & learn", [["Vapi alternative India", "/vapi-alternative-india"], ["RANA AI vs Retell AI", "/compare/rana-ai-vs-retell-ai"], ["RANA AI vs Bland AI", "/compare/rana-ai-vs-bland-ai"], ["AI vs human telecaller", "/compare/ai-vs-human-telecaller"], ["TRAI DLT rules", "/glossary/trai-tcccpr-rules"], ["Glossary", "/glossary"], ["Blog", "/blog"]]],
+  ["Compare & learn", [["Best AI voice agents in India", "/best-ai-voice-agents-india"], ["AI calling cost calculator", "/tools/ai-calling-cost-calculator"], ["Vapi alternative India", "/vapi-alternative-india"], ["RANA AI vs Retell AI", "/compare/rana-ai-vs-retell-ai"], ["RANA AI vs Bland AI", "/compare/rana-ai-vs-bland-ai"], ["AI vs human telecaller", "/compare/ai-vs-human-telecaller"], ["TRAI DLT rules", "/glossary/trai-tcccpr-rules"], ["Glossary", "/glossary"], ["Blog", "/blog"]]],
 ];
 
 /** Hero: RANA's live voice core. Tap it to talk to Rana; the ticker shows the kind of calls she handles. */

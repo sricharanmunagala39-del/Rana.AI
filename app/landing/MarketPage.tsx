@@ -1,3 +1,4 @@
+import { SOCIAL_LINKS } from "../legal/legal";
 // One server component + metadata builder for every country page (/, /global, /us, /ae, /eu, /jp).
 import type { Metadata } from "next";
 import "./landing.css";
@@ -64,7 +65,7 @@ export function marketMetadata(k: MarketKey): Metadata {
 function jsonLd(k: MarketKey) {
   const m = MARKETS[k], c = COPY[k];
   const org = {
-    "@type": "Organization", "@id": `${SITE}/#org`, name: "RANA AI", url: SITE, logo: `${SITE}/icon.svg`, email: "hello@ranaai.in",
+    "@type": "Organization", "@id": `${SITE}/#org`, name: "RANA AI", alternateName: ["Rana AI", "RANA"], url: SITE, logo: `${SITE}/icon.svg`, email: "hello@ranaai.in", sameAs: SOCIAL_LINKS.map(([, u]) => u),
     address: { "@type": "PostalAddress", addressLocality: "Hyderabad", addressRegion: "Telangana", addressCountry: "IN" },
     contactPoint: [{ "@type": "ContactPoint", contactType: "sales", email: "hello@ranaai.in", availableLanguage: ["English", "Hindi", "Telugu"] }],
   };
