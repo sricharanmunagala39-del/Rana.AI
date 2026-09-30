@@ -267,7 +267,72 @@ function MissedCalls({ onDemo, market }: { onDemo: () => void; market: Market })
   );
 }
 
-export default function Site() {
+/** Country / currency switcher. Each choice is its own page (/, /global, /us, /ae, /eu, /jp) so Google can index them. */
+function MarketSwitcher({ market, align = "right" }: { market: Market; align?: "right" | "left" | "up" }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", close); document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  const pick = (k: MarketKey) => { try { document.cookie = `${MARKET_COOKIE}=${k}; path=/; max-age=31536000; samesite=lax`; } catch {} };
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} data-testid="market-switch"
+        className="flex items-center gap-1.5 rounded-full border border-white/10 hover:border-white/25 px-3 py-2 text-[12.5px] font-mono text-ink-soft hover:text-ink">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9S14.5 18.3 12 21M12 3C9.5 5.7 8.2 8.7 8.2 12s1.3 6.3 3.8 9" /></svg>
+        {market.short} · {SYMBOL[market.currency]} {market.currency}
+      </button>
+      {open && (
+        <div role="menu" className={`absolute z-[70] w-[230px] rounded-xl border border-white/10 bg-[#0b0e14] p-1.5 shadow-2xl ${align === "up" ? "bottom-full mb-2 left-1/2 -translate-x-1/2" : align === "left" ? "left-0 mt-2" : "right-0 mt-2"}`} data-testid="market-menu">
+          {MARKET_KEYS.map((k) => { const m = MARKETS[k]; return (
+            <a key={k} role="menuitem" href={m.path} onClick={() => pick(k)} data-testid={`market-${k}`}
+              className={`flex items-center justify-between rounded-lg px-3 py-2 text-[13px] ${k === market.key ? "bg-signal/10 text-signal font-semibold" : "text-ink-soft hover:bg-white/[.05] hover:text-ink"}`}>
+              <span>{m.name}</span><span className="font-mono text-[11.5px]">{SYMBOL[m.currency]} {m.currency}</span>
+            </a>); })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A quiet hint when the visitor's timezone suggests another country page. Never redirects (keeps every page crawlable). */
+function MarketHint({ market }: { market: Market }) {
+  const [to, setTo] = useState<MarketKey | null>(null);
+  useEffect(() => {
+    try {
+      if (document.cookie.includes(`${MARKET_COOKIE}=`)) return;
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+      const guess = marketForZone(tz);
+      if (!guess || guess === market.key) return;
+      if (market.key !== "in" && guess === "global") return;
+      setTo(guess);
+    } catch {}
+  }, [market.key]);
+  if (!to) return null;
+  const m = MARKETS[to];
+  const dismiss = () => { try { document.cookie = `${MARKET_COOKIE}=${market.key}; path=/; max-age=31536000; samesite=lax`; } catch {} setTo(null); };
+  return (
+    <div className="relative z-[55] border-b border-signal/20 bg-signal/10 text-[13px]" data-testid="market-hint">
+      <div className="max-w-[1160px] mx-auto px-5 sm:px-8 py-2.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center">
+        <span>{to === "in" ? "In India? See prices in rupees." : `Visiting from ${m.key === "global" ? "outside India" : m.name}? See prices in ${m.currency}.`}</span>
+        <a href={m.path} onClick={() => { try { document.cookie = `${MARKET_COOKIE}=${to}; path=/; max-age=31536000; samesite=lax`; } catch {} }} className="font-semibold text-signal">Go to {m.name} →</a>
+        <button type="button" onClick={dismiss} className="text-ink-soft hover:text-ink" aria-label="Stay on this page">Stay here</button>
+      </div>
+    </div>
+  );
+}
+
+export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
+  const market = MARKETS[marketKey] || MARKETS.in;
+  const india = market.key === "in";
+  const FEATURES = featuresFor(india);
+  const PLANS = plansFor(market);
+  const FAQ = faqFor(market);
+  const book = PRICE_BOOK[market.currency];
   useReveal();
   const [menu, setMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -282,6 +347,7 @@ export default function Site() {
   return (
     <div className="site theme-night min-h-screen font-sans">
       <div className="aurora" aria-hidden />
+      <MarketHint market={market} />
 
       {/* ---------- Nav ---------- */}
       <header className={`sticky top-0 z-50 transition-all ${scrolled ? "glass border-b border-white/[.06]" : ""}`}>
@@ -291,11 +357,13 @@ export default function Site() {
             {NAV.map(([l, h]) => <a key={h} href={h} className="hover:text-ink">{l}</a>)}
           </nav>
           <div className="hidden md:flex items-center gap-3">
+            <MarketSwitcher market={market} />
             <Link href="/login" className="text-[13.5px] font-medium text-ink-soft hover:text-ink px-3 py-2">Sign in</Link>
             <button onClick={openDemo("nav")} className="btn-ghost rounded-full px-4 py-2 text-[13.5px] font-medium" data-testid="nav-demo">Book a demo</button>
             <Link href="/signup" className="btn-glow rounded-full px-4 py-2 text-[13.5px] font-semibold" data-testid="nav-trial">Start free trial</Link>
           </div>
-          <button onClick={() => setMenu(true)} className="md:hidden font-mono text-[12px] border border-signal/60 text-signal rounded-full px-4 py-2" aria-label="Open menu" data-testid="menu-btn">MENU +</button>
+          <div className="md:hidden flex items-center gap-2"><MarketSwitcher market={market} />
+          <button onClick={() => setMenu(true)} className="font-mono text-[12px] border border-signal/60 text-signal rounded-full px-4 py-2" aria-label="Open menu" data-testid="menu-btn">MENU +</button></div>
         </div>
       </header>
       {menu && (
@@ -318,13 +386,15 @@ export default function Site() {
               <span className="w-1.5 h-1.5 rounded-full bg-signal live-dot" /> STATUS: ANSWERING CALLS, RIGHT NOW
             </div>
             <h1>
-              <span className="block eyebrow uppercase mb-4">AI voice agents for Indian businesses</span>
+              <span className="block eyebrow uppercase mb-4">{india ? "AI voice agents for Indian businesses" : market.key === "global" ? "AI voice agents for businesses worldwide" : `AI voice agents for businesses in ${market.key === "us" ? "the United States" : market.key === "ae" ? "the UAE & Gulf" : market.name}`}</span>
               <span className="block font-display font-semibold tracking-[-0.035em] leading-[0.98] text-[46px] sm:text-[64px] lg:text-[72px]">
                 We build what<br /><span className="text-gradient">answers back.</span>
               </span>
             </h1>
             <p className="text-ink-soft text-[16.5px] sm:text-[18px] leading-relaxed mt-6 max-w-[540px] mx-auto lg:mx-0">
-              AI calling agents for any business that runs on phone calls — clinics, real estate, education, e-commerce, finance, hospitality and more. They answer and make your calls in Telugu, Hindi, Tamil and 8 more Indian languages, and hand your team only the leads worth calling back.
+              {india
+                ? "AI calling agents for any business that runs on phone calls — clinics, real estate, education, e-commerce, finance, hospitality and more. They answer and make your calls in Telugu, Hindi, Tamil and 8 more Indian languages — plus Spanish, French and Japanese for callers abroad — and hand your team only the leads worth calling back."
+                : "AI calling agents for any business that runs on phone calls — clinics, real estate, education, e-commerce, finance, hospitality and more. They answer and make your calls around the clock in English, Spanish, French, Japanese, Hindi and 9 more Indian languages, and hand your team only the leads worth calling back."}
             </p>
             <div className="flex flex-wrap gap-3 mt-9 justify-center lg:justify-start">
               <Link href="/signup" className="btn-glow rounded-full px-6 py-3.5 text-[15px] font-semibold" data-testid="hero-trial">Start free — {TRIAL_DAYS} days</Link>
@@ -341,7 +411,7 @@ export default function Site() {
         {/* ---------- Stats ---------- */}
         <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-14">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[[<Count key="a" to={11} />, "Indian languages"], ["24×7", "Answers every call"], [<Count key="b" to={14} />, "Day free trial"], [<><Count key="c" to={30} />s</>, "Billing pulses — not full minutes"]].map(([v, l], i) => (
+            {[[<Count key="a" to={CALL_LANGUAGE_COUNT} />, india ? "Call languages — Indian + global" : "Call languages — global + Indian"], ["24×7", "Answers every call"], [<Count key="b" to={14} />, "Day free trial"], [<><Count key="c" to={30} />s</>, "Billing pulses — not full minutes"]].map(([v, l], i) => (
               <div key={i} className="card px-5 py-5 text-center">
                 <div className="font-display text-[30px] sm:text-[36px] font-semibold text-gradient">{v}</div>
                 <div className="text-[12.5px] text-ink-soft mt-1">{l}</div>
@@ -355,7 +425,7 @@ export default function Site() {
           <div className="marquee-track font-mono text-[13px] text-ink-soft">
             {[0, 1].map((k) => (
               <div key={k} className="flex">
-                {["ANSWER EVERY CALL", "CAPTURE EVERY LEAD", "ANY INDUSTRY", "11 INDIAN LANGUAGES", "INBOUND + OUTBOUND", "LIVE IN DAYS", "PAY BY UPI", "YOUR OWN VOICE"].map((t) => (
+                {["ANSWER EVERY CALL", "CAPTURE EVERY LEAD", "ANY INDUSTRY", india ? "INDIAN + GLOBAL LANGUAGES" : "GLOBAL + INDIAN LANGUAGES", "INBOUND + OUTBOUND", "LIVE IN DAYS", india ? "PAY BY UPI" : "PAY BY CARD", "YOUR OWN VOICE"].map((t) => (
                   <span key={t} className="px-8 whitespace-nowrap"><b className="text-signal mr-2">●</b>{t}</span>
                 ))}
               </div>
@@ -379,7 +449,7 @@ export default function Site() {
               <p className="text-ink-soft text-[14px] leading-relaxed mt-2">A call after hours, during a rush, or in a language the front desk isn&apos;t fluent in — it just doesn&apos;t get answered. Nobody finds out what that lead was worth.</p>
             </div>
           </div>
-          <div className="reveal"><LiveCall /></div>
+          <div className="reveal"><LiveCall calls={india ? INDUSTRY_CALLS : GLOBAL_CALLS} /></div>
         </section>
 
         {/* ---------- Features (bento) ---------- */}
@@ -418,7 +488,7 @@ export default function Site() {
           <div className="reveal"><DashboardPreview /></div>
         </section>
 
-        <MissedCalls onDemo={openDemo("calculator")} />
+        <MissedCalls key={market.currency} market={market} onDemo={openDemo("calculator")} />
 
         {/* ---------- How it works ---------- */}
         <section id="how" className="border-y border-white/[.06] bg-white/[.012]">
@@ -442,7 +512,7 @@ export default function Site() {
           <div className="reveal text-center max-w-[640px] mx-auto">
             <div className="eyebrow">// PRICING</div>
             <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] mt-3">Plans that pay for themselves.</h2>
-            <p className="text-ink-soft text-[16px] mt-3">Start free for {TRIAL_DAYS} days with {TRIAL_MINUTES} minutes. Prices exclude GST, which is added where applicable. Pay annually and the setup fee is waived.</p>
+            <p className="text-ink-soft text-[16px] mt-3">Start free for {TRIAL_DAYS} days with {TRIAL_MINUTES} minutes. {market.taxNote} Pay annually and the setup fee is waived.</p>
             <p className="text-[14px] mt-3 font-medium" data-testid="engines-line">{ENGINES_LINE}</p>
           </div>
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-12">
@@ -452,7 +522,7 @@ export default function Site() {
                   <div className="font-display text-[20px] font-semibold">{p.name}</div>
                   {p.hi && <span className="text-[11px] font-mono text-on-accent bg-signal rounded-full px-2.5 py-1">MOST POPULAR</span>}
                 </div>
-                <div className="mt-5 flex items-baseline gap-1"><span className="text-ink-soft text-[20px]">₹</span><span className="font-display text-[40px] font-semibold tracking-tight">{p.price}</span><span className="text-ink-soft text-[14px]">/month</span></div>
+                <div className="mt-5 flex items-baseline gap-1"><span className="text-ink-soft text-[20px]">{p.symbol}</span><span className="font-display text-[40px] font-semibold tracking-tight">{p.price}</span><span className="text-ink-soft text-[14px]">/month</span></div>
                 <div className="text-[13.5px] mt-1"><b>{p.min} minutes</b> <span className="text-ink-soft">· then {p.extra}/min prepaid</span></div>
                 <ul className="mt-6 flex flex-col gap-2.5 text-[14px] flex-1">
                   {p.pts.map((t) => <li key={t} className="flex gap-2.5"><span className="text-signal">✓</span>{t}</li>)}
@@ -462,8 +532,9 @@ export default function Site() {
               </div>
             ))}
           </div>
+          {!india && <p className="reveal text-center text-[13px] text-ink-soft mt-4" data-testid="numbers-note">Local numbers: US numbers are ready now; UK, UAE, Europe, Japan and other countries are set up on request. You can also forward your existing number.</p>}
           <div className="reveal card mt-3 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div><div className="font-display text-[20px] font-semibold">Enterprise</div><div className="text-ink-soft text-[14px] mt-1">{PRICE_LIST.enterprise.minutes.toLocaleString("en-IN")}+ minutes a month, unlimited AI employees, {PRICE_LIST.enterprise.concurrency} calls at once, both voice engines, and custom per-minute rates.</div></div>
+            <div><div className="font-display text-[20px] font-semibold">Enterprise <span className="text-ink-soft text-[14px] font-normal">· from {moneyShort(market.currency, book.enterpriseFrom)}/month</span></div><div className="text-ink-soft text-[14px] mt-1">{PRICE_LIST.enterprise.minutes.toLocaleString(india ? "en-IN" : "en-US")}+ minutes a month, unlimited AI employees, {PRICE_LIST.enterprise.concurrency} calls at once, both voice engines, and custom per-minute rates.</div></div>
             <button onClick={openDemo("enterprise")} className="btn-ghost rounded-full px-6 py-3 text-[14px] font-semibold whitespace-nowrap">Talk to us →</button>
           </div>
         </section>
@@ -516,13 +587,13 @@ export default function Site() {
 
       <footer className="border-t border-white/[.06]">
         <div className="max-w-[1160px] mx-auto px-5 sm:px-8 py-10 flex flex-col md:flex-row gap-6 items-center justify-between text-[13px] text-ink-soft">
-          <div className="flex items-center gap-2.5"><Logo size={24} /><span>RANA AI — Hyderabad, India</span></div>
+          <div className="flex items-center gap-3"><Logo size={24} /><span>RANA AI — Hyderabad, India · serving businesses worldwide</span></div>
           <nav className="flex flex-wrap gap-6 justify-center font-mono text-[12px]">
             {NAV.map(([l, h]) => <a key={h} href={h} className="hover:text-signal">{l}</a>)}
             <Link href="/blog" className="hover:text-signal">Blog</Link>
             <Link href="/login" className="hover:text-signal">Sign in</Link>
           </nav>
-          <div>© {new Date().getFullYear()} RANA AI</div>
+          <div className="flex items-center gap-3"><MarketSwitcher market={market} align="up" /><span>© {new Date().getFullYear()} RANA AI</span></div>
         </div>
         <div className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-8 flex flex-col md:flex-row gap-3 items-center justify-between text-[12px] text-ink-soft/80">
           <nav className="flex flex-wrap gap-x-5 gap-y-2 justify-center font-mono">
