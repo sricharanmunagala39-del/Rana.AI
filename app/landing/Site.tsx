@@ -2,9 +2,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import RanaCore from "@/components/RanaCore";
+import Integrations from "@/components/Integrations";
 import { Logo } from "@/components/Sidebar";
 import { INDUSTRY_CALLS, GLOBAL_CALLS, USE_CASES, ENGINES_LINE, CALC, CALL_LANGUAGE_COUNT, plansFor, faqFor, type Line, type IndustryCall } from "./content";
-import { TRIAL_DAYS, TRIAL_MINUTES, PLANS as PRICE_LIST, PRICE_BOOK, CURRENCY_SYMBOL as SYMBOL, money, moneyShort, type Currency } from "@/lib/pricing";
+import { TRIAL_DAYS, TRIAL_MINUTES, PLANS as PRICE_LIST, PRICE_BOOK, CURRENCIES, CURRENCY_SYMBOL as SYMBOL, money, moneyShort, type Currency } from "@/lib/pricing";
 import { MARKETS, MARKET_KEYS, MARKET_COOKIE, marketForZone, type Market, type MarketKey } from "./markets";
 import DemoForm, { type DemoPrefill } from "./DemoForm";
 import RanaLive, { type LiveMode } from "./RanaLive";
@@ -15,47 +16,12 @@ import { LEGAL_LINKS, SOCIAL_LINKS } from "@/app/legal/legal";
 // Public contact address (Zoho Mail inbox for ranaai.in).
 const CONTACT_EMAIL = "hello@ranaai.in";
 
-const NAV = [["Try it live", "#try"], ["Industries", "#industries"], ["How it works", "#how"], ["Pricing", "#pricing"], ["FAQ", "#faq"]];
+const CUR_NOTE: Record<Currency, string> = { INR: "Prices in Indian rupees, excluding 18% GST.", USD: "Prices in US dollars, excluding local taxes.", EUR: "Prices in euros, excluding VAT.", JPY: "Prices in Japanese yen, excluding consumption tax." };
+
+const NAV = [["Industries", "#industries"], ["How it works", "#how"], ["Pricing", "#pricing"], ["FAQ", "#faq"]];
 
 function MicIcon({ size = 16 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>;
-}
-
-/** "Hear it for yourself": Talk to Rana + the five instant demos. */
-function TryIt({ onTalk, onDemo, onBook }: { onTalk: () => void; onDemo: (k: DemoKey) => void; onBook: () => void }) {
-  return (
-    <section id="try" className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24 scroll-mt-24">
-      <div className="reveal max-w-[680px]">
-        <div className="eyebrow">// DON&apos;T WATCH A VIDEO. TALK TO IT.</div>
-        <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] leading-[1.05] mt-3">Hear an AI employee<br /><span className="text-gradient">handle a real call.</span></h2>
-        <p className="text-ink-soft text-[16px] mt-4">Talk to Rana about your business, or play the customer in a 90-second demo. Use your microphone — no sign-up.</p>
-      </div>
-      <div className="grid lg:grid-cols-[1.05fr_1.6fr] gap-3 mt-10">
-        <button type="button" onClick={onTalk} className="card card-hi reveal text-left p-7 flex flex-col group" data-testid="try-talk">
-          <div className="flex items-center gap-3"><span className="w-12 h-12 rounded-full bg-signal/15 border border-signal/40 text-signal flex items-center justify-center shadow-glow group-hover:scale-105 transition-transform"><MicIcon size={22} /></span><span className="font-mono text-[11px] text-signal">LIVE · ABOUT 2 MINUTES</span></div>
-          <div className="font-display text-[26px] font-semibold tracking-tight mt-5">Talk to Rana</div>
-          <p className="text-ink-soft text-[14.5px] mt-2 leading-relaxed flex-1">Tell her what your business does. She asks the questions a great sales rep would, shows how she&apos;d handle <i>your</i> calls — and hands you the lead card your team would get.</p>
-          <span className="mt-6 btn-glow rounded-full px-5 py-3 text-[14px] font-semibold self-start flex items-center gap-2"><MicIcon /> Start talking</span>
-        </button>
-        <div className="card reveal p-6">
-          <div className="flex items-center justify-between gap-3"><div className="font-display text-[20px] font-semibold">Try an instant demo</div><span className="font-mono text-[11px] text-ink-soft">YOU PLAY THE CUSTOMER · 90 s</span></div>
-          <div className="grid sm:grid-cols-2 gap-2.5 mt-4">
-            {SCENARIOS.map((x) => (
-              <button key={x.key} type="button" onClick={() => onDemo(x.key)} data-testid={`try-${x.key}`}
-                className="text-left rounded-xl border border-white/10 hover:border-signal/50 bg-white/[.02] hover:bg-signal/5 p-4 transition-colors">
-                <div className="text-[15px] font-semibold"><span className="mr-2" aria-hidden>{x.icon}</span>{x.title}</div>
-                <div className="text-[12.5px] text-ink-soft mt-1 leading-snug">{x.line}</div>
-              </button>
-            ))}
-            <button type="button" onClick={onBook} className="text-left rounded-xl border border-dashed border-white/15 hover:border-signal/50 p-4 transition-colors" data-testid="try-book">
-              <div className="text-[15px] font-semibold">📋 Your own business</div>
-              <div className="text-[12.5px] text-ink-soft mt-1 leading-snug">Book a demo — we build Rana on your scripts, prices and languages.</div>
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
 }
 
 const featuresFor = (india: boolean) => [
@@ -108,13 +74,14 @@ function HeroCore({ onTalk, india }: { onTalk: () => void; india: boolean }) {
   const [i, setI] = useState(0);
   const [hover, setHover] = useState(false);
   useEffect(() => { const t = setInterval(() => setI((x) => x + 1), 3600); return () => clearInterval(t); }, []);
-  const chip = "absolute hidden sm:flex items-center gap-1.5 font-mono text-[10.5px] tracking-[0.14em] text-ink-soft border border-white/10 bg-[#0b0e14]/80 backdrop-blur rounded-full px-2.5 py-1 pointer-events-none";
+  const chip = "absolute hidden sm:flex items-center gap-1.5 font-mono text-[10.5px] tracking-[0.14em] text-ink-soft border border-white/10 bg-[#0b0e14]/90 rounded-full px-2.5 py-1 pointer-events-none";
   return (
     <div className="relative flex flex-col items-center" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       <div className="relative w-[480px] max-w-full">
-        <RanaCore size="100%" mode={hover ? "listening" : "idle"} pulse={i} onClick={onTalk} label="Talk to Rana now" className="w-full" >
+        <RanaCore size="100%" mode={hover ? "listening" : "idle"} pulse={i} onClick={onTalk} label="Talk to Rana — ask anything about RANA AI" className="w-full" >
           <span className="flex flex-col items-center gap-2 font-mono text-[11px] tracking-[0.22em] text-ink opacity-80 group-hover:opacity-100 transition-opacity" data-testid="hero-core">
-            <MicIcon size={26} />TAP TO TALK
+            <MicIcon size={26} />TALK TO RANA
+            <span className="text-[9.5px] tracking-[0.16em] text-ink-soft normal-case">Ask me anything about RANA AI</span>
           </span>
         </RanaCore>
         <span className={`${chip} top-[8%] left-[2%]`}><span className="w-1.5 h-1.5 rounded-full bg-signal live-dot" />R1 · ONLINE</span>
@@ -410,9 +377,11 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
   const market = MARKETS[marketKey] || MARKETS.in;
   const india = market.key === "in";
   const FEATURES = featuresFor(india);
-  const PLANS = plansFor(market);
+  // Visitors can switch the pricing currency right in the pricing section (clean local price points, not live FX).
+  const [cur, setCur] = useState<Currency>(market.currency);
+  const PLANS = plansFor({ ...market, currency: cur });
   const FAQ = faqFor(market);
-  const book = PRICE_BOOK[market.currency];
+  const book = PRICE_BOOK[cur];
   useReveal();
   const [menu, setMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -426,8 +395,6 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
   const [live, setLive] = useState<{ mode: LiveMode; scenario: DemoKey | null } | null>(null);
   const openTalk = () => { setMenu(false); setLive({ mode: "talk", scenario: null }); };
   const openTry = (k: DemoKey | null = null) => { setMenu(false); setLive({ mode: "demo", scenario: k }); };
-  const [showPill, setShowPill] = useState(false);
-  useEffect(() => { const f = () => setShowPill(window.scrollY > 700); f(); window.addEventListener("scroll", f, { passive: true }); return () => window.removeEventListener("scroll", f); }, []);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     if (window.location.hash === "#talk" || q.get("talk") === "1") setLive({ mode: "talk", scenario: null });
@@ -435,6 +402,13 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
   }, []);
   useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get("demo") === "1" || window.location.hash === "#demo") setDemo("link"); }, []);
   useEffect(() => { captureUtm(); }, []);
+  // Mark the page as scrolling (pauses animations and the voice core) and clear it shortly after scrolling stops.
+  useEffect(() => {
+    let t: any = 0; const html = document.documentElement;
+    const f = () => { html.classList.add("is-scrolling"); clearTimeout(t); t = setTimeout(() => html.classList.remove("is-scrolling"), 160); };
+    window.addEventListener("scroll", f, { passive: true });
+    return () => { window.removeEventListener("scroll", f); clearTimeout(t); html.classList.remove("is-scrolling"); };
+  }, []);
 
   return (
     <div className="site theme-night min-h-screen font-sans">
@@ -451,7 +425,6 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
           <div className="hidden md:flex items-center gap-3">
             <MarketSwitcher market={market} />
             <Link href="/login" className="text-[13.5px] font-medium text-ink-soft hover:text-ink px-3 py-2">Sign in</Link>
-            <button onClick={openTalk} className="btn-ghost rounded-full px-4 py-2 text-[13.5px] font-medium flex items-center gap-1.5" data-testid="nav-talk"><MicIcon size={14} />Talk to Rana</button>
             <Link href="/signup" className="btn-glow rounded-full px-4 py-2 text-[13.5px] font-semibold" data-testid="nav-trial">Start free trial</Link>
             <button onClick={() => setMenu(true)} className="xl:hidden font-mono text-[12px] border border-signal/60 text-signal rounded-full px-3.5 py-2" aria-label="Open menu">MENU +</button>
           </div>
@@ -460,13 +433,11 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
         </div>
       </header>
       {menu && (
-        <div className="fixed inset-0 z-[60] bg-paper/95 backdrop-blur-xl flex flex-col items-center justify-center gap-6 animate-rise" data-testid="menu">
+        <div className="fixed inset-0 z-[60] bg-paper/[.98] flex flex-col items-center justify-center gap-6 animate-rise" data-testid="menu">
           <button onClick={() => setMenu(false)} className="absolute top-5 right-6 text-[32px] leading-none text-ink-soft" aria-label="Close menu">×</button>
           {NAV.map(([l, h]) => <a key={h} href={h} onClick={() => setMenu(false)} className="font-display text-[36px] font-semibold tracking-tight hover:text-signal">{l}</a>)}
           <div className="flex flex-wrap justify-center gap-3 mt-4">
             <Link href="/login" className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Sign in</Link>
-            <button onClick={openTalk} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">🎙️ Talk to Rana</button>
-            <button onClick={() => openTry()} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Try an instant demo</button>
             <button onClick={openDemo("menu")} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Book a demo</button>
             <Link href="/signup" className="btn-glow rounded-full px-5 py-3 text-[14px] font-semibold">Start free trial</Link>
           </div>
@@ -492,11 +463,10 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
                 : "AI calling agents for any business that runs on phone calls — clinics, real estate, education, e-commerce, finance, hospitality and more. They answer and make your calls around the clock in English, Spanish, French, Japanese, Hindi and 9 more Indian languages, and hand your team only the leads worth calling back."}
             </p>
             <div className="flex flex-wrap gap-3 mt-9 justify-center lg:justify-start">
-              <button onClick={openTalk} className="btn-glow rounded-full px-6 py-3.5 text-[15px] font-semibold flex items-center gap-2" data-testid="hero-talk"><MicIcon />Talk to Rana</button>
-              <button onClick={() => openTry()} className="btn-ghost rounded-full px-6 py-3.5 text-[15px] font-medium" data-testid="hero-try">Try an instant demo</button>
+              <button onClick={() => openTry()} className="btn-glow rounded-full px-6 py-3.5 text-[15px] font-semibold" data-testid="hero-try">Try an instant demo</button>
               <button onClick={openDemo("hero")} className="btn-ghost rounded-full px-6 py-3.5 text-[15px] font-medium" data-testid="hero-demo">Book a demo</button>
             </div>
-            <div className="text-[12.5px] text-ink-soft/80 mt-4">Talk to her right now — no sign-up. Or <Link href="/signup" className="text-signal font-semibold hover:underline" data-testid="hero-trial">start free for {TRIAL_DAYS} days</Link> · {TRIAL_MINUTES} minutes · no card.</div>
+            <div className="text-[12.5px] text-ink-soft/80 mt-4">Or tap Rana to ask her anything about RANA AI — no sign-up. <Link href="/signup" className="text-signal font-semibold hover:underline" data-testid="hero-trial">start free for {TRIAL_DAYS} days</Link> · {TRIAL_MINUTES} minutes · no card.</div>
           </div>
           <HeroCore onTalk={openTalk} india={india} />
         </section>
@@ -545,8 +515,6 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
           <div className="reveal"><LiveCall calls={india ? INDUSTRY_CALLS : GLOBAL_CALLS} /></div>
         </section>
 
-        <TryIt onTalk={openTalk} onDemo={(k) => openTry(k)} onBook={openDemo("try-own")} />
-
         {/* ---------- Features (bento) ---------- */}
         <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24">
           <div className="reveal max-w-[640px]">
@@ -562,6 +530,7 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
               </div>
             ))}
           </div>
+          <div className="reveal mt-3"><Integrations /></div>
           <div className="reveal flex flex-wrap items-center gap-2 mt-5 text-[12.5px]">
             <span className="font-mono text-ink-soft mr-1">COMING NEXT →</span>
             {["WhatsApp follow-ups to customers", "Two-way CRM sync", "Predictive lead scoring"].map((t) => <span key={t} className="rounded-full border border-white/10 px-3 py-1 text-ink-soft">{t}</span>)}
@@ -607,7 +576,13 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
           <div className="reveal text-center max-w-[640px] mx-auto">
             <div className="eyebrow">// PRICING</div>
             <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] mt-3">Plans that pay for themselves.</h2>
-            <p className="text-ink-soft text-[16px] mt-3">Start free for {TRIAL_DAYS} days with {TRIAL_MINUTES} minutes. {market.taxNote} Pay annually and the setup fee is waived.</p>
+            <p className="text-ink-soft text-[16px] mt-3">Start free for {TRIAL_DAYS} days with {TRIAL_MINUTES} minutes. {cur === market.currency ? market.taxNote : CUR_NOTE[cur]} Pay annually and the setup fee is waived.</p>
+            <div className="inline-flex mt-5 rounded-full border border-white/10 bg-white/[.03] p-1" role="group" aria-label="Show prices in" data-testid="currency-switch">
+              {CURRENCIES.map((c) => (
+                <button key={c} type="button" onClick={() => setCur(c)} aria-pressed={cur === c} data-testid={"cur-" + c}
+                  className={"rounded-full px-3.5 py-1.5 font-mono text-[12px] transition-colors " + (cur === c ? "bg-signal text-on-accent font-semibold" : "text-ink-soft hover:text-ink")}>{SYMBOL[c]} {c}</button>
+              ))}
+            </div>
             <p className="text-[14px] mt-3 font-medium" data-testid="engines-line">{ENGINES_LINE}</p>
           </div>
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-12">
@@ -629,7 +604,7 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
           </div>
           {!india && <p className="reveal text-center text-[13px] text-ink-soft mt-4" data-testid="numbers-note">Local numbers: US numbers are ready now; UK, UAE, Europe, Japan and other countries are set up on request. You can also forward your existing number.</p>}
           <div className="reveal card mt-3 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div><div className="font-display text-[20px] font-semibold">Enterprise <span className="text-ink-soft text-[14px] font-normal">· from {moneyShort(market.currency, book.enterpriseFrom)}/month</span></div><div className="text-ink-soft text-[14px] mt-1">{PRICE_LIST.enterprise.minutes.toLocaleString(india ? "en-IN" : "en-US")}+ minutes a month, unlimited AI employees, {PRICE_LIST.enterprise.concurrency} calls at once, both voice engines, and custom per-minute rates.</div></div>
+            <div><div className="font-display text-[20px] font-semibold">Enterprise <span className="text-ink-soft text-[14px] font-normal">· from {moneyShort(cur, book.enterpriseFrom)}/month</span></div><div className="text-ink-soft text-[14px] mt-1">{PRICE_LIST.enterprise.minutes.toLocaleString(india ? "en-IN" : "en-US")}+ minutes a month, unlimited AI employees, {PRICE_LIST.enterprise.concurrency} calls at once, both voice engines, and custom per-minute rates.</div></div>
             <button onClick={openDemo("enterprise")} className="btn-ghost rounded-full px-6 py-3 text-[14px] font-semibold whitespace-nowrap">Talk to us →</button>
           </div>
         </section>
@@ -670,9 +645,8 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
             <p className="font-display text-[34px] sm:text-[60px] font-semibold tracking-[-0.03em] leading-[1.02] mt-4">Got a call<br /><span className="text-gradient">you&apos;re missing?</span></p>
             <p className="text-ink-soft text-[16px] mt-5">Hire your first AI employee in minutes. It starts answering today.</p>
             <div className="flex flex-wrap gap-3 justify-center mt-9">
-              <button onClick={openTalk} className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold flex items-center gap-2"><MicIcon />Talk to Rana</button>
+              <Link href="/signup" className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold">Start free — {TRIAL_DAYS} days</Link>
               <button onClick={openDemo("footer-cta")} className="btn-ghost rounded-full px-7 py-3.5 text-[15px] font-medium">Book a demo</button>
-              <Link href="/signup" className="btn-ghost rounded-full px-7 py-3.5 text-[15px] font-medium">Start free — {TRIAL_DAYS} days</Link>
             </div>
             <div className="text-[13px] text-ink-soft mt-5">or write to <a href={`mailto:${CONTACT_EMAIL}`} className="text-signal">{CONTACT_EMAIL}</a></div>
           </div>
@@ -682,11 +656,6 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
       <DemoForm open={!!demo} onClose={() => setDemo(null)} source={demo || ""} prefill={prefill} />
       <RanaLive open={!!live} mode={live?.mode || "talk"} scenario={live?.scenario || null} market={market} onClose={() => setLive(null)}
         onBookDemo={(p) => { setLive(null); setPrefill(p); setDemo(`live-${live?.mode || "talk"}${live?.scenario ? `-${live.scenario}` : ""}`); }} />
-      {showPill && !live && !demo && !menu && (
-        <button type="button" onClick={openTalk} className="fixed bottom-5 right-5 z-[60] btn-glow rounded-full pl-4 pr-5 py-3 text-[14px] font-semibold flex items-center gap-2 shadow-2xl animate-rise" data-testid="talk-pill">
-          <span className="relative flex"><span className="absolute inset-0 rounded-full bg-on-accent/30 animate-ping" /><MicIcon /></span>Talk to Rana
-        </button>
-      )}
 
       <nav aria-label="Explore RANA AI" className="border-t border-white/[.06]" data-testid="explore-links">
         <div className="max-w-[1160px] mx-auto px-5 sm:px-8 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-[13.5px]">
