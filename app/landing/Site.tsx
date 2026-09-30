@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Orb from "@/components/Orb";
 import { Logo } from "@/components/Sidebar";
-import { PLANS, FAQ, INDUSTRY_CALLS, USE_CASES, ENGINES_LINE, type Line } from "./content";
-import { TRIAL_DAYS, TRIAL_MINUTES, PLANS as PRICE_LIST, ENTRY_PLAN, inr0, inrShort } from "@/lib/pricing";
+import { INDUSTRY_CALLS, GLOBAL_CALLS, USE_CASES, ENGINES_LINE, CALC, CALL_LANGUAGE_COUNT, plansFor, faqFor, type Line, type IndustryCall } from "./content";
+import { TRIAL_DAYS, TRIAL_MINUTES, PLANS as PRICE_LIST, PRICE_BOOK, CURRENCY_SYMBOL as SYMBOL, money, moneyShort, type Currency } from "@/lib/pricing";
+import { MARKETS, MARKET_KEYS, MARKET_COOKIE, marketForZone, type Market, type MarketKey } from "./markets";
 import DemoForm from "./DemoForm";
 import { captureUtm } from "./utm";
 import { LEGAL_LINKS, SOCIAL_LINKS } from "@/app/legal/legal";
@@ -14,12 +15,14 @@ const CONTACT_EMAIL = "hello@ranaai.in";
 
 const NAV = [["Product", "#product"], ["Industries", "#industries"], ["How it works", "#how"], ["Pricing", "#pricing"], ["FAQ", "#faq"]];
 
-const FEATURES = [
+const featuresFor = (india: boolean) => [
   { k: "INBOUND", t: "Answers every call, 24×7", d: "After hours, during the rush, on Sundays. It picks up in the caller's language, answers questions from your own knowledge, and captures their details.", big: true },
-  { k: "OUTBOUND", t: "Calls your lead lists", d: "Upload a list and launch a campaign. Your AI employee dials, follows up and books the next step — no telecaller hiring." },
-  { k: "LANGUAGE", t: "11 Indian languages", d: "Telugu, Hindi, Tamil, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, Odia and English — and it switches when the caller does." },
+  { k: "OUTBOUND", t: "Calls your lead lists", d: `Upload a list and launch a campaign. Your AI employee dials, follows up and books the next step — ${india ? "no telecaller hiring" : "no extra hiring"}.` },
+  india
+    ? { k: "LANGUAGE", t: "Indian + global languages", d: "11 Indian languages — the mother tongues of nearly 9 in 10 Indians — switching when the caller does. Plus Spanish, French and Japanese for callers abroad." }
+    : { k: "LANGUAGE", t: "Global + Indian languages", d: "English, Spanish, French, Japanese and Hindi — plus 9 more Indian languages that switch when the caller does. Voices in 40+ languages." },
   { k: "QUALIFY", t: "Hot · warm · cold, automatically", d: "Every call is recorded, transcribed, summarised and scored. Your team opens the dashboard and calls the ready-to-close leads first." },
-  { k: "VOICE", t: "A voice that sounds like you", d: "Pick from natural Indian voices or clone your own, and set the tone — warm counsellor, crisp sales, patient support." },
+  { k: "VOICE", t: "A voice that sounds like you", d: `Pick from ${india ? "natural Indian voices" : "900+ natural voices"} or clone your own, and set the tone — warm counsellor, crisp sales, patient support.` },
   { k: "CONTROL", t: "You're in control", d: "Change the script, voice and knowledge yourself and test it on the Talk page before a single customer hears it.", wide: true },
 ];
 
@@ -46,13 +49,13 @@ function useReveal() {
   }, []);
 }
 
-function LiveCall() {
+function LiveCall({ calls }: { calls: IndustryCall[] }) {
   const [ind, setInd] = useState(0);
   const [round, setRound] = useState(0);
   const pinned = useRef(false); // once the visitor picks a business, keep replaying that one
   const [lines, setLines] = useState<Line[]>([]);
   const [typing, setTyping] = useState("");
-  const call = INDUSTRY_CALLS[ind];
+  const call = calls[ind] || calls[0];
   useEffect(() => {
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     if (reduce) { setLines(call.lines); return; }
@@ -67,7 +70,7 @@ function LiveCall() {
       }
       await sleep(4200);
       // Keep cycling through businesses until the visitor picks one; then replay theirs.
-      if (alive) { if (pinned.current) setRound((r) => r + 1); else setInd((i) => (i + 1) % INDUSTRY_CALLS.length); }
+      if (alive) { if (pinned.current) setRound((r) => r + 1); else setInd((i) => (i + 1) % calls.length); }
     })();
     return () => { alive = false; };
   }, [ind, round]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -76,7 +79,7 @@ function LiveCall() {
   return (
     <div className="card p-5 sm:p-6 font-mono text-[12.5px]" data-testid="live-call">
       <div className="flex flex-wrap gap-1.5 mb-4 font-sans" role="tablist" aria-label="Pick a business">
-        {INDUSTRY_CALLS.map((c, i) => (
+        {calls.map((c, i) => (
           <button key={c.key} role="tab" aria-selected={i === ind} onClick={() => { pinned.current = true; setTyping(""); setInd(i); if (i === ind) setRound((r) => r + 1); }} className={`rounded-full border px-2.5 py-1 text-[11.5px] transition-colors ${i === ind ? "border-signal/60 bg-signal/10 text-signal" : "border-white/10 text-ink-soft hover:text-ink"}`}>{c.label}</button>
         ))}
       </div>
@@ -197,7 +200,7 @@ function Industries({ onDemo }: { onDemo: () => void }) {
         </div>
       </div>
       <div className="reveal card mt-3 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="text-[14.5px]"><b>Don&apos;t see your business?</b> <span className="text-ink-soft">If your team answers or makes calls, RANA can take the repetitive ones — in 11 Indian languages.</span></div>
+        <div className="text-[14.5px]"><b>Don&apos;t see your business?</b> <span className="text-ink-soft">If your team answers or makes calls, RANA can take the repetitive ones — in your customers&apos; language.</span></div>
         <button onClick={onDemo} className="btn-ghost rounded-full px-5 py-2.5 text-[14px] font-semibold whitespace-nowrap">Show me for my business →</button>
       </div>
     </section>
@@ -205,22 +208,20 @@ function Industries({ onDemo }: { onDemo: () => void }) {
 }
 
 /** Honest back-of-the-envelope: the visitor's own numbers, the visitor's own estimate.
- *  Customer value runs from ₹500 (a clinic visit) to ₹10 crore (a villa or a big B2B order) on a log scale, with presets. */
-const VALUE_MIN = 500, VALUE_MAX = 10_00_00_000;
-const niceRound = (v: number) => { const m = 10 ** Math.max(2, Math.floor(Math.log10(v)) - 1); return Math.max(VALUE_MIN, Math.round(v / m) * m); };
-const valueOfPos = (p: number) => niceRound(VALUE_MIN * (VALUE_MAX / VALUE_MIN) ** (p / 1000));
-const posOfValue = (v: number) => Math.round((1000 * Math.log(Math.min(VALUE_MAX, Math.max(VALUE_MIN, v)) / VALUE_MIN)) / Math.log(VALUE_MAX / VALUE_MIN));
-const VALUE_PRESETS: [string, number, number][] = [ // label, customer value, typical % of missed callers who would have bought
-  ["Clinic patient", 3000, 20], ["Coaching admission", 75000, 10], ["Insurance policy", 30000, 8], ["Car sale", 800000, 3], ["Flat / villa sale", 1_00_00_000, 1],
-];
-function MissedCalls({ onDemo }: { onDemo: () => void }) {
+ *  Customer value uses a log scale per currency (₹500 → ₹10 crore, $10 → $10M, …) with one-click presets. */
+function MissedCalls({ onDemo, market }: { onDemo: () => void; market: Market }) {
+  const cur: Currency = market.currency;
+  const C = CALC[cur];
+  const niceRound = (v: number) => { const m = 10 ** Math.max(0, Math.floor(Math.log10(v)) - 1); return Math.max(C.min, Math.round(v / m) * m); };
+  const valueOfPos = (p: number) => niceRound(C.min * (C.max / C.min) ** (p / 1000));
+  const posOfValue = (v: number) => Math.round((1000 * Math.log(Math.min(C.max, Math.max(C.min, v)) / C.min)) / Math.log(C.max / C.min));
   const [missed, setMissed] = useState(15);
   const [conv, setConv] = useState(10);
-  const [value, setValue] = useState(75000);
-  const perMonth = missed * 26;
+  const [value, setValue] = useState(C.def);
+  const perMonth = missed * market.workDays;
   const won = perMonth * (conv / 100);
   const lost = Math.round(won * value);
-  const plan = ENTRY_PLAN.pricePerMonth || 0;
+  const plan = PRICE_BOOK[cur].plans.launch.price;
   const slider = "w-full accent-[rgb(45,225,194)]";
   return (
     <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24">
@@ -229,7 +230,7 @@ function MissedCalls({ onDemo }: { onDemo: () => void }) {
           <div className="eyebrow">// WHAT MISSED CALLS COST YOU</div>
           <h2 className="font-display text-[28px] sm:text-[38px] font-semibold tracking-[-0.025em] leading-[1.08] mt-3">Every unanswered call<br />is a customer who called someone else.</h2>
           <div className="flex flex-wrap gap-2 mt-6" role="group" aria-label="Pick your business">
-            {VALUE_PRESETS.map(([label, v, c]) => (
+            {C.presets.map(([label, v, c]) => (
               <button key={label} type="button" onClick={() => { setValue(v); setConv(c); }} data-testid={`calc-preset-${label.split(" ")[0].toLowerCase()}`}
                 className={`rounded-full border px-3 py-1.5 text-[12.5px] transition-colors ${value === v ? "border-signal/60 bg-signal/10 text-signal font-semibold" : "border-white/10 text-ink-soft hover:text-ink hover:border-white/25"}`}>{label}</button>
             ))}
@@ -240,18 +241,18 @@ function MissedCalls({ onDemo }: { onDemo: () => void }) {
             <label className="block"><div className="flex justify-between mb-2"><span className="text-ink-soft">Of those, how many would have bought</span><b className="font-mono">{conv}%</b></div>
               <input type="range" min={0.5} max={50} step={0.5} value={conv} onChange={(e) => setConv(+e.target.value)} className={slider} aria-label="Conversion percent" /></label>
             <label className="block"><div className="flex justify-between items-center gap-3 mb-2"><span className="text-ink-soft">What one customer or sale is worth to you</span>
-                <span className="flex items-center gap-1 font-mono font-bold">₹<input type="number" min={VALUE_MIN} max={VALUE_MAX} step={500} value={value} onChange={(e) => setValue(Math.min(VALUE_MAX, Math.max(0, Math.round(+e.target.value || 0))))}
-                  className="w-[132px] bg-transparent border border-white/15 rounded-md px-2 py-1 text-right" aria-label="Customer value in rupees" data-testid="calc-value" /></span></div>
-              <input type="range" min={0} max={1000} value={posOfValue(value)} onChange={(e) => setValue(valueOfPos(+e.target.value))} className={slider} aria-label="Customer value" />
-              <div className="relative h-4 text-[11px] text-ink-soft mt-1 font-mono">{([["₹500", VALUE_MIN], ["₹10K", 10000], ["₹1 L", 1e5], ["₹10 L", 1e6], ["₹1 Cr", 1e7], ["₹10 Cr", VALUE_MAX]] as [string, number][]).map(([t, v], i, a) => (
+                <span className="flex items-center gap-1 font-mono font-bold">{SYMBOL[cur]}<input type="number" min={C.min} max={C.max} value={value} onChange={(e) => setValue(Math.min(C.max, Math.max(0, Math.round(+e.target.value || 0))))}
+                  className="w-[132px] bg-transparent border border-white/15 rounded-md px-2 py-1 text-right" aria-label="Customer value" data-testid="calc-value" /></span></div>
+              <input type="range" min={0} max={1000} value={posOfValue(value)} onChange={(e) => setValue(valueOfPos(+e.target.value))} className={slider} aria-label="Customer value slider" />
+              <div className="relative h-4 text-[11px] text-ink-soft mt-1 font-mono">{C.ticks.map(([t, v], i, a) => (
                 <span key={t} className="absolute whitespace-nowrap" style={{ left: `${posOfValue(v) / 10}%`, transform: i === 0 ? "none" : i === a.length - 1 ? "translateX(-100%)" : "translateX(-50%)" }}>{t}</span>))}</div></label>
           </div>
         </div>
         <div className="text-center lg:text-left">
           <div className="font-mono text-[11.5px] text-ink-soft">BUSINESS YOU MAY BE LOSING EACH MONTH</div>
-          <div className="font-display text-[46px] sm:text-[60px] font-semibold tracking-tight text-gradient leading-none mt-3" data-testid="calc-lost">{inrShort(lost)}</div>
-          <div className="text-[13.5px] text-ink-soft mt-3">{perMonth.toLocaleString("en-IN")} missed calls × {conv}% = about {won >= 10 ? Math.round(won).toLocaleString("en-IN") : Math.round(won * 10) / 10} customers × {inrShort(value)}, over 26 working days. Your numbers — change them.</div>
-          <div className="mt-6 rounded-xl border border-white/10 bg-white/[.03] p-4 text-[14px]" data-testid="calc-roi">RANA answers and calls back every one of them, from <b>₹{inr0(plan)} a month</b>.{" "}
+          <div className="font-display text-[46px] sm:text-[60px] font-semibold tracking-tight text-gradient leading-none mt-3" data-testid="calc-lost">{moneyShort(cur, lost)}</div>
+          <div className="text-[13.5px] text-ink-soft mt-3">{perMonth.toLocaleString("en-US")} missed calls × {conv}% = about {won >= 10 ? Math.round(won).toLocaleString("en-US") : Math.round(won * 10) / 10} customers × {moneyShort(cur, value)}, over {market.workDays} working days. Your numbers — change them.</div>
+          <div className="mt-6 rounded-xl border border-white/10 bg-white/[.03] p-4 text-[14px]" data-testid="calc-roi">RANA answers and calls back every one of them, from <b>{money(cur, plan)} a month</b>.{" "}
             {value > 0 && lost > 0 ? (value >= plan
               ? <>One extra customer pays for <b>{value >= plan * 12 ? "a full year" : Math.floor(value / plan) === 1 ? "a month" : `${Math.floor(value / plan)} months`}</b> of RANA.</>
               : <>It pays for itself with <b>{Math.ceil(plan / value)} extra customers</b> a month.</>) : null}
