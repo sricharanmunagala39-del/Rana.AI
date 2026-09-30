@@ -8,7 +8,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { SarvamVoiceCall } from "@/lib/sarvam-voice-client";
 import RanaCore, { CORE_LABEL, type CoreMode } from "@/components/RanaCore";
-import { SCENARIOS, TALK_LANGS, DEMO_LANGS, scenarioOf, type DemoKey, type TalkLang } from "./talkContent";
+import { SCENARIOS, TALK_LANGS, DEMO_LANGS, TALK_MAX_S, scenarioOf, type DemoKey, type TalkLang } from "./talkContent";
 import type { Market } from "./markets";
 import type { DemoPrefill } from "./DemoForm";
 import type { VoiceLevels } from "@/lib/voice/meter";
@@ -342,7 +342,7 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
                   {mode === "demo" && <button type="button" onClick={playSample} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium" data-testid="live-sample">▶ Watch a sample call</button>}
                   {mode === "demo" && <button type="button" onClick={() => setStep("pick")} className="text-[13.5px] text-ink-soft hover:text-ink px-2">← Other demos</button>}
                 </div>
-                <p className="text-[11.5px] text-ink-soft/80 mt-4">Uses your microphone. {mode === "talk" ? "Up to 3 minutes" : "About 90 seconds"}. The conversation is recorded so our team can follow up — see our <Link href="/legal/privacy" className="underline">privacy policy</Link>.</p>
+                <p className="text-[11.5px] text-ink-soft/80 mt-4">Uses your microphone. {mode === "talk" ? `Up to ${Math.round(TALK_MAX_S / 60)} minutes` : "About 90 seconds"}. The conversation is recorded so our team can follow up — see our <Link href="/legal/privacy" className="underline">privacy policy</Link>.</p>
               </>
             )}
           </div>
