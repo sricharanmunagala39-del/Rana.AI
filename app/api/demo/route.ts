@@ -48,6 +48,8 @@ export async function POST(req: Request) {
   };
   const saved = await sb<any[]>(`/demo_requests`, { method: "POST", body: JSON.stringify(row) }).catch((e) => { console.error("[demo]", e?.message); return null; });
   if (!saved?.[0]) return Response.json({ error: "Couldn't save your request just now. Please email hello@ranaai.in." }, { status: 500 });
+  // Booked right after "Talk to Rana" / an Instant demo: link the conversation so HQ sees both together.
+  if (/^[0-9a-f-]{36}$/.test(String(b.talkId || ""))) await sb(`/web_talks?id=eq.${b.talkId}&demo_request_id=is.null`, { method: "PATCH", prefer: "return=minimal", body: JSON.stringify({ demo_request_id: saved[0].id }) }).catch(() => {});
 
   const lines = [
     `<b>${esc(name)}</b> from <b>${esc(company)}</b> wants a demo.`,

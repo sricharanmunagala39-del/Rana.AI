@@ -9,7 +9,9 @@ const VOLUMES = ["Under 500 calls / month", "500 – 2,000", "2,000 – 10,000",
 const TIMES = ["Morning (10–12)", "Afternoon (12–4)", "Evening (4–7)", "Any time"];
 
 /** "Book a demo" — a real form (not an email link), saved for RANA HQ and confirmed to the visitor. */
-export default function DemoForm({ open, onClose, source }: { open: boolean; onClose: () => void; source: string }) {
+export type DemoPrefill = { name?: string; phone?: string; email?: string; company?: string; message?: string; languages?: string[]; talkId?: string };
+
+export default function DemoForm({ open, onClose, source, prefill }: { open: boolean; onClose: () => void; source: string; prefill?: DemoPrefill | null }) {
   const [f, setF] = useState<any>({ name: "", phone: "", email: "", company: "", industry: "", wants: "both", languages: [] as string[], volume: "", bestTime: "", message: "", consent: false, website: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -17,6 +19,16 @@ export default function DemoForm({ open, onClose, source }: { open: boolean; onC
   const first = useRef<HTMLInputElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+
+  // Opened after "Talk to Rana": start from what Rana already captured.
+  useEffect(() => {
+    if (!open || !prefill) return;
+    setF((x: any) => {
+      const keep = (k: string, v: any) => (v && !x[k] ? { [k]: v } : {});
+      return { ...x, ...keep("name", prefill.name), ...keep("phone", prefill.phone), ...keep("email", prefill.email), ...keep("company", prefill.company), ...keep("message", prefill.message),
+        ...(prefill.languages?.length && !x.languages.length ? { languages: prefill.languages.filter((l) => LANGS.includes(l)) } : {}) };
+    });
+  }, [open, prefill]);
 
   useEffect(() => {
     if (!open) return;
@@ -33,7 +45,7 @@ export default function DemoForm({ open, onClose, source }: { open: boolean; onC
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr("");
     try {
-      const r = await fetch("/api/demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, source: utmTag() ? `${source}|${utmTag()}` : source }) });
+      const r = await fetch("/api/demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, talkId: prefill?.talkId, source: utmTag() ? `${source}|${utmTag()}` : source }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || "Couldn't send. Please email hello@ranaai.in.");
       setDone(true);

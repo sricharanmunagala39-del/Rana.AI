@@ -6,14 +6,57 @@ import { Logo } from "@/components/Sidebar";
 import { INDUSTRY_CALLS, GLOBAL_CALLS, USE_CASES, ENGINES_LINE, CALC, CALL_LANGUAGE_COUNT, plansFor, faqFor, type Line, type IndustryCall } from "./content";
 import { TRIAL_DAYS, TRIAL_MINUTES, PLANS as PRICE_LIST, PRICE_BOOK, CURRENCY_SYMBOL as SYMBOL, money, moneyShort, type Currency } from "@/lib/pricing";
 import { MARKETS, MARKET_KEYS, MARKET_COOKIE, marketForZone, type Market, type MarketKey } from "./markets";
-import DemoForm from "./DemoForm";
+import DemoForm, { type DemoPrefill } from "./DemoForm";
+import RanaLive, { type LiveMode } from "./RanaLive";
+import { SCENARIOS, type DemoKey } from "./talkContent";
 import { captureUtm } from "./utm";
 import { LEGAL_LINKS, SOCIAL_LINKS } from "@/app/legal/legal";
 
 // Public contact address (Zoho Mail inbox for ranaai.in).
 const CONTACT_EMAIL = "hello@ranaai.in";
 
-const NAV = [["Product", "#product"], ["Industries", "#industries"], ["How it works", "#how"], ["Pricing", "#pricing"], ["FAQ", "#faq"]];
+const NAV = [["Try it live", "#try"], ["Industries", "#industries"], ["How it works", "#how"], ["Pricing", "#pricing"], ["FAQ", "#faq"]];
+
+function MicIcon({ size = 16 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>;
+}
+
+/** "Hear it for yourself": Talk to Rana + the five instant demos. */
+function TryIt({ onTalk, onDemo, onBook }: { onTalk: () => void; onDemo: (k: DemoKey) => void; onBook: () => void }) {
+  return (
+    <section id="try" className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24 scroll-mt-24">
+      <div className="reveal max-w-[680px]">
+        <div className="eyebrow">// DON&apos;T WATCH A VIDEO. TALK TO IT.</div>
+        <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] leading-[1.05] mt-3">Hear an AI employee<br /><span className="text-gradient">handle a real call.</span></h2>
+        <p className="text-ink-soft text-[16px] mt-4">Talk to Rana about your business, or play the customer in a 90-second demo. Use your microphone — no sign-up.</p>
+      </div>
+      <div className="grid lg:grid-cols-[1.05fr_1.6fr] gap-3 mt-10">
+        <button type="button" onClick={onTalk} className="card card-hi reveal text-left p-7 flex flex-col group" data-testid="try-talk">
+          <div className="flex items-center gap-3"><span className="w-12 h-12 rounded-full bg-signal/15 border border-signal/40 text-signal flex items-center justify-center shadow-glow group-hover:scale-105 transition-transform"><MicIcon size={22} /></span><span className="font-mono text-[11px] text-signal">LIVE · ABOUT 2 MINUTES</span></div>
+          <div className="font-display text-[26px] font-semibold tracking-tight mt-5">Talk to Rana</div>
+          <p className="text-ink-soft text-[14.5px] mt-2 leading-relaxed flex-1">Tell her what your business does. She asks the questions a great sales rep would, shows how she&apos;d handle <i>your</i> calls — and hands you the lead card your team would get.</p>
+          <span className="mt-6 btn-glow rounded-full px-5 py-3 text-[14px] font-semibold self-start flex items-center gap-2"><MicIcon /> Start talking</span>
+        </button>
+        <div className="card reveal p-6">
+          <div className="flex items-center justify-between gap-3"><div className="font-display text-[20px] font-semibold">Try an instant demo</div><span className="font-mono text-[11px] text-ink-soft">YOU PLAY THE CUSTOMER · 90 s</span></div>
+          <div className="grid sm:grid-cols-2 gap-2.5 mt-4">
+            {SCENARIOS.map((x) => (
+              <button key={x.key} type="button" onClick={() => onDemo(x.key)} data-testid={`try-${x.key}`}
+                className="text-left rounded-xl border border-white/10 hover:border-signal/50 bg-white/[.02] hover:bg-signal/5 p-4 transition-colors">
+                <div className="text-[15px] font-semibold"><span className="mr-2" aria-hidden>{x.icon}</span>{x.title}</div>
+                <div className="text-[12.5px] text-ink-soft mt-1 leading-snug">{x.line}</div>
+              </button>
+            ))}
+            <button type="button" onClick={onBook} className="text-left rounded-xl border border-dashed border-white/15 hover:border-signal/50 p-4 transition-colors" data-testid="try-book">
+              <div className="text-[15px] font-semibold">📋 Your own business</div>
+              <div className="text-[12.5px] text-ink-soft mt-1 leading-snug">Book a demo — we build Rana on your scripts, prices and languages.</div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 const featuresFor = (india: boolean) => [
   { k: "INBOUND", t: "Answers every call, 24×7", d: "After hours, during the rush, on Sundays. It picks up in the caller's language, answers questions from your own knowledge, and captures their details.", big: true },
@@ -284,7 +327,7 @@ function MarketSwitcher({ market, align = "right" }: { market: Market; align?: "
       <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} data-testid="market-switch"
         className="flex items-center gap-1.5 rounded-full border border-white/10 hover:border-white/25 px-3 py-2 text-[12.5px] font-mono text-ink-soft hover:text-ink">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9S14.5 18.3 12 21M12 3C9.5 5.7 8.2 8.7 8.2 12s1.3 6.3 3.8 9" /></svg>
-        {market.short} · {SYMBOL[market.currency]} {market.currency}
+        {market.short} · {SYMBOL[market.currency]}
       </button>
       {open && (
         <div role="menu" className={`absolute z-[70] w-[230px] rounded-xl border border-white/10 bg-[#0b0e14] p-1.5 shadow-2xl ${align === "up" ? "bottom-full mb-2 left-1/2 -translate-x-1/2" : align === "left" ? "left-0 mt-2" : "right-0 mt-2"}`} data-testid="market-menu">
@@ -340,7 +383,19 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
   useEffect(() => { document.body.style.overflow = menu ? "hidden" : ""; }, [menu]);
   // "Book a demo" opens the form. Links like ranaai.in/?demo=1 or ranaai.in/#demo open it straight away (for ads, WhatsApp, email).
   const [demo, setDemo] = useState<string | null>(null);
-  const openDemo = (from: string) => () => { setMenu(false); setDemo(from); };
+  const [prefill, setPrefill] = useState<DemoPrefill | null>(null);
+  const openDemo = (from: string) => () => { setMenu(false); setPrefill(null); setDemo(from); };
+  // "Talk to Rana" and the instant demos (live voice). Links: ranaai.in/#talk, ranaai.in/?try=booking
+  const [live, setLive] = useState<{ mode: LiveMode; scenario: DemoKey | null } | null>(null);
+  const openTalk = () => { setMenu(false); setLive({ mode: "talk", scenario: null }); };
+  const openTry = (k: DemoKey | null = null) => { setMenu(false); setLive({ mode: "demo", scenario: k }); };
+  const [showPill, setShowPill] = useState(false);
+  useEffect(() => { const f = () => setShowPill(window.scrollY > 700); f(); window.addEventListener("scroll", f, { passive: true }); return () => window.removeEventListener("scroll", f); }, []);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (window.location.hash === "#talk" || q.get("talk") === "1") setLive({ mode: "talk", scenario: null });
+    const t = q.get("try"); if (t) setLive({ mode: "demo", scenario: (SCENARIOS.some((x) => x.key === t) ? t : null) as DemoKey | null });
+  }, []);
   useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get("demo") === "1" || window.location.hash === "#demo") setDemo("link"); }, []);
   useEffect(() => { captureUtm(); }, []);
 
@@ -351,16 +406,17 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
 
       {/* ---------- Nav ---------- */}
       <header className={`sticky top-0 z-50 transition-all ${scrolled ? "glass border-b border-white/[.06]" : ""}`}>
-        <div className="max-w-[1160px] mx-auto px-5 sm:px-8 h-[68px] flex items-center justify-between">
-          <a href="#top" className="flex items-center gap-2.5"><Logo size={30} /><span className="font-display text-[18px] font-semibold tracking-tight">RANA<span className="text-gradient"> AI</span></span></a>
-          <nav className="hidden md:flex items-center gap-8 text-[13.5px] text-ink-soft">
+        <div className="max-w-[1280px] mx-auto px-5 sm:px-8 h-[68px] flex items-center justify-between gap-4 whitespace-nowrap">
+          <a href="#top" className="flex items-center gap-2.5 shrink-0"><Logo size={30} /><span className="font-display text-[18px] font-semibold tracking-tight">RANA<span className="text-gradient"> AI</span></span></a>
+          <nav className="hidden xl:flex items-center gap-7 text-[13.5px] text-ink-soft">
             {NAV.map(([l, h]) => <a key={h} href={h} className="hover:text-ink">{l}</a>)}
           </nav>
           <div className="hidden md:flex items-center gap-3">
             <MarketSwitcher market={market} />
             <Link href="/login" className="text-[13.5px] font-medium text-ink-soft hover:text-ink px-3 py-2">Sign in</Link>
-            <button onClick={openDemo("nav")} className="btn-ghost rounded-full px-4 py-2 text-[13.5px] font-medium" data-testid="nav-demo">Book a demo</button>
+            <button onClick={openTalk} className="btn-ghost rounded-full px-4 py-2 text-[13.5px] font-medium flex items-center gap-1.5" data-testid="nav-talk"><MicIcon size={14} />Talk to Rana</button>
             <Link href="/signup" className="btn-glow rounded-full px-4 py-2 text-[13.5px] font-semibold" data-testid="nav-trial">Start free trial</Link>
+            <button onClick={() => setMenu(true)} className="xl:hidden font-mono text-[12px] border border-signal/60 text-signal rounded-full px-3.5 py-2" aria-label="Open menu">MENU +</button>
           </div>
           <div className="md:hidden flex items-center gap-2"><MarketSwitcher market={market} />
           <button onClick={() => setMenu(true)} className="font-mono text-[12px] border border-signal/60 text-signal rounded-full px-4 py-2" aria-label="Open menu" data-testid="menu-btn">MENU +</button></div>
@@ -372,6 +428,8 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
           {NAV.map(([l, h]) => <a key={h} href={h} onClick={() => setMenu(false)} className="font-display text-[36px] font-semibold tracking-tight hover:text-signal">{l}</a>)}
           <div className="flex flex-wrap justify-center gap-3 mt-4">
             <Link href="/login" className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Sign in</Link>
+            <button onClick={openTalk} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">🎙️ Talk to Rana</button>
+            <button onClick={() => openTry()} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Try an instant demo</button>
             <button onClick={openDemo("menu")} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Book a demo</button>
             <Link href="/signup" className="btn-glow rounded-full px-5 py-3 text-[14px] font-semibold">Start free trial</Link>
           </div>
@@ -397,10 +455,11 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
                 : "AI calling agents for any business that runs on phone calls — clinics, real estate, education, e-commerce, finance, hospitality and more. They answer and make your calls around the clock in English, Spanish, French, Japanese, Hindi and 9 more Indian languages, and hand your team only the leads worth calling back."}
             </p>
             <div className="flex flex-wrap gap-3 mt-9 justify-center lg:justify-start">
-              <Link href="/signup" className="btn-glow rounded-full px-6 py-3.5 text-[15px] font-semibold" data-testid="hero-trial">Start free — {TRIAL_DAYS} days</Link>
-              <button onClick={openDemo("hero")} className="btn-ghost rounded-full px-6 py-3.5 text-[15px] font-medium" data-testid="hero-demo">Book a demo →</button>
+              <button onClick={openTalk} className="btn-glow rounded-full px-6 py-3.5 text-[15px] font-semibold flex items-center gap-2" data-testid="hero-talk"><MicIcon />Talk to Rana</button>
+              <button onClick={() => openTry()} className="btn-ghost rounded-full px-6 py-3.5 text-[15px] font-medium" data-testid="hero-try">Try an instant demo</button>
+              <button onClick={openDemo("hero")} className="btn-ghost rounded-full px-6 py-3.5 text-[15px] font-medium" data-testid="hero-demo">Book a demo</button>
             </div>
-            <div className="text-[12.5px] text-ink-soft/80 mt-4">{TRIAL_MINUTES} free minutes · no card needed · cancel anytime</div>
+            <div className="text-[12.5px] text-ink-soft/80 mt-4">Talk to her right now — no sign-up. Or <Link href="/signup" className="text-signal font-semibold hover:underline" data-testid="hero-trial">start free for {TRIAL_DAYS} days</Link> · {TRIAL_MINUTES} minutes · no card.</div>
           </div>
           <div className="relative flex flex-col items-center">
             <Orb size={520} interactive className="max-w-full" />
@@ -451,6 +510,8 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
           </div>
           <div className="reveal"><LiveCall calls={india ? INDUSTRY_CALLS : GLOBAL_CALLS} /></div>
         </section>
+
+        <TryIt onTalk={openTalk} onDemo={(k) => openTry(k)} onBook={openDemo("try-own")} />
 
         {/* ---------- Features (bento) ---------- */}
         <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24">
@@ -575,15 +636,23 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
             <p className="font-display text-[34px] sm:text-[60px] font-semibold tracking-[-0.03em] leading-[1.02] mt-4">Got a call<br /><span className="text-gradient">you&apos;re missing?</span></p>
             <p className="text-ink-soft text-[16px] mt-5">Hire your first AI employee in minutes. It starts answering today.</p>
             <div className="flex flex-wrap gap-3 justify-center mt-9">
-              <Link href="/signup" className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold">Start free — {TRIAL_DAYS} days</Link>
+              <button onClick={openTalk} className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold flex items-center gap-2"><MicIcon />Talk to Rana</button>
               <button onClick={openDemo("footer-cta")} className="btn-ghost rounded-full px-7 py-3.5 text-[15px] font-medium">Book a demo</button>
+              <Link href="/signup" className="btn-ghost rounded-full px-7 py-3.5 text-[15px] font-medium">Start free — {TRIAL_DAYS} days</Link>
             </div>
             <div className="text-[13px] text-ink-soft mt-5">or write to <a href={`mailto:${CONTACT_EMAIL}`} className="text-signal">{CONTACT_EMAIL}</a></div>
           </div>
         </section>
       </main>
 
-      <DemoForm open={!!demo} onClose={() => setDemo(null)} source={demo || ""} />
+      <DemoForm open={!!demo} onClose={() => setDemo(null)} source={demo || ""} prefill={prefill} />
+      <RanaLive open={!!live} mode={live?.mode || "talk"} scenario={live?.scenario || null} market={market} onClose={() => setLive(null)}
+        onBookDemo={(p) => { setLive(null); setPrefill(p); setDemo(`live-${live?.mode || "talk"}${live?.scenario ? `-${live.scenario}` : ""}`); }} />
+      {showPill && !live && !demo && !menu && (
+        <button type="button" onClick={openTalk} className="fixed bottom-5 right-5 z-[60] btn-glow rounded-full pl-4 pr-5 py-3 text-[14px] font-semibold flex items-center gap-2 shadow-2xl animate-rise" data-testid="talk-pill">
+          <span className="relative flex"><span className="absolute inset-0 rounded-full bg-on-accent/30 animate-ping" /><MicIcon /></span>Talk to Rana
+        </button>
+      )}
 
       <footer className="border-t border-white/[.06]">
         <div className="max-w-[1160px] mx-auto px-5 sm:px-8 py-10 flex flex-col md:flex-row gap-6 items-center justify-between text-[13px] text-ink-soft">
