@@ -1,5 +1,6 @@
 "use client";
 import { hideVendors } from "./voice/brand";
+import { LevelMeter, type VoiceLevels } from "./voice/meter";
 
 /**
  * Browser client for a Sarvam voice-agent session (the protocol used by Sarvam's own `sarvam-conv-ai-sdk`).
@@ -72,6 +73,12 @@ export class SarvamVoiceCall {
   private maxTimer: any = null;
   private onPageHide = () => this.stop();
   private onEvent: (e: SarvamCallEvent) => void;
+  private outMeter = new LevelMeter();
+  private inMeter = new LevelMeter();
+  private outNode: AudioNode | null = null;
+
+  /** Live loudness of the AI (agent) and the person (user), 0…1 — for the HUD orb. */
+  levels(): VoiceLevels { return { agent: this.outMeter.level(), user: this.muted ? 0 : this.inMeter.level() }; }
 
   constructor(onEvent: (e: SarvamCallEvent) => void) { this.onEvent = onEvent; }
 
@@ -98,6 +105,7 @@ export class SarvamVoiceCall {
     this.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
     this.playCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     this.nextPlay = this.playCtx.currentTime;
+    try { this.outNode = this.outMeter.tap(this.playCtx, this.playCtx.destination); } catch { this.outNode = null; }
 
     const ws = new WebSocket(session.url);
     this.ws = ws;
@@ -166,6 +174,7 @@ export class SarvamVoiceCall {
     if (!this.micStream) return;
     this.micCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     this.source = this.micCtx.createMediaStreamSource(this.micStream);
+    try { this.inMeter.listen(this.micCtx, this.source); } catch {}
     this.processor = this.micCtx.createScriptProcessor(2048, 1, 1);
     this.processor.onaudioprocess = (e) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
@@ -187,7 +196,7 @@ export class SarvamVoiceCall {
     buf.getChannelData(0).set(data);
     const src = this.playCtx.createBufferSource();
     src.buffer = buf;
-    src.connect(this.playCtx.destination);
+    src.connect(this.outNode || this.playCtx.destination);
     const at = Math.max(this.playCtx.currentTime, this.nextPlay);
     src.start(at);
     this.nextPlay = at + buf.duration;
@@ -236,6 +245,7 @@ export class SarvamVoiceCall {
     try { this.clearPlayback(); this.playCtx?.close(); } catch {}
     try { this.micStream?.getTracks().forEach((t) => t.stop()); } catch {}
     try { this.ws?.close(); } catch {}
-    this.ws = null; this.micCtx = null; this.playCtx = null; this.micStream = null;
+    this.ws = null; this.micCtx = null; this.playCtx = null; this.micStream = null; this.outNode = null;
+    this.outMeter.reset(); this.inMeter.reset();
   }
 }
