@@ -92,6 +92,14 @@ function useReveal() {
   }, []);
 }
 
+/** Crawlable links to the SEO pages (kept small here so the client bundle doesn't load their content). */
+const EXPLORE: [string, [string, string][]][] = [
+  ["Solutions", [["AI calling agent", "/ai-calling-agent"], ["AI receptionist", "/ai-receptionist"], ["AI receptionist for clinics", "/ai-receptionist-for-clinics"], ["AI telecaller", "/ai-telecaller"], ["Pricing", "/pricing"]]],
+  ["Languages & cities", [["Telugu AI voice agent", "/telugu-ai-voice-agent"], ["Hindi AI voice agent", "/hindi-ai-voice-agent"], ["Tamil AI voice agent", "/tamil-ai-voice-agent"], ["Kannada AI voice agent", "/kannada-ai-voice-agent"], ["Hyderabad", "/ai-voice-agent-hyderabad"], ["Vijayawada", "/ai-voice-agent-vijayawada"], ["Visakhapatnam", "/ai-voice-agent-visakhapatnam"], ["Bengaluru", "/ai-voice-agent-bangalore"]]],
+  ["Industries", [["Real estate", "/industries/real-estate"], ["Clinics & hospitals", "/industries/clinics-hospitals"], ["Education & coaching", "/industries/education-coaching"], ["E-commerce & D2C", "/industries/e-commerce"], ["Banking & NBFC", "/industries/banking-nbfc-loans"], ["Insurance", "/industries/insurance"], ["All industries →", "/industries"]]],
+  ["Compare & learn", [["Vapi alternative India", "/vapi-alternative-india"], ["RANA AI vs Retell AI", "/compare/rana-ai-vs-retell-ai"], ["RANA AI vs Bland AI", "/compare/rana-ai-vs-bland-ai"], ["AI vs human telecaller", "/compare/ai-vs-human-telecaller"], ["TRAI DLT rules", "/glossary/trai-tcccpr-rules"], ["Glossary", "/glossary"], ["Blog", "/blog"]]],
+];
+
 /** Hero: RANA's live voice core. Tap it to talk to Rana; the ticker shows the kind of calls she handles. */
 const HERO_TICKER_IN = ["Answering a clinic's call in Telugu", "Booking a site visit in Hindi", "Qualifying an admission enquiry in Tamil", "Confirming a COD order in Kannada", "Following up a gym trial in English"];
 const HERO_TICKER_GLOBAL = ["Answering a dental clinic in English", "Booking a viewing in Spanish", "Qualifying a lead in French", "Confirming an order in Japanese", "Following up a trial in English"];
@@ -473,7 +481,7 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
               <span className="w-1.5 h-1.5 rounded-full bg-signal live-dot" /> STATUS: ANSWERING CALLS, RIGHT NOW
             </div>
             <h1>
-              <span className="block eyebrow uppercase mb-4">{india ? "AI voice agents for Indian businesses" : market.key === "global" ? "AI voice agents for businesses worldwide" : `AI voice agents for businesses in ${market.key === "us" ? "the United States" : market.key === "ae" ? "the UAE & Gulf" : market.name}`}</span>
+              <span className="block eyebrow uppercase mb-4">{india ? "AI voice agent & AI calling agent for Indian businesses" : market.key === "global" ? "AI voice agents for businesses worldwide" : `AI voice agents for businesses in ${market.key === "us" ? "the United States" : market.key === "ae" ? "the UAE & Gulf" : market.name}`}</span>
               <span className="block font-display font-semibold tracking-[-0.035em] leading-[0.98] text-[46px] sm:text-[64px] lg:text-[72px]">
                 We build what<br /><span className="text-gradient">answers back.</span>
               </span>
@@ -680,6 +688,16 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
         </button>
       )}
 
+      <nav aria-label="Explore RANA AI" className="border-t border-white/[.06]" data-testid="explore-links">
+        <div className="max-w-[1160px] mx-auto px-5 sm:px-8 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-[13.5px]">
+          {EXPLORE.map(([title, links]) => (
+            <div key={title}>
+              <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-soft/70 mb-3">{title}</div>
+              <ul className="grid gap-2">{links.map(([l, h]) => <li key={h}><Link href={h} className="text-ink-soft hover:text-signal">{l}</Link></li>)}</ul>
+            </div>
+          ))}
+        </div>
+      </nav>
       <footer className="border-t border-white/[.06]">
         <div className="max-w-[1160px] mx-auto px-5 sm:px-8 py-10 flex flex-col md:flex-row gap-6 items-center justify-between text-[13px] text-ink-soft">
           <div className="flex items-center gap-3"><Logo size={24} /><span>RANA AI — Hyderabad, India · serving businesses worldwide</span></div>
