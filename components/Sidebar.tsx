@@ -11,6 +11,7 @@ type Client = {
 } | null;
 
 const ICONS = {
+  pulse: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2"/></svg>,
   grid: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
   people: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   mic: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>,
@@ -33,6 +34,7 @@ const GROUPS: { label: string; items: { key: string; label: string; href: string
     label: "Overview",
     items: [
       { key: "overview", label: "Dashboard", href: "/", icon: "grid" },
+      { key: "live", label: "Mission control", href: "/live", icon: "pulse" },
       { key: "employees", label: "My Employees", href: "/employees", icon: "people" },
       { key: "create-agent", label: "Create Your Own Agent", href: "/agents/new", icon: "plusCircle" },
       { key: "talk", label: "Talk to an employee", href: "/talk", icon: "mic" },
@@ -96,6 +98,12 @@ export default function Sidebar({ active, client: clientProp }: { active: string
           <div className="px-3 pb-1 text-[10px] font-mono uppercase tracking-[0.14em] text-ink-soft/60">// Command</div>
           <Link href="/hq" className={`relative flex items-center gap-2.5 px-3 py-[9px] rounded-lg text-[13.5px] font-semibold ${active === "hq" ? "bg-signal-tint text-signal shadow-glow" : "text-ink hover:bg-raised"}`} data-testid="hq-link">
             <span className="w-2 h-2 rounded-full bg-signal live-dot" /> RANA HQ · all clients
+          </Link>
+          <Link href="/hq/command" className={`flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium ${active === "hq-command" ? "bg-signal-tint text-signal" : "text-ink-soft hover:bg-raised hover:text-ink"}`} data-testid="hq-command-nav">
+            <span className="w-2 text-center text-[11px]">◎</span> Command centre (live)
+          </Link>
+          <Link href="/hq/reel" className={`flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium ${active === "hq-reel" ? "bg-signal-tint text-signal" : "text-ink-soft hover:bg-raised hover:text-ink"}`} data-testid="hq-reel-nav">
+            <span className="w-2 text-center text-[11px]">▶</span> Reel studio
           </Link>
           <Link href="/hq/money" className="flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium text-ink-soft hover:bg-raised hover:text-ink" data-testid="hq-money-nav">
             <span className="w-2 text-center text-[11px]">₹</span> Money &amp; Sarvam credits

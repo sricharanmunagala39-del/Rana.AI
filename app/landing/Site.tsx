@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import Orb from "@/components/Orb";
+import RanaCore from "@/components/RanaCore";
 import { Logo } from "@/components/Sidebar";
 import { INDUSTRY_CALLS, GLOBAL_CALLS, USE_CASES, ENGINES_LINE, CALC, CALL_LANGUAGE_COUNT, plansFor, faqFor, type Line, type IndustryCall } from "./content";
 import { TRIAL_DAYS, TRIAL_MINUTES, PLANS as PRICE_LIST, PRICE_BOOK, CURRENCY_SYMBOL as SYMBOL, money, moneyShort, type Currency } from "@/lib/pricing";
@@ -90,6 +90,35 @@ function useReveal() {
     document.addEventListener("pointermove", move);
     return () => { io.disconnect(); document.removeEventListener("pointermove", move); };
   }, []);
+}
+
+/** Hero: RANA's live voice core. Tap it to talk to Rana; the ticker shows the kind of calls she handles. */
+const HERO_TICKER_IN = ["Answering a clinic's call in Telugu", "Booking a site visit in Hindi", "Qualifying an admission enquiry in Tamil", "Confirming a COD order in Kannada", "Following up a gym trial in English"];
+const HERO_TICKER_GLOBAL = ["Answering a dental clinic in English", "Booking a viewing in Spanish", "Qualifying a lead in French", "Confirming an order in Japanese", "Following up a trial in English"];
+function HeroCore({ onTalk, india }: { onTalk: () => void; india: boolean }) {
+  const list = india ? HERO_TICKER_IN : HERO_TICKER_GLOBAL;
+  const [i, setI] = useState(0);
+  const [hover, setHover] = useState(false);
+  useEffect(() => { const t = setInterval(() => setI((x) => x + 1), 3600); return () => clearInterval(t); }, []);
+  const chip = "absolute hidden sm:flex items-center gap-1.5 font-mono text-[10.5px] tracking-[0.14em] text-ink-soft border border-white/10 bg-[#0b0e14]/80 backdrop-blur rounded-full px-2.5 py-1 pointer-events-none";
+  return (
+    <div className="relative flex flex-col items-center" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div className="relative w-[480px] max-w-full">
+        <RanaCore size="100%" mode={hover ? "listening" : "idle"} pulse={i} onClick={onTalk} label="Talk to Rana now" className="w-full" >
+          <span className="flex flex-col items-center gap-2 font-mono text-[11px] tracking-[0.22em] text-ink opacity-80 group-hover:opacity-100 transition-opacity" data-testid="hero-core">
+            <MicIcon size={26} />TAP TO TALK
+          </span>
+        </RanaCore>
+        <span className={`${chip} top-[8%] left-[2%]`}><span className="w-1.5 h-1.5 rounded-full bg-signal live-dot" />R1 · ONLINE</span>
+        <span className={`${chip} top-[14%] right-[0%]`}>{india ? "11 INDIAN LANGUAGES" : "14 LANGUAGES"}</span>
+        <span className={`${chip} bottom-[16%] left-[0%]`}>~1 S RESPONSE</span>
+        <span className={`${chip} bottom-[9%] right-[4%]`}>24 × 7</span>
+      </div>
+      <div className="mt-2 h-6 font-mono text-[12px] text-signal/90 tracking-wide text-center" aria-live="polite" data-testid="hero-ticker">
+        <span key={i} className="hud-pop inline-block">▸ {list[i % list.length]}…</span>
+      </div>
+    </div>
+  );
 }
 
 function LiveCall({ calls }: { calls: IndustryCall[] }) {
@@ -438,7 +467,7 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
 
       <main id="top">
         {/* ---------- Hero ---------- */}
-        <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pt-10 sm:pt-16 pb-16 grid lg:grid-cols-[1.05fr_1fr] gap-10 lg:gap-6 items-center">
+        <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pt-10 sm:pt-16 pb-16 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[1.05fr_1fr] gap-10 lg:gap-6 items-center">
           <div className="text-center lg:text-left">
             <div className="inline-flex items-center gap-2 font-mono text-[11.5px] text-signal border border-signal/25 bg-signal/10 rounded-full px-3 py-1.5 mb-7">
               <span className="w-1.5 h-1.5 rounded-full bg-signal live-dot" /> STATUS: ANSWERING CALLS, RIGHT NOW
@@ -461,10 +490,7 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
             </div>
             <div className="text-[12.5px] text-ink-soft/80 mt-4">Talk to her right now — no sign-up. Or <Link href="/signup" className="text-signal font-semibold hover:underline" data-testid="hero-trial">start free for {TRIAL_DAYS} days</Link> · {TRIAL_MINUTES} minutes · no card.</div>
           </div>
-          <div className="relative flex flex-col items-center">
-            <Orb size={520} interactive className="max-w-full" />
-            <div className="font-mono text-[11px] text-ink-soft/70 -mt-4">press &amp; hold the core</div>
-          </div>
+          <HeroCore onTalk={openTalk} india={india} />
         </section>
 
         {/* ---------- Stats ---------- */}
