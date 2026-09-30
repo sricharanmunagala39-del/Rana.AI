@@ -18,7 +18,7 @@ export default function AuthShell({ children, foot }: { children: React.ReactNod
             <span className="w-1.5 h-1.5 rounded-full bg-[#2DE1C2] live-dot" /> STATUS: ANSWERING CALLS, RIGHT NOW
           </div>
           <h2 className="font-display text-[40px] leading-[1.04] font-semibold tracking-[-0.02em]">We build what<br /><span className="text-gradient">answers back.</span></h2>
-          <p className="text-white/55 text-[14.5px] mt-4 leading-relaxed">AI employees that pick up, qualify and follow up — in 11 Indian languages — and hand your team only the leads worth calling.</p>
+          <p className="text-white/55 text-[14.5px] mt-4 leading-relaxed">AI employees that pick up, qualify and follow up — in Indian and global languages — and hand your team only the leads worth calling.</p>
           <div className="mt-7 rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur p-4 font-mono text-[12px] leading-relaxed">
             <div className="text-white/40">CALLER · 9:42 PM · CLINIC</div>
             <div className="text-white/85">“Kal Dr. Sharma available hain? Skin ke liye dikhana hai.”</div>

@@ -4,6 +4,34 @@ import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { inr } from "@/lib/money";
 import WalletCard from "@/components/WalletCard";
+import { MARKETS } from "@/app/landing/markets";
+import { plansFor } from "@/app/landing/content";
+
+/** Workspaces from outside India see their local prices; RANA sends an invoice and a card payment link in that currency. */
+function IntlPlans({ marketKey }: { marketKey: string }) {
+  const m = MARKETS[marketKey as keyof typeof MARKETS] || MARKETS.global;
+  const cards = plansFor(m);
+  const subject = encodeURIComponent(`RANA AI plan — ${m.name} (${m.currency})`);
+  return (
+    <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-4" data-testid="intl-plans">
+      <div>
+        <div className="text-[15px] font-semibold">Choose your plan · prices in {m.currency}</div>
+        <div className="text-[12px] text-ink-soft">International plans are paid by card. Pick a plan and we&apos;ll send your invoice and a secure payment link in {m.currency}, usually within a working day. {m.taxNote}</div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-3">
+        {cards.map((p) => (
+          <div key={p.key} className="rounded-xl border border-line p-4 flex flex-col gap-2" data-testid={`intl-plan-${p.key}`}>
+            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold">{p.name}</div>{p.hi && <span className="text-[10.5px] font-semibold text-signal">Most popular</span>}</div>
+            <div><span className="text-[22px] font-display font-semibold tabular-nums">{p.symbol}{p.price}</span><span className="text-[12px] text-ink-soft">/month</span></div>
+            <div className="text-[12px] text-ink-soft">{p.min} min/month · then {p.extra}/min · {p.fee}</div>
+            <a href={`mailto:support@ranaai.in?subject=${subject}%20—%20${encodeURIComponent(p.name)}`} className="mt-1 rounded-lg px-3 py-2 text-[12.5px] font-semibold bg-signal text-on-accent text-center">Request {p.name} invoice</a>
+          </div>
+        ))}
+      </div>
+      <div className="text-[11.5px] text-ink-soft">Paying from India? Write to support@ranaai.in and we&apos;ll switch your workspace to rupee billing.</div>
+    </div>
+  );
+}
 
 const SELF = ["launch", "starter", "growth", "scale"];
 const STATUS: Record<string, string> = { issued: "Due", paid: "Paid", void: "Cancelled" };
@@ -159,7 +187,9 @@ export default function BillingPage() {
               </div>
               <div className="text-[12px] text-ink-soft" data-testid="billing-engines"><b className="text-ink">{enginesPricingLine()}</b> Prices exclude 18% GST. Minutes are counted per call, rounded up to the next 30 seconds. Unused minutes don't roll over. Annual prepay: 12 months for the price of 10, onboarding free. Enterprise and custom deals: <span className="font-semibold">support@ranaai.in</span>.</div>
 
-              {b && (
+              {b && b.market && b.market !== "in" && <IntlPlans marketKey={b.market} />}
+
+              {b && (!b.market || b.market === "in") && (
                 <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-4" data-testid="choose-plan">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>

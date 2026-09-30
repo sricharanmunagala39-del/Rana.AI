@@ -87,6 +87,10 @@ export const LANGUAGES: { code: string; label: string }[] = [
   { code: "ta-IN", label: "Tamil" },
   { code: "pa-IN", label: "Punjabi" },
   { code: "or-IN", label: "Odia" },
+  // Global languages — R2 engine only.
+  { code: "es-ES", label: "Spanish (R2)" },
+  { code: "fr-FR", label: "French (R2)" },
+  { code: "ja-JP", label: "Japanese (R2)" },
 ];
 
 /** How the agent should treat the steps below, depending on the strictness slider (1-5). */

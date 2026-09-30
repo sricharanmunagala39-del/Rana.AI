@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 // Social share card (WhatsApp, LinkedIn, X, Slack) for every page that doesn't set its own.
-export const alt = "RANA AI — AI voice agents for Indian businesses, in 11 Indian languages";
+export const alt = "RANA AI — AI voice agents in Indian and global languages";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -30,7 +30,7 @@ export default function OgImage() {
           <div style={{ fontSize: 76, fontWeight: 700, lineHeight: 1.05, letterSpacing: -2, color: "#9284FF" }}>Every lead qualified.</div>
         </div>
         <div style={{ display: "flex", fontSize: 28, color: "#8E96A7", gap: 36 }}>
-          <span>11 Indian languages</span><span>Inbound + outbound</span><span>14-day free trial</span><span style={{ color: "#ECEEF3" }}>ranaai.in</span>
+          <span>Indian + global languages</span><span>Inbound + outbound</span><span>14-day free trial</span><span style={{ color: "#ECEEF3" }}>ranaai.in</span>
         </div>
       </div>
     ),

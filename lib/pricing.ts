@@ -76,3 +76,61 @@ export function planHighlights(p: Plan): string[] {
 export function numberCell(p: Plan): string {
   return p.ownNumber ? "Included" : p.numberAddon ? `From +₹${inr0(p.numberAddon)}/month` : "Shared";
 }
+
+// ---------- Currencies ----------
+// Plans have the same minutes everywhere; only the price changes by currency. INR comes from PLANS above.
+// Other currencies are set as clean local price points (not live FX conversions) and exclude local taxes.
+export type Currency = "INR" | "USD" | "EUR" | "JPY";
+export const CURRENCIES: Currency[] = ["INR", "USD", "EUR", "JPY"];
+export type PaidKey = "launch" | "starter" | "growth" | "scale";
+type LocalPrice = { price: number; overage: number; setup: number };
+
+export const PRICE_BOOK: Record<Currency, { plans: Record<PaidKey, LocalPrice>; enterpriseFrom: number }> = {
+  INR: {
+    plans: {
+      launch:  { price: PLANS.launch.pricePerMonth || 0,  overage: PLANS.launch.overagePerMin || 0,  setup: PLANS.launch.onboardingFee || 0 },
+      starter: { price: PLANS.starter.pricePerMonth || 0, overage: PLANS.starter.overagePerMin || 0, setup: PLANS.starter.onboardingFee || 0 },
+      growth:  { price: PLANS.growth.pricePerMonth || 0,  overage: PLANS.growth.overagePerMin || 0,  setup: PLANS.growth.onboardingFee || 0 },
+      scale:   { price: PLANS.scale.pricePerMonth || 0,   overage: PLANS.scale.overagePerMin || 0,   setup: PLANS.scale.onboardingFee || 0 },
+    },
+    enterpriseFrom: ENTERPRISE_FROM,
+  },
+  USD: {
+    plans: { launch: { price: 69, overage: 0.19, setup: 69 }, starter: { price: 149, overage: 0.17, setup: 199 }, growth: { price: 449, overage: 0.15, setup: 349 }, scale: { price: 1290, overage: 0.12, setup: 699 } },
+    enterpriseFrom: 3000,
+  },
+  EUR: {
+    plans: { launch: { price: 65, overage: 0.18, setup: 65 }, starter: { price: 139, overage: 0.16, setup: 189 }, growth: { price: 419, overage: 0.14, setup: 329 }, scale: { price: 1190, overage: 0.11, setup: 649 } },
+    enterpriseFrom: 2800,
+  },
+  JPY: {
+    plans: { launch: { price: 9900, overage: 28, setup: 9900 }, starter: { price: 21900, overage: 25, setup: 29000 }, growth: { price: 65000, overage: 22, setup: 49000 }, scale: { price: 189000, overage: 18, setup: 99000 } },
+    enterpriseFrom: 450000,
+  },
+};
+
+const LOCALE: Record<Currency, string> = { INR: "en-IN", USD: "en-US", EUR: "en-IE", JPY: "en-US" };
+export const CURRENCY_SYMBOL: Record<Currency, string> = { INR: "₹", USD: "$", EUR: "€", JPY: "¥" };
+
+/** ₹9,999 · $149 · €0.16 · ¥21,900 — decimals only when the amount has them. */
+export function money(cur: Currency, n: number): string {
+  const frac = cur === "JPY" || Number.isInteger(n) ? 0 : 2;
+  return new Intl.NumberFormat(LOCALE[cur], { style: "currency", currency: cur, minimumFractionDigits: frac, maximumFractionDigits: frac }).format(n);
+}
+/** Just the number part, for big price displays next to a separate symbol. */
+export function amount(cur: Currency, n: number): string {
+  return new Intl.NumberFormat(LOCALE[cur], { maximumFractionDigits: cur === "JPY" ? 0 : 2 }).format(n);
+}
+/** Short form for big numbers: ₹2.5 L / ₹1.2 Cr for rupees, $1.2M / €450K / ¥3.5M for others. */
+export function moneyShort(cur: Currency, n: number): string {
+  if (cur === "INR") return inrShort(n);
+  if (Math.abs(n) < 10000) return money(cur, Math.round(n));
+  // Hand-rolled (not Intl "compact"): Node and browsers format compact numbers differently, which breaks hydration.
+  const a = Math.abs(n);
+  const [d, u] = a >= 1e9 ? [1e9, "B"] : a >= 1e6 ? [1e6, "M"] : [1e3, "K"];
+  const x = n / d;
+  const t = x >= 100 ? String(Math.round(x)) : String(Math.round(x * 10) / 10);
+  return `${CURRENCY_SYMBOL[cur]}${t}${u}`;
+}
+
+export function entryPrice(cur: Currency): number { return PRICE_BOOK[cur].plans.launch.price; }

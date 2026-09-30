@@ -75,7 +75,7 @@ export default async function PostPage({ params }: { params: { slug: string } })
       )}
       <aside className="mt-14 rounded-2xl border border-white/10 p-6 sm:p-8">
         <h2 className="font-display text-[22px] font-semibold">Let an AI voice agent take your calls</h2>
-        <p className="text-[15px] leading-7 text-ink/80 mt-2">RANA AI answers and makes your business calls in 11 Indian languages, qualifies every lead and hands the hot ones to your team.</p>
+        <p className="text-[15px] leading-7 text-ink/80 mt-2">RANA AI answers and makes your business calls in Indian and global languages, qualifies every lead and hands the hot ones to your team.</p>
         <Link href="/signup" className="inline-block mt-4 text-signal font-semibold">Start your 14-day free trial →</Link>
       </aside>
       {related.length > 0 && (

@@ -31,7 +31,7 @@ export async function GET(req: Request) {
   const w = c.plan === "trial" ? null : await walletOf(c).catch(() => null);
   return Response.json({
     wallet: w ? { ...w, packs: RECHARGE_PACKS, min: MIN_RECHARGE } : null,
-    profile: profileOf(c), invoices, state: billingState(c, invoices), quotes,
+    market: c.market || "in", profile: profileOf(c), invoices, state: billingState(c, invoices), quotes,
     canPay: hasRole(session, "admin"), plan: c.plan,
     razorpay: { enabled: razorpayConfigured(), mode: razorpayMode() },
     offline: offlinePayment(), gstRegistered: !!s.gstin, states: STATE_NAMES,
