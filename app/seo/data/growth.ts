@@ -222,4 +222,125 @@ export const GROWTH: SeoPageData[] = [
     related: ["/ai-receptionist-for-clinics", "/ai-receptionist-for-hospitals-hyderabad", "/industries/clinics-hospitals", "/industries/dental-clinics", "/blog/ai-receptionist-for-clinics-india"],
   },
 
-//@@SPLIT@@
+  // ---- City + industry: Google ranks these for local searches (e.g. "ai receptionist hospitals hyderabad").
+  {
+    path: "/ai-receptionist-for-hospitals-hyderabad", kind: "city", label: "AI receptionist for hospitals in Hyderabad",
+    title: "AI Receptionist for Hospitals & Clinics in Hyderabad",
+    description: "AI receptionist for Hyderabad hospitals and clinics: answers every patient call in Telugu, Hindi and English, books OPD appointments, sends reminders. Built in Hyderabad.",
+    h1: "AI receptionist for hospitals and clinics in Hyderabad",
+    eyebrow: "Hyderabad · Hospitals & clinics",
+    intro: "Hyderabad's hospitals and clinics take calls in Telugu, Hindi, Dakhni and English — often all in one call. RANA AI is built in Hyderabad and its AI receptionist is tuned for exactly that: it answers every patient call, books OPD slots, shares doctor timings and fees, and reminds patients the day before, from Banjara Hills to Kukatpally to LB Nagar.",
+    keywords: ["ai receptionist hyderabad", "ai receptionist for hospitals hyderabad", "ai receptionist for clinics hyderabad", "hospital call answering hyderabad", "ai voice agent for hospitals hyderabad", "clinic appointment booking hyderabad"],
+    facts: ["Telugu · Hindi · English", "OPD booking + reminders", "Local team in Hyderabad", TRIAL_LINE],
+    demo: "booking",
+    sections: [
+      { h2: "What it does for a Hyderabad hospital", bullets: [
+        "Answers every call to your front desk or helpline — several at once, 24×7",
+        "Tells patients which doctor sits when, in which department, and the consultation fee",
+        "Books, reschedules and cancels OPD appointments and health-check packages",
+        "Reminder calls the evening before to cut no-shows",
+        "Handles report-status and insurance/cashless enquiries by taking details for your team",
+        "Set up to pass emergencies straight to your emergency number and alert staff",
+      ] },
+      { h2: "Built for how Hyderabad talks", body: "A caller from Old City might start in Dakhni Hindi, a caller from Kukatpally in Telugu, an IT professional from Gachibowli in English — and many switch mid-sentence. RANA's AI receptionist follows the caller into their language instead of forcing a menu choice, which is why patients stay on the line." },
+      { h2: "Typical results to measure", bullets: ["Share of calls answered (aim for all of them)", "Appointments booked by phone per day", "No-show rate before and after reminder calls", "Front-desk time freed for walk-in patients"] },
+      { h2: "Getting started", steps: ["Share your departments, doctors, OPD timings and fees.", "We set up your AI receptionist in Telugu, Hindi and English.", "Your team tests it by calling it — we adjust until it sounds right.", "Forward your front-desk number and go live. We're in Hyderabad if you want to meet."] },
+    ],
+    faqs: [
+      { q: "Can we meet your team?", a: "Yes — RANA AI is based in Hyderabad. Book a demo and we can meet at your hospital or on a video call." },
+      { q: "Does it work with our existing hospital number?", a: "Yes. Forward calls from your existing number (all calls, or only when busy / after hours) to your AI receptionist." },
+      ...TRUST_FAQS.slice(1),
+    ],
+    related: ["/ai-receptionist-for-clinics", "/ai-receptionist-for-doctors", "/ai-voice-agent-hyderabad", "/telugu-ai-voice-agent", "/industries/clinics-hospitals"],
+  },
+  {
+    path: "/ai-calling-for-real-estate-hyderabad", kind: "city", label: "AI calling for real estate in Hyderabad",
+    title: "AI Calling Agent for Real Estate in Hyderabad",
+    description: "AI calling agent for Hyderabad builders and channel partners: calls every 99acres, MagicBricks and Meta lead within a minute in Telugu, Hindi or English, qualifies and books site visits.",
+    h1: "AI calling agent for real estate in Hyderabad",
+    eyebrow: "Hyderabad · Real estate",
+    intro: "In Hyderabad real estate, the builder who calls first usually gets the site visit. RANA AI calls every new enquiry from 99acres, MagicBricks, Housing.com, Meta ads or your website within about a minute — in Telugu, Hindi or English — asks budget, configuration, location and timeline, and books the Saturday site visit for your sales team.",
+    keywords: ["ai calling real estate hyderabad", "real estate lead calling hyderabad", "ai telecaller real estate hyderabad", "ai voice agent real estate hyderabad", "real estate crm calling hyderabad"],
+    facts: ["Calls leads in ~1 minute", "Books site visits", "Telugu · Hindi · English", TRIAL_LINE],
+    demo: "qualify",
+    sections: [
+      { h2: "What it does for builders and channel partners", bullets: [
+        "Calls every portal and ad lead within about a minute, 7 days a week",
+        "Qualifies: budget, 2/3 BHK or plot, preferred areas (Kokapet, Tellapur, Kollur, Kompally, Shamshabad…), loan need, timeline",
+        "Books site visits and sends the details to the right sales manager on WhatsApp",
+        "Re-engages old enquiries when a new tower or offer launches",
+        "Reminder calls before the visit, feedback calls after",
+        "Every call recorded and scored, so managers see which sources bring buyers",
+      ] },
+      { h2: "A typical first call", call: [
+        { who: "ai", text: "Hello, this is Priya from Green Heights. You enquired about our Tellapur project — is this a good time?" },
+        { who: "caller", text: "Haan, 3 BHK ka price kya hai?" },
+        { who: "ai", text: "3 BHK starts at ₹1.2 crore, about 1,850 square feet. Are you looking to move in soon, or investing?" },
+        { who: "caller", text: "Within a year. Can I see the flat this weekend?" },
+        { who: "ai", text: "Of course — Saturday 11 AM or Sunday 4 PM?" },
+      ] },
+      { h2: "Why speed matters", body: "Portal leads are usually sent to several builders at once. The first one to call — in the buyer's language, with the right answers — sets the site visit. An AI calling agent makes that first call every time, including late at night and on holidays, and never lets a lead sit in a spreadsheet." },
+    ],
+    faqs: [
+      { q: "Can it connect to our portal leads?", a: "Yes — leads can arrive by webhook, email parsing or a CSV upload, and the AI calls them automatically. We'll help you connect your sources." },
+      { q: "Can it transfer a hot buyer to our sales manager live?", a: "It hands over hot leads instantly with the full summary on WhatsApp, and can pass the caller to your team when they ask for a person." },
+      ...TRUST_FAQS.slice(1),
+    ],
+    related: ["/industries/real-estate", "/blog/ai-telecaller-for-real-estate-india", "/ai-voice-agent-hyderabad", "/ai-telecaller", "/telugu-ai-voice-agent"],
+  },
+  {
+    path: "/ai-calling-for-coaching-institutes-hyderabad", kind: "city", label: "AI calling for coaching institutes in Hyderabad",
+    title: "AI Calling for Coaching Institutes in Hyderabad",
+    description: "AI calling for Hyderabad coaching institutes: calls every admission enquiry in Telugu, Hindi or English, books counselling and demo classes, follows up fees and batches — Ameerpet to Dilsukhnagar.",
+    h1: "AI calling for coaching institutes in Hyderabad",
+    eyebrow: "Hyderabad · Education & coaching",
+    intro: "Admission season in Hyderabad means hundreds of enquiries a week — from Meta ads, JustDial, walk-in forms and missed calls — and a counselling team that can't call them all back the same day. RANA AI calls every enquiry within minutes, in Telugu, Hindi or English, answers questions about courses, batches and fees, and books the counselling session or demo class.",
+    keywords: ["ai calling coaching institute hyderabad", "admission enquiry calling hyderabad", "ai telecaller for coaching", "coaching institute lead management hyderabad", "ai voice agent education hyderabad"],
+    facts: ["Calls every enquiry", "Books counselling + demos", "Parent- and student-friendly", TRIAL_LINE],
+    demo: "booking",
+    sections: [
+      { h2: "What it does for your institute", bullets: [
+        "Calls every new admission enquiry within minutes — students and parents",
+        "Answers course, batch timing, faculty, fee and scholarship questions from your information",
+        "Books counselling sessions and demo classes, with reminder calls",
+        "Follows up fee instalments and re-enrolment politely",
+        "Re-engages last season's unconverted enquiries when new batches open",
+        "Branch-wise reports: which centre and which source brings admissions",
+      ] },
+      { h2: "Made for multi-branch institutes", body: "Most Hyderabad institutes run several centres — Ameerpet, Dilsukhnagar, Kukatpally, Madhapur. The AI routes each enquiry to the nearest branch, books with that branch's counsellor, and gives the management one view of every enquiry and its outcome across all centres." },
+      { h2: "Getting started before the next batch", steps: ["Share your courses, batches, fees and branch details.", "We set up the AI in Telugu, Hindi and English.", "Your counsellors test it and we tune the answers.", "Connect your enquiry sources and let it call every lead."] },
+    ],
+    faqs: [
+      { q: "Can it talk to parents as well as students?", a: "Yes — it adjusts its tone, answers parents' questions about fees, safety and results, and books a visit for both." },
+      ...TRUST_FAQS.slice(1),
+    ],
+    related: ["/industries/education-coaching", "/blog/ai-calling-for-coaching-institutes", "/ai-voice-agent-hyderabad", "/ai-telecaller", "/telugu-ai-voice-agent"],
+  },
+];
+
+// ---- Free tool: a genuinely useful page other sites link to (links are the biggest ranking factor we don't control).
+export const COST_TOOL: SeoPageData = {
+  path: "/tools/ai-calling-cost-calculator", kind: "tool", label: "AI calling cost calculator",
+  title: "Telecaller vs AI Calling Cost Calculator (India)",
+  description: "Free calculator: compare the monthly cost of your telecalling team with an AI calling agent. Enter telecallers, salary, dials and call length — see the plan you'd need and the saving.",
+  h1: "Telecaller vs AI calling cost calculator",
+  eyebrow: "Free tool · India",
+  intro: "How much would an AI calling agent cost for your call volume — and how does that compare with your telecalling team? Move the sliders to match your business. The calculator uses RANA AI's real plan prices and assumes the AI makes the first call while your best people handle closing.",
+  keywords: ["ai calling cost calculator", "telecaller cost calculator", "ai telecaller cost india", "telecalling cost per month india", "ai vs telecaller cost", "call center cost calculator india"],
+  sections: [
+    { h2: "How the calculation works", bullets: [
+      "Telecalling cost = telecallers × salary, plus 20% for incentives, PF, seat, SIM and attrition",
+      "Connected calls = telecallers × dials per day × connect rate × 26 working days",
+      "AI minutes = connected calls × average length, plus 10% for short unanswered attempts",
+      "We pick the cheapest RANA AI plan for those minutes, including per-minute overage",
+      "Telecallers you keep for closing are added back to the AI side",
+    ] },
+    { h2: "What the numbers don't show", body: "An AI calling agent also calls every lead within about a minute, works 24×7, speaks 11 Indian languages and records, transcribes and scores every call. Those usually matter more than the cost saving: leads called in the first minutes convert far better than leads called hours later.\n\nIt's also not free of work: someone needs to own the script and read the lead cards. Start with one use case — first calls to new leads — and measure booked appointments before and after." },
+  ],
+  faqs: [
+    { q: "What does a telecaller cost in India?", a: "Typical salaries in Indian metros range from about ₹15,000 to ₹25,000 a month, plus incentives, PF, a seat, a SIM and hiring costs as people leave. Use your own numbers in the calculator." },
+    { q: "What does an AI calling agent cost?", a: `RANA AI plans start at ₹${PLANS.launch.pricePerMonth!.toLocaleString("en-IN")}/month for ${PLANS.launch.minutes} minutes; Starter is ₹${PLANS.starter.pricePerMonth!.toLocaleString("en-IN")}/month for ${PLANS.starter.minutes.toLocaleString("en-IN")} minutes. Prices exclude GST.` },
+    { q: "Can I embed or share this calculator?", a: "Yes — link to this page from your blog or article. If you'd like numbers for a report, email hello@ranaai.in." },
+  ],
+  related: ["/compare/ai-vs-human-telecaller", "/telecaller-software", "/ai-telecaller", "/blog/telecaller-vs-ai-calling-cost-india", "/pricing"],
+};
