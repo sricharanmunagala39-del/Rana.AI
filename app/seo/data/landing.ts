@@ -1,0 +1,103 @@
+// Top-level "money" pages: the searches buyers in India actually make.
+import type { SeoPageData } from "../types";
+import { CORE_FEATURES, TRUST_FAQS, TRIAL_LINE, ENTRY_LINE, LANGS_SENTENCE, inr } from "./shared";
+import { PLANS } from "@/lib/pricing";
+
+export const LANDING: SeoPageData[] = [
+  {
+    path: "/ai-calling-agent", kind: "solution", label: "AI calling agent",
+    title: "AI Calling Agent India — Inbound & Outbound Calls",
+    description: "An AI calling agent that answers every inbound call and dials your leads in Telugu, Hindi, Tamil and 8 more Indian languages. Qualifies, books and sends hot leads to WhatsApp.",
+    h1: "AI calling agent that answers and makes your calls — in the caller's language",
+    eyebrow: "AI calling agent · India",
+    intro: "RANA AI is an AI calling agent built for how India actually does business on the phone. It picks up every call in two rings, calls every new lead within a minute, speaks the caller's language, and hands your team a clean lead card instead of a pile of missed calls.",
+    keywords: ["ai calling agent", "ai calling agent india", "ai calling", "ai calling software", "ai phone calling agent", "automated calling agent"],
+    facts: ["Inbound + outbound", "11 Indian languages", "Lead cards on WhatsApp", TRIAL_LINE],
+    demo: "qualify",
+    sections: [
+      { h2: "What an AI calling agent does for you", bullets: CORE_FEATURES },
+      { h2: "Inbound: every call answered, even at 11 PM", body: "Many Indian businesses miss a big share of their inbound calls — the line is busy, it's lunch, it's Sunday, or the one person who knows the answers is on another call. An AI calling agent answers all of them at once. It knows your prices, timings, locations and offers, answers the common questions correctly, and books the next step.\n\nWhen a caller needs a human — a complaint, a big order, a negotiation — it collects the details and hands over, so your team starts the conversation already knowing who is calling and why." },
+      { h2: "Outbound: speed-to-lead without a telecalling floor", body: "Leads from Meta ads, 99acres, JustDial, IndiaMART or your website go cold in minutes. The AI calling agent dials each new lead within about a minute, 7 days a week, asks your qualification questions (budget, timeline, location, need), and only passes on the ones worth a callback.\n\nFor bigger lists — renewals, reminders, re-engagement, COD confirmations — upload a CSV and run a campaign. Several calls go out at the same time, and you watch results arrive live." },
+      { h2: "How it compares to a telecaller", table: { head: ["", "Human telecaller", "RANA AI calling agent"], rows: [["Calls at the same time", "1", "Up to 50 (by plan)"], ["Hours", "~8 a day, 6 days", "24×7"], ["Languages", "1–2", "11 Indian + 3 global"], ["Time to call a new lead", "Hours", "About a minute"], ["Notes & recording", "Sometimes", "Every call: recording, transcript, lead score"], ["Monthly cost", "₹15,000–25,000 + incentives", `From ${inr(PLANS.launch.pricePerMonth!)}`]], note: "Telecaller costs are typical salary ranges in Indian metros; your numbers will vary." } },
+      { h2: "Getting started", steps: ["Tell us what your calls are about — or start from a ready template for your industry.", "We set up your AI employee with your script, FAQs, prices and languages.", "Talk to it in your browser and fix anything you don't like — no code.", "Connect your Indian business number (or use one of ours) and go live."] },
+    ],
+    faqs: [
+      { q: "Is an AI calling agent legal in India?", a: "Yes, when you follow TRAI's rules: promotional calls must go to people who consented or who are not on the DND registry, from registered headers, at permitted hours; service and transactional calls follow separate rules. RANA respects your do-not-call list and calling hours. Read our guide to TRAI DLT rules for AI calling for details — and check with your telecom provider for your case." },
+      { q: "Can it call from my own number?", a: "Yes. Growth and higher plans include your own Indian number; Starter can add one. Inbound calls to your existing number can be forwarded to your AI employee." },
+      ...TRUST_FAQS,
+    ],
+    related: ["/ai-telecaller", "/ai-receptionist", "/pricing", "/compare/ai-vs-human-telecaller", "/blog/ai-voice-agent-for-business-india", "/glossary/speed-to-lead"],
+  },
+  {
+    path: "/ai-receptionist", kind: "solution", label: "AI receptionist",
+    title: "AI Receptionist India — Answers Every Call 24×7",
+    description: "An AI receptionist that answers every call, books appointments and takes messages in Telugu, Hindi, Tamil, English and more. No missed calls, no hold. Free 14-day trial.",
+    h1: "An AI receptionist that never misses a call",
+    eyebrow: "AI receptionist · India",
+    intro: "Your front desk can only take one call at a time. An AI receptionist takes all of them — at 9 AM and at 11 PM, on Sundays and during festival rush — answers questions correctly, books the slot, and sends your team a summary of every call.",
+    keywords: ["ai receptionist", "ai receptionist india", "virtual receptionist ai", "ai phone receptionist", "ai front desk", "ai answering service india"],
+    facts: ["Answers in 2 rings", "Books appointments", "Hands over to staff", TRIAL_LINE],
+    demo: "booking",
+    sections: [
+      { h2: "What your AI receptionist handles", bullets: ["Answers every call on your number — several at once, no busy tone", "Timings, location, prices, services, doctor or staff availability — answered from your own information", "Books, reschedules and cancels appointments, and can confirm them with a reminder call the day before", "Takes a message and forwards it when someone is needed — with the caller's name, number and reason", "Speaks the caller's language: " + LANGS_SENTENCE, "Sends a summary of every call to WhatsApp, Slack or email"] },
+      { h2: "Why receptionists miss calls (and why it costs more than you think)", body: "A front desk is doing five things at once: greeting walk-ins, billing, handling the phone, chasing files. The phone loses. Every unanswered call is usually a customer who calls the next business on Google.\n\nIf you get 40 calls a day and miss even a quarter of them, that is 10 people a day — around 250 a month — who wanted to buy or book and couldn't reach you. An AI receptionist doesn't replace your front desk; it takes the phone off their plate so they can look after the people in front of them." },
+      { h2: "A typical call", call: [{ who: "caller", text: "Hi, is the doctor available tomorrow evening?" }, { who: "ai", text: "Yes — Dr. Rao has 5:30 and 6:15 free tomorrow. Which would you like?" }, { who: "caller", text: "6:15. What's the consultation fee?" }, { who: "ai", text: "It's ₹500. May I have your name for the booking?" }, { who: "caller", text: "Kiran." }, { who: "ai", text: "Done, Kiran — tomorrow at 6:15 PM. We'll give you a reminder call tomorrow morning." }] },
+      { h2: "Who uses an AI receptionist", bullets: ["Clinics, dental and diagnostic centres — appointments and reports", "Real estate offices — enquiries and site-visit bookings", "Coaching institutes and schools — admissions enquiries", "Salons, spas and gyms — bookings and memberships", "Hotels, restaurants and travel agencies — reservations", "Service businesses — plumbers, AC repair, solar, pest control"] },
+    ],
+    faqs: [
+      { q: "Does an AI receptionist replace my front-desk staff?", a: "No — it takes the phone off their hands. Your staff keep handling walk-ins, billing and anything that needs a person; the AI answers every call, books what it can and forwards the rest with a clear note." },
+      { q: "Can it book into my calendar or clinic software?", a: "It captures each booking — name, number, doctor or service, date and time — and sends it to your team instantly on WhatsApp, Slack, email or a webhook. The webhook lets your developer push bookings straight into your own software." },
+      { q: "What if the caller asks something it doesn't know?", a: "It says so honestly, takes the question and the caller's number, and passes it to your team — it doesn't make up answers." },
+      ...TRUST_FAQS,
+    ],
+    related: ["/ai-receptionist-for-clinics", "/industries/dental-clinics", "/ai-calling-agent", "/compare/ai-voice-agent-vs-ivr", "/blog/ai-receptionist-for-clinics-india", "/pricing"],
+  },
+  {
+    path: "/ai-receptionist-for-clinics", kind: "solution", label: "AI receptionist for clinics",
+    title: "AI Receptionist for Clinics & Doctors in India",
+    description: "An AI receptionist for clinics, hospitals and doctors: books appointments, answers fee and timing questions, sends reminders — in Telugu, Hindi, Tamil and English. 24×7.",
+    h1: "AI receptionist for clinics and doctors — every patient call answered",
+    eyebrow: "AI receptionist · Clinics & hospitals",
+    intro: "Patients call when they're worried — often after hours, often more than once. An AI receptionist for your clinic answers every call, books the right doctor and slot, tells patients the fee and what to bring, and reminds them the day before, so fewer appointments are missed.",
+    keywords: ["ai receptionist for clinic", "ai receptionist for doctors", "ai receptionist for hospital", "clinic appointment booking ai", "dental clinic ai receptionist", "medical receptionist ai india"],
+    facts: ["Appointment booking", "Day-before reminders", "Telugu · Hindi · Tamil · English", TRIAL_LINE],
+    demo: "booking",
+    sections: [
+      { h2: "What it does for a clinic", bullets: ["Books, reschedules and cancels appointments for each doctor, by their schedule", "Answers the questions your desk hears 50 times a day — timings, fees, location, parking, which doctor for what", "Calls patients the day before to confirm (a daily reminder campaign), and lets them reschedule on the same call", "Follows up after procedures and reminds patients about reviews and repeat visits", "Recognises urgent calls and passes them straight to your staff with a note", "Works for single-doctor clinics, dental chains, diagnostic centres and hospitals"] },
+      { h2: "What it will not do", body: "It does not give medical advice or diagnose. If a caller describes an emergency, it tells them to call emergency services or come in immediately and alerts your staff. You decide exactly what it may and may not say." },
+      { h2: "Fewer no-shows, fuller schedules", body: "No-shows are expensive: an empty slot is a doctor's time you can't sell again. A short reminder call the day before, in the patient's own language, with an easy way to reschedule, is one of the simplest ways clinics reduce them. When a patient says they can't make it, the same call moves them to another slot — so the gap can be offered to someone else." },
+      { h2: "A clinic call", call: [{ who: "caller", text: "Namaskaram, naaku rēpu dental check-up kāvāli." }, { who: "ai", text: "Tappakunda! Rēpu sāyantram 5 gantalaki leda 6:30 ki slot undi. Ēdi mīku convenient?" }, { who: "caller", text: "6:30. Fee enta?" }, { who: "ai", text: "Consultation ₹500 andi. Mī pēru cheppandi, book chēstānu." }] },
+    ],
+    faqs: [
+      { q: "Is patient information kept private?", a: "Calls and transcripts are stored in your RANA workspace and visible only to your team. You control who can see recordings. We don't use your patients' data to advertise to them." },
+      { q: "Can it handle multiple doctors and branches?", a: "Yes — give each doctor their days and hours, and each branch its address and timings. The receptionist offers the right slots for the right doctor and location." },
+      { q: "Which languages can patients speak?", a: `${LANGS_SENTENCE}. It follows the patient if they switch language mid-call.` },
+      ...TRUST_FAQS.slice(1),
+    ],
+    related: ["/industries/clinics-hospitals", "/industries/dental-clinics", "/ai-receptionist", "/blog/ai-receptionist-for-clinics-india", "/telugu-ai-voice-agent", "/pricing"],
+  },
+  {
+    path: "/ai-telecaller", kind: "solution", label: "AI telecaller",
+    title: "AI Telecaller — Replace Manual Telecalling in India",
+    description: "An AI telecaller that calls every lead within a minute, qualifies them in their language and books site visits, demos and callbacks. Hundreds of calls a day, from ₹4,999/month.",
+    h1: "AI telecaller: call every lead in a minute, in their language",
+    eyebrow: "AI telecaller · Outbound calling",
+    intro: "Telecalling is the engine of Indian sales — and the hardest part to run: hiring, training, attrition, targets, and leads that sit for hours. An AI telecaller calls every lead as soon as it arrives, asks your qualification questions, handles the usual objections and books the next step. Your sales team only calls the people who are ready.",
+    keywords: ["ai telecaller", "ai telecaller india", "telecaller software", "ai telecalling", "automated telecalling", "ai tele calling software"],
+    facts: ["Calls within ~1 minute", "Parallel calling", "Objection handling", ENTRY_LINE],
+    demo: "sales",
+    sections: [
+      { h2: "What the AI telecaller does", bullets: ["Calls new leads from ads, portals and your website within about a minute", "Runs bulk campaigns from a CSV — renewals, reminders, re-engagement, COD confirmations", "Asks your qualification questions and scores each lead hot / warm / cold", "Handles common objections — price, timing, 'send details on WhatsApp', 'call me later'", "Notes the callback time the lead asks for and flags it on the lead card", "Books site visits, demo classes and appointments", "Records and transcribes every call so you can coach the script, not the person"] },
+      { h2: "The telecalling maths", table: { head: ["", "3 telecallers", "RANA Growth plan"], rows: [["Monthly cost", "₹45,000–75,000 + incentives", `${inr(PLANS.growth.pricePerMonth!)}`], ["Connected talk time", "~3–4 hours per person per day", `${PLANS.growth.minutes.toLocaleString("en-IN")} minutes a month included`], ["Calls at the same time", "3", String(PLANS.growth.concurrency)], ["Attrition and training", "Constant", "None — change the script in minutes"], ["Languages", "Whatever the team speaks", "11 Indian + 3 global"]], note: "Salary ranges are typical for Indian metros; compare with your own costs. See our telecaller vs AI cost guide for the full calculation." } },
+      { h2: "What stays human", body: "An AI telecaller is best at speed and volume: first contact, qualification, reminders and follow-ups. Negotiation, closing and relationship calls stay with your best people — who now spend their day on warm leads instead of dialling numbers that don't pick up." },
+      { h2: "Stay on the right side of TRAI", body: "Promotional calls must respect the DND registry and consent, come from registered numbers, and happen at permitted hours. RANA keeps your do-not-call list, respects calling hours and records every call. See our guide to TRAI DLT rules for AI calling." },
+    ],
+    faqs: [
+      { q: "How many calls can the AI telecaller make a day?", a: "It depends on your plan's concurrency (1 to 50 calls at the same time) and minutes. Growth runs 5 calls at once — easily several hundred short qualification calls a day." },
+      { q: "Can it switch to Hindi or Telugu mid-call?", a: "Yes. It starts in the language you choose and follows the lead if they switch." },
+      { q: "Will it sound robotic?", a: "No — it uses natural Indian voices, handles interruptions and speaks in short, conversational sentences. Listen to a sample on our homepage, or talk to it yourself." },
+      ...TRUST_FAQS.slice(1),
+    ],
+    related: ["/compare/ai-vs-human-telecaller", "/blog/telecaller-vs-ai-calling-cost-india", "/industries/real-estate", "/industries/education-coaching", "/ai-calling-agent", "/glossary/dlt-registration"],
+  },
+//@@SPLIT@@
