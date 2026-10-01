@@ -26,6 +26,22 @@ export const PRICING = {
   platinumFee: () => envNum("RANA_NUMBER_PLATINUM_FEE", 14999),
 };
 
+/**
+ * Where RANA buys client numbers. "sarvam" (default): RANA HQ clicks Buy number in Sarvam (₹59 launch / ₹159 a month,
+ * paid from Sarvam credits; Sarvam has no API for buying). "vobiz": bought automatically from RANA's Vobiz wallet.
+ * The list customers pick from is Vobiz inventory either way — Sarvam sells the same Vobiz numbers.
+ */
+export const numberSource = (): "sarvam" | "vobiz" => (String(process.env.RANA_NUMBER_SOURCE || "sarvam").toLowerCase() === "vobiz" ? "vobiz" : "sarvam");
+/** What Sarvam charges RANA per number per month (after the launch offer). Used for the credit check. */
+export const sarvamNumberCost = () => envNum("RANA_SARVAM_NUMBER_COST", 159);
+/** The Sarvam page where HQ buys numbers (the connection that holds RANA's Sarvam-rented numbers). */
+export function sarvamBuyUrl(): string {
+  const id = process.env.RANA_SARVAM_CONNECTION_ID || "";
+  return "https://indus.sarvam.ai/samvaad/deploy/phone-numbers" + (id ? "/" + encodeURIComponent(id) : "");
+}
+/** The Sarvam phone connection a number lives on, by where it was bought. */
+export const defaultConnectionId = () => (numberSource() === "vobiz" ? process.env.RANA_VOBIZ_CONNECTION_ID : process.env.RANA_SARVAM_CONNECTION_ID) || null;
+
 export type Tier = "standard" | "gold" | "platinum";
 
 /** Spots "fancy" numbers from the subscriber digits: 7777, 12345, 123321, …000, 786 and friends. */
@@ -125,20 +141,38 @@ export async function onNumberInvoicePaid(inv: any) {
   const paid_until = addMonth(from);
   if (row.status === "active" || row.status === "lapsed") { await patchNumber(row.id, { status: "active", paid_until }); return; }
   if (row.status !== "awaiting_payment") return;
-  // First payment: buy it from Vobiz now (if connected), then HQ attaches it in Sarvam and marks it live.
+  // First payment. Vobiz mode: buy it now from RANA's Vobiz wallet. Sarvam mode: HQ buys it in Sarvam (one click).
   let status = "provisioning", last_error: string | null = null;
-  if (vobizConfigured()) {
+  if (numberSource() === "vobiz" && vobizConfigured()) {
     try { await purchaseNumber(row.number); }
     catch (e: any) { status = "failed"; last_error = String(e?.message || e).slice(0, 400); }
   }
   await patchNumber(row.id, { status, paid_until, last_error });
+  await tellHqToBuy(row, status === "failed" ? last_error : null).catch(() => {});
+}
+
+/** Email HQ: a client paid for a number — buy it (Sarvam) or fix the failed auto-buy (Vobiz), then Mark live. */
+async function tellHqToBuy(row: any, error: string | null) {
+  const { sendEmail, emailHtml, hqInbox, APP_URL } = await import("./notify");
+  const [c] = (await sb<any[]>("/clients?id=eq." + row.client_id + "&select=name&limit=1").catch(() => [])) || [];
+  const pretty = prettyNumber(row.number);
+  const sarvam = numberSource() === "sarvam";
+  const lines = sarvam
+    ? [(c?.name || "A client") + " paid for " + pretty + ".",
+       "1. In Sarvam, open Phone Numbers → Sarvam Vobiz → Buy number, search " + row.number.replace(/^\+/, "") + ", tick it and buy (₹59–159 from Sarvam credits).",
+       "2. Set up its inbound deployment to the RANA Runtime agent (Deploy → Inbound).",
+       "3. In RANA HQ → Phone numbers, click Mark live. The client's AI employees then call from it and the client is emailed.",
+       "If the number is gone, release it in HQ and offer the client the next one."]
+    : [(c?.name || "A client") + " paid for " + pretty + ".", error ? "Automatic purchase from Vobiz failed: " + error : "It was bought from Vobiz automatically.", "Attach it in Sarvam, then click Mark live in RANA HQ → Phone numbers."];
+  await sendEmail({ to: hqInbox(), kind: "hq_number_to_buy", subject: (sarvam ? "Buy in Sarvam: " : "Number paid: ") + pretty + " for " + (c?.name || "a client"),
+    html: emailHtml({ title: sarvam ? "Buy " + pretty + " in Sarvam" : "Switch on " + pretty, lines, button: sarvam ? { label: "Open Sarvam", url: sarvamBuyUrl() } : { label: "Open RANA HQ", url: APP_URL() + "/hq/numbers" } }) });
 }
 
 /** HQ: number is set up in Sarvam → live. The first live number becomes the one the client's employees use. */
 export async function markLive(row: any, o: { connectionId?: string | null } = {}) {
   const live = (await sb<any[]>(`/phone_numbers?client_id=eq.${row.client_id}&status=eq.active&select=id`).catch(() => [])) || [];
   const makeDefault = !live.length;
-  const updated = await patchNumber(row.id, { status: "active", activated_at: new Date().toISOString(), is_default: makeDefault || row.is_default, sarvam_connection_id: o.connectionId || row.sarvam_connection_id || process.env.RANA_VOBIZ_CONNECTION_ID || null });
+  const updated = await patchNumber(row.id, { status: "active", activated_at: new Date().toISOString(), is_default: makeDefault || row.is_default, sarvam_connection_id: o.connectionId || row.sarvam_connection_id || defaultConnectionId() });
   if (makeDefault) await setDefault(updated);
   return updated;
 }
@@ -152,7 +186,14 @@ export async function setDefault(row: any) {
 
 /** Release: stop renting. If it was the default, the client falls back to RANA's shared number. */
 export async function release(row: any, o: { vendor?: boolean } = {}) {
-  if (o.vendor !== false && vobizConfigured() && row.number && ["active", "lapsed", "provisioning", "failed"].includes(row.status)) await releaseNumber(row.number).catch(() => {});
+  const held = row.number && ["active", "lapsed", "provisioning", "failed"].includes(row.status);
+  if (o.vendor !== false && held && numberSource() === "vobiz" && vobizConfigured()) await releaseNumber(row.number).catch(() => {});
+  // Sarvam numbers can only be released in the Sarvam dashboard, so remind HQ (otherwise Sarvam keeps renewing it).
+  if (o.vendor !== false && held && numberSource() === "sarvam") {
+    const { sendEmail, emailHtml, hqInbox } = await import("./notify");
+    await sendEmail({ to: hqInbox(), kind: "hq_number_release", subject: "Release in Sarvam: " + prettyNumber(row.number),
+      html: emailHtml({ title: "Release " + prettyNumber(row.number) + " in Sarvam", lines: ["RANA stopped using this number. Release it in Sarvam (Phone Numbers → Sarvam Vobiz) so it doesn't renew from Sarvam credits."], button: { label: "Open Sarvam", url: sarvamBuyUrl() } }) }).catch(() => {});
+  }
   if (row.invoice_id) {
     const { getInvoice, voidInvoice } = await import("./billing");
     const inv = await getInvoice(row.invoice_id);
@@ -188,7 +229,34 @@ export async function runNumberBilling() {
       if (days < -7 && r.status === "active") { await patchNumber(r.id, { status: "lapsed" }); log.push({ number: r.number, did: "lapsed" }); }
     } catch (e: any) { log.push({ number: r.number, error: String(e?.message || e).slice(0, 200) }); }
   }
+  const credit = await numberCreditCheck().catch((e) => ({ error: String(e?.message || e).slice(0, 200) }));
+  if (credit) log.push({ did: "sarvam-credit-check", ...credit });
   return log;
+}
+
+/**
+ * Sarvam renews each rented number from Sarvam credits; if credits are short on renewal day the number is released and
+ * its campaigns/deployments are cancelled. Warn HQ (daily, while short) when the estimated balance can't cover
+ * one month of every live number plus a week of calling.
+ */
+export async function numberCreditCheck() {
+  if (numberSource() !== "sarvam") return null;
+  const live = (await sb<any[]>("/phone_numbers?status=in.(active,lapsed,provisioning)&select=id").catch(() => [])) || [];
+  const count = live.length + 1; // + RANA's shared number
+  const { sarvamBalance } = await import("./finance");
+  const bal = await sarvamBalance();
+  if (!bal.tracked || bal.balance === null) return { numbers: count, balance: null, ok: null };
+  const need = Math.round(count * sarvamNumberCost() + (bal.perDay || 0) * 7);
+  const ok = bal.balance >= need;
+  if (!ok) {
+    const { sendEmail, emailHtml, hqInbox } = await import("./notify");
+    await sendEmail({ to: hqInbox(), kind: "hq_sarvam_number_credits", subject: "Top up Sarvam: phone numbers may not renew",
+      html: emailHtml({ title: "Sarvam credits are low for number renewals", lines: [
+        "Estimated Sarvam balance: ₹" + Math.round(bal.balance).toLocaleString("en-IN") + ". Needed for " + count + " number" + (count > 1 ? "s" : "") + " (₹" + sarvamNumberCost() + " each) plus a week of calls: ₹" + need.toLocaleString("en-IN") + ".",
+        "If credits run short on a renewal day, Sarvam releases the number and cancels its campaigns and deployments. Top up Sarvam and record it on the Money page."],
+        button: { label: "Open Sarvam", url: "https://indus.sarvam.ai" } }) }).catch(() => {});
+  }
+  return { numbers: count, balance: bal.balance, need, ok };
 }
 
 /** Everything HQ has to act on, for the command centre. */

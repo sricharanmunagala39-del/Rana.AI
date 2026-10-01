@@ -9,7 +9,9 @@ export async function GET(req: Request) {
   if (!session) return unauthorized();
   const sp = new URL(req.url).searchParams;
   try {
-    return Response.json(await catalog({ city: sp.get("city") || undefined, fancyOnly: sp.get("fancy") === "1" }));
+    const cat = await catalog({ city: sp.get("city") || undefined, fancyOnly: sp.get("fancy") === "1" });
+    // RANA's own cost price stays on the server.
+    return Response.json({ ...cat, numbers: cat.numbers.map(({ vendorMonthly, vendorSetup, ...n }: any) => n) });
   } catch (e: any) {
     console.error("[numbers catalog]", e?.message || e);
     return Response.json({ live: true, numbers: [], error: "Couldn't load numbers right now. Please try again in a minute." }, { status: 502 });
