@@ -6,7 +6,7 @@ import Sidebar from "@/components/Sidebar";
 
 const inr = (n: number) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 const ORDER = { requested: 0, failed: 1, provisioning: 2, lapsed: 3, awaiting_payment: 4, active: 5, released: 6 };
-const LABEL = { requested: "Wants a number", failed: "Paid · auto-buy failed", provisioning: "Paid · switch on", lapsed: "Rent unpaid", awaiting_payment: "Waiting for payment", active: "Live", released: "Released" };
+const LABEL = { requested: "Wants a number", failed: "Paid · auto-buy failed", provisioning: "Paid · buy & switch on", lapsed: "Rent unpaid", awaiting_payment: "Waiting for payment", active: "Live", released: "Released" };
 
 export default function HqNumbersPage() {
   const [d, setD] = useState<any>(null);
@@ -38,8 +38,9 @@ export default function HqNumbersPage() {
           <div>
             <div className="text-[20px] font-display font-semibold">Phone numbers</div>
             <div className="text-[13px] text-ink-soft mt-0.5">
-              Client business numbers. Requests: find a number (Sarvam → Deploy → Phone numbers → Rent, or Vobiz) and offer it — the client gets an invoice.
-              Paid: attach the number to the RANA voice app in Vobiz, add it under Deploy → Phone numbers in Sarvam, then Mark live.
+              {d?.source === "vobiz"
+                ? "Client business numbers. Paid numbers are bought from Vobiz automatically: add each under Deploy → Phone numbers in Sarvam, then Mark live."
+                : "Client business numbers. When a client pays: 1) Buy number in Sarvam (Phone Numbers → Sarvam Vobiz → Buy number, ₹" + (d?.sarvamCost || 159) + "/mo from Sarvam credits), 2) set its inbound deployment to the RANA Runtime agent, 3) Mark live here. Requests: find a number and Offer it — the client gets an invoice."}
             </div>
           </div>
           {err && <div className="text-[12.5px] text-miss bg-miss-tint rounded-lg px-3 py-2">{err}</div>}
@@ -70,6 +71,7 @@ export default function HqNumbersPage() {
                   )}
                   {["provisioning", "failed", "lapsed"].includes(n.status) && (
                     <div className="flex items-center gap-2 flex-wrap">
+                      {d?.source !== "vobiz" && n.status === "provisioning" && <a href={d?.buyUrl} target="_blank" rel="noreferrer" className="border border-signal text-signal rounded-lg px-3 py-1.5 text-[12px] font-semibold" data-testid="hq-buy-in-sarvam">1 · Buy in Sarvam ↗</a>}
                       <input className={`${input} w-[260px] font-mono`} placeholder="Sarvam connection id (blank = default)" value={f(n.id).connectionId || ""} onChange={(e) => setF(n.id, "connectionId", e.target.value)} />
                       <button disabled={busy === n.id} onClick={() => act(n.id, "live", f(n.id))} className="bg-signal text-on-accent rounded-lg px-3 py-1.5 text-[12px] font-semibold disabled:opacity-40">Mark live</button>
                       <button disabled={busy === n.id} onClick={() => act(n.id, "release", {}, `Release ${n.pretty}?`)} className="text-[12px] text-miss px-2">Release</button>

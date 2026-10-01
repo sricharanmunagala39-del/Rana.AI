@@ -3,7 +3,7 @@ import { getSession } from "@/lib/session";
 import { requireHq } from "@/lib/hq";
 import { sb } from "@/lib/db";
 import { audit } from "@/lib/audit";
-import { getNumber, patchNumber, invoiceForNumber, markLive, release, fancyOf, prettyNumber, PRICING, cityOfNumber } from "@/lib/numbers";
+import { getNumber, patchNumber, invoiceForNumber, markLive, release, fancyOf, prettyNumber, PRICING, cityOfNumber, numberSource, sarvamBuyUrl, sarvamNumberCost } from "@/lib/numbers";
 import { sendEmail, emailHtml, ownerEmails, APP_URL } from "@/lib/notify";
 
 /** GET — every client number (requests, being set up, live) for RANA HQ. */
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   const rows = (await sb<any[]>(`/phone_numbers?status=neq.expired&order=created_at.desc&limit=300&select=*`).catch(() => [])) || [];
   const ids = Array.from(new Set(rows.map((r) => r.client_id)));
   const clients = ids.length ? (await sb<any[]>(`/clients?id=in.(${ids.join(",")})&select=id,name`).catch(() => [])) || [] : [];
-  return Response.json({ numbers: rows.map((r) => ({ ...r, pretty: r.number ? prettyNumber(r.number) : null, clientName: clients.find((c) => c.id === r.client_id)?.name || "—" })), pricing: { monthly: PRICING.monthlyBase(), gold: PRICING.goldFee(), platinum: PRICING.platinumFee() } });
+  return Response.json({ numbers: rows.map((r) => ({ ...r, pretty: r.number ? prettyNumber(r.number) : null, clientName: clients.find((c) => c.id === r.client_id)?.name || "—" })), pricing: { monthly: PRICING.monthlyBase(), gold: PRICING.goldFee(), platinum: PRICING.platinumFee() }, source: numberSource(), buyUrl: sarvamBuyUrl(), sarvamCost: sarvamNumberCost() });
 }
 
 /**
