@@ -82,9 +82,9 @@ export function cityOfNumber(n: string): string | null {
 export async function catalog(o: { city?: string; fancyOnly?: boolean } = {}) {
   if (!vobizConfigured()) return { live: false, numbers: [] as any[] };
   const city = CITIES.find((c) => c.key === o.city);
-  const inv: InventoryNumber[] = await listInventory({ city: city?.name, perPage: 200 });
+  const inv: InventoryNumber[] = await listInventory({ stdCode: city?.code, perPage: 100 });
   const held = new Set(((await sb<any[]>(`/phone_numbers?status=in.(awaiting_payment,provisioning,active,lapsed)&select=number`).catch(() => [])) || []).map((r) => r.number));
-  const out = inv.filter((x) => !held.has(x.number)).map((x) => ({ number: x.number, pretty: prettyNumber(x.number), city: x.city || cityOfNumber(x.number), ...priceFor(x), vendorMonthly: x.monthly, vendorSetup: x.setup }));
+  const out = inv.filter((x) => !held.has(x.number)).map((x) => ({ number: x.number, pretty: prettyNumber(x.number), city: cityOfNumber(x.number) || x.city, ...priceFor(x), vendorMonthly: x.monthly, vendorSetup: x.setup }));
   const rank = { platinum: 0, gold: 1, standard: 2 } as const;
   return { live: true, numbers: out.filter((x) => !o.fancyOnly || x.tier !== "standard").sort((a, b) => rank[a.tier] - rank[b.tier]).slice(0, 120) };
 }
