@@ -16,11 +16,14 @@ export const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** The legal calling window a client can narrow but never widen, in minutes after local midnight.
  *  India: TRAI (TCCCPR) allows promotional calls 9 AM–9 PM IST. US & Canada: TCPA / CRTC allow
- *  8 AM–9 PM in the called person's local time. Elsewhere we keep the stricter 9 AM–9 PM. */
+ *  8 AM–9 PM in the called person's local time. UAE & Gulf: 9 AM–6 PM (UAE telemarketing rules).
+ *  Elsewhere we keep the stricter 9 AM–9 PM. */
 export function legalWindow(c: any): { start: number; end: number; law: string } {
   const m = c?.market || "in";
   if (m === "in") return { start: 540, end: 1260, law: "TRAI allows promotional calls 9am–9pm" };
   if (m === "us" || m === "global") return { start: 480, end: 1260, law: "US and Canadian rules allow sales calls 8am–9pm" };
+  // UAE Cabinet Resolution 56/2024 (telemarketing): 9 AM–6 PM, from a registered company number.
+  if (m === "ae") return { start: 540, end: 1080, law: "UAE rules allow marketing calls 9am–6pm" };
   return { start: 540, end: 1260, law: "RANA keeps sales calls between 9am and 9pm" };
 }
 

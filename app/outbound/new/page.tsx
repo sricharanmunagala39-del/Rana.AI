@@ -40,7 +40,7 @@ export default function NewCampaignPage() {
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
   const [nextOpen, setNextOpen] = useState<string | null>(null);
-  const [hours, setHours] = useState<{ summary: string; openNow: boolean; enforce: boolean; tz: string; zoneName: string; india: boolean } | null>(null);
+  const [hours, setHours] = useState<{ summary: string; openNow: boolean; enforce: boolean; tz: string; zoneName: string; india: boolean; market: string } | null>(null);
   const tz = hours?.tz || displayZone();
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function NewCampaignPage() {
       const pick = list.find((s: Script) => s.id === pre) || list.find((s: Script) => s.tested_at);
       if (pick) setScriptId(pick.id);
     }).catch(() => {});
-    fetch("/api/settings/calling").then((r) => r.json()).then((d) => d?.summary && setHours({ summary: d.summary, openNow: d.openNow, enforce: d.rules?.enforce !== false, tz: d.rules?.timezone || displayZone(), zoneName: d.zoneName || "India time", india: d.india !== false })).catch(() => {});
+    fetch("/api/settings/calling").then((r) => r.json()).then((d) => d?.summary && setHours({ summary: d.summary, openNow: d.openNow, enforce: d.rules?.enforce !== false, tz: d.rules?.timezone || displayZone(), zoneName: d.zoneName || "India time", india: d.india !== false, market: d.market || "in" })).catch(() => {});
     fetch("/api/admin/cartesia-phone-numbers").then((r) => r.json()).then((d) => {
       setNumbers(d.numbers || []);
       if (d.numbers?.length === 1) setFromId(d.numbers[0].id);
@@ -177,7 +177,9 @@ export default function NewCampaignPage() {
                   <span>{t}</span>
                 </label>
               ))}
-              <div className="text-[11.5px] text-ink-soft">{hours && !hours.india
+              <div className="text-[11.5px] text-ink-soft">{hours && hours.market === "ae"
+                ? "UAE rules: call only from your company's registered number, between 9am and 6pm, skip numbers on the Do Not Call Registry, and never call again after someone says no. Unanswered numbers can be retried at most once a day and twice a week."
+                : hours && !hours.india
                 ? "Don't upload cold lists: AI calls in the US and Canada need the person's prior consent (TCPA / CRTC), and numbers on the national do-not-call list must be skipped."
                 : "Cold lists of people who never enquired can't be called from a normal number — TRAI requires a 140-series number for that. Ask RANA if you need one."}</div>
             </div>
