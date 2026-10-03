@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { setDisplayZone, fmtNum, fmtClock } from "@/lib/format";
 
 type Client = {
   id: string; name: string; industry: string; sarvam_app_id: string | null;
@@ -69,6 +70,15 @@ export default function Sidebar({ active, client: clientProp }: { active: string
     if (clientProp) { setClient(clientProp); return; }
     fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).then((c) => c && setClient(c)).catch(() => {});
   }, [clientProp]);
+  // Show times in this client's own zone. First visit (or a switch to another workspace) reloads once.
+  useEffect(() => {
+    const c: any = client;
+    if (!c?.timezone) return;
+    if (setDisplayZone(c.timezone, c.locale) ) {
+      try { if (sessionStorage.getItem("rana_tz_reload") === c.timezone) return; sessionStorage.setItem("rana_tz_reload", c.timezone); } catch {}
+      window.location.reload();
+    }
+  }, [client]);
   async function backToHq() {
     const r = await fetch("/api/hq/return", { method: "POST" });
     if (r.ok) window.location.href = "/hq";
@@ -89,7 +99,7 @@ export default function Sidebar({ active, client: clientProp }: { active: string
       {client?.actingAsHq && (
         <div className="rounded-xl bg-hot-tint border border-hot/30 px-3 py-2.5 text-[11.5px] leading-snug" data-testid="hq-acting">
           <div className="font-semibold text-hot flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-hot" />RANA HQ inside this workspace</div>
-          <div className="text-ink-soft mt-0.5">{client.hqSession?.readOnly ? "Read-only visit — nothing can be changed." : "Changes you make are logged in their activity."}{client.hqSession?.expiresAt ? ` Ends ${new Date(client.hqSession.expiresAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}.` : ""}</div>
+          <div className="text-ink-soft mt-0.5">{client.hqSession?.readOnly ? "Read-only visit — nothing can be changed." : "Changes you make are logged in their activity."}{client.hqSession?.expiresAt ? ` Ends ${fmtClock(client.hqSession.expiresAt)}.` : ""}</div>
           <button onClick={backToHq} className="mt-1.5 font-semibold text-signal">← Back to HQ</button>
         </div>
       )}
@@ -162,7 +172,7 @@ export default function Sidebar({ active, client: clientProp }: { active: string
               <div className="flex justify-between"><span className="font-semibold text-ink">{p.status === "suspended" ? "Paused" : p.name}</span>
               <span>{p.trialDaysLeft !== null && p.status !== "suspended" ? ` · ${p.trialDaysLeft} day${p.trialDaysLeft === 1 ? "" : "s"} left` : ""}</span></div>
               <div className="h-1 rounded-full bg-line mt-1.5 overflow-hidden"><div className={`h-full rounded-full ${low ? "bg-miss" : "bg-gradient-to-r from-signal to-violet"}`} style={{ width: `${Math.min(100, (p.minutesUsed / Math.max(1, p.minutesIncluded)) * 100)}%` }} /></div>
-              <div className="mt-1 font-mono">{Math.round(p.minutesUsed)} / {p.minutesIncluded.toLocaleString("en-IN")} min used</div>
+              <div className="mt-1 font-mono">{Math.round(p.minutesUsed)} / {fmtNum(p.minutesIncluded)} min used</div>
             </Link>
           )}
           <button onClick={handleLogout} className="text-[11.5px] text-ink-soft hover:text-signal mt-1 text-left">Sign out</button>

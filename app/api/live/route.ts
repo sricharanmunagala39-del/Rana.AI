@@ -5,13 +5,13 @@ import { getSession } from "@/lib/session";
 import { listCallsLean, listCampaigns, getCall } from "@/lib/calls";
 import { maybeSyncClientCalls } from "@/lib/callSync";
 import { kpis } from "@/lib/metrics";
-import { todayIST } from "@/lib/billing";
+import { getClientById } from "@/lib/supabase";
+import { zoneOf, dayStart, localDate } from "@/lib/tz";
 
 /**
  * GET /api/live → the Live monitor (Mission control): today's numbers, running campaigns with progress,
  * and the latest calls as they finish. GET /api/live?call=<id> → one call with its transcript (for the replay).
  */
-const IST = 5.5 * 3600e3;
 export async function GET(req: Request) {
   const session = await getSession(req);
   if (!session) return unauthorized();
@@ -25,7 +25,8 @@ export async function GET(req: Request) {
   }
   await maybeSyncClientCalls(session.clientId);
   const now = new Date();
-  const startToday = new Date(Date.parse(todayIST(now) + "T00:00:00Z") - IST).toISOString();
+  const tz = zoneOf(await getClientById(session.clientId).catch(() => null));
+  const startToday = new Date(dayStart(tz, localDate(tz, now.getTime()))).toISOString();
   try {
     const campaigns = (await listCampaigns(session.clientId).catch(() => [])).filter((c) => c.status === "running" || c.status === "scheduled");
     const oldest = campaigns.reduce((m, c) => (c.created_at < m ? c.created_at : m), startToday);

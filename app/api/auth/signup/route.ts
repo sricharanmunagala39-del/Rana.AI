@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 import { sb } from "@/lib/db";
+import { isZone } from "@/lib/tz";
 import { hashPassword } from "@/lib/auth";
 import { createUser, getUserByEmail, normaliseEmail, validEmail, tempPassword } from "@/lib/users";
 import { audit } from "@/lib/audit";
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
     body: JSON.stringify({
       name: company, company_name: company, login_email: email, industry: INDUSTRIES.includes(b.industry) ? b.industry : "other",
       login_password: hashPassword(tempPassword() + tempPassword()), plan: "trial", status: "pending", signup_source: sourceTag ? `web|${sourceTag}` : "web",
-      contact_phone: phone, market, hq_notes: `Signed up on the website by ${name || email} (${phone}).`,
+      contact_phone: phone, market, ...(market !== "in" && isZone(b.timezone) ? { timezone: String(b.timezone) } : {}), hq_notes: `Signed up on the website by ${name || email} (${phone}).`,
     }),
   });
   const user = await createUser({ clientId: client.id, email, name: name || company, password, role: "owner", mustChange: false });

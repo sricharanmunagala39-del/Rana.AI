@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { fmtDate as fmtDay0 } from "@/lib/format";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import { LANGUAGES } from "@/lib/storage";
@@ -10,7 +11,7 @@ type Script = { id: string; name: string; engine?: string | null; playbook?: any
 type PhoneNumber = { id: string; number: string; label: string | null; agentId: string | null; agentName: string | null; provider: string };
 type Campaign = { id: string; name: string; script_id: string | null; status: string; total_contacts: number; created_at: string; kpis: { dialled: number; connected: number; hot: number } };
 
-const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "");
+const fmtDate = (iso?: string | null) => (iso ? fmtDay0(iso) : "");
 
 /** Built → Tested → Deployed. Each step says what's done and what to do next. */
 function Stages({ s, inbound, outbound }: { s: Script; inbound: PhoneNumber[]; outbound: Campaign[] }) {

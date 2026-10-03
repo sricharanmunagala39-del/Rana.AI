@@ -6,6 +6,7 @@ import { inr } from "@/lib/money";
 import WalletCard from "@/components/WalletCard";
 import { MARKETS } from "@/app/landing/markets";
 import { plansFor } from "@/app/landing/content";
+import { displayLocale, displayZone } from "@/lib/format";
 
 /** Workspaces from outside India see their local prices; RANA sends an invoice and a card payment link in that currency. */
 function IntlPlans({ marketKey }: { marketKey: string }) {
@@ -36,7 +37,7 @@ function IntlPlans({ marketKey }: { marketKey: string }) {
 const SELF = ["launch", "starter", "growth", "scale"];
 const STATUS: Record<string, string> = { issued: "Due", paid: "Paid", void: "Cancelled" };
 const field = "mt-1 w-full border border-line rounded-lg px-3 py-2 text-[13px] font-normal";
-const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—");
+const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(displayLocale(), { day: "numeric", month: "short", year: "numeric", timeZone: displayZone() }) : "—");
 
 export default function BillingPage() {
   const [d, setD] = useState<any>(null);
@@ -100,6 +101,10 @@ export default function BillingPage() {
   const pct = u ? Math.min(100, (u.minutesUsed / Math.max(1, u.minutesIncluded)) * 100) : 0;
   const plans = d?.plans ? Object.values(d.plans) as any[] : [];
   const trialOver = u?.plan.key === "trial" && u.trialEndsAt && Date.parse(u.trialEndsAt) < Date.now();
+  // Workspaces outside India are billed in their own currency by invoice: no rupee wallet or rupee price list.
+  const market: string = b?.market || (displayLocale() === "en-US" ? "us" : "in");
+  const intl = market !== "in";
+  const intlCard = intl && u ? plansFor(MARKETS[market as keyof typeof MARKETS] || MARKETS.global).find((p) => p.key === u.plan.key) : null;
   const outOfMinutes = u && u.minutesUsed >= u.minutesIncluded && !u.limits.allowOverage && !(b?.wallet?.enabled && b.wallet.balance > 0);
 
   return (
@@ -138,13 +143,13 @@ export default function BillingPage() {
                   </div>
                   <div>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-[30px] font-display font-semibold tabular-nums">{u.minutesUsed.toLocaleString("en-IN")}</span>
-                      <span className="text-[13px] text-ink-soft">of {u.minutesIncluded.toLocaleString("en-IN")} connected minutes</span>
+                      <span className="text-[30px] font-display font-semibold tabular-nums">{u.minutesUsed.toLocaleString(displayLocale())}</span>
+                      <span className="text-[13px] text-ink-soft">of {u.minutesIncluded.toLocaleString(displayLocale())} connected minutes</span>
                     </div>
                     <div className="h-2.5 rounded-full bg-paper mt-2 overflow-hidden"><div className={`h-full ${pct >= 100 ? "bg-miss" : pct >= 80 ? "bg-hot" : "bg-signal"}`} style={{ width: `${pct}%` }} /></div>
                     <div className="text-[12px] text-ink-soft mt-2">
                       {u.calls} connected call{u.calls === 1 ? "" : "s"} · {u.testMinutes} of {u.practiceAllowance ?? 30} free voice-practice minutes used on the Talk page (not counted in your plan)
-                      {u.overageMinutes > 0 ? ` · ${u.overageMinutes} min over plan${u.overageCost ? ` (${inr(u.overageCost)} + GST)` : ""}` : ""}
+                      {u.overageMinutes > 0 ? ` · ${u.overageMinutes} min over plan${u.overageCost && !intl ? ` (${inr(u.overageCost)} + GST)` : ""}` : ""}
                     </div>
                   </div>
                 </div>
@@ -152,16 +157,17 @@ export default function BillingPage() {
                   <div className="text-[15px] font-semibold">What's included</div>
                   <div className="flex justify-between"><span className="text-ink-soft">Employees</span><b>{u.limits.employees >= 999 ? "Unlimited" : u.limits.employees}</b></div>
                   <div className="flex justify-between"><span className="text-ink-soft">Calls at once</span><b>{u.limits.concurrency}</b></div>
-                  <div className="flex justify-between"><span className="text-ink-soft">Numbers per campaign</span><b>{u.limits.campaignSize.toLocaleString("en-IN")}</b></div>
+                  <div className="flex justify-between"><span className="text-ink-soft">Numbers per campaign</span><b>{u.limits.campaignSize.toLocaleString(displayLocale())}</b></div>
                   <div className="flex justify-between"><span className="text-ink-soft">Calling number</span><b>{d.number || "Shared RANA number"}</b></div>
-                  <div className="flex justify-between"><span className="text-ink-soft">Extra minutes</span><b>{b?.wallet?.enabled ? `From balance · ${inr(u.plan.overagePerMin)}/min` : u.limits.allowOverage ? `${inr(u.plan.overagePerMin)}/min` : "Pause at limit"}</b></div>
+                  <div className="flex justify-between"><span className="text-ink-soft">Extra minutes</span><b>{intl ? (u.limits.allowOverage ? (intlCard ? `${intlCard.extra}/min` : "Billed per minute") : "Pause at limit") : b?.wallet?.enabled ? `From balance · ${inr(u.plan.overagePerMin)}/min` : u.limits.allowOverage ? `${inr(u.plan.overagePerMin)}/min` : "Pause at limit"}</b></div>
                 </div>
               </div>
 
-              {b?.wallet && (
+              {b?.wallet && !intl && (
                 <WalletCard w={b.wallet} canPay={b.canPay} onOffline={(j) => setPending(j)} onNeedDetails={() => { setMsg(""); setDetails({ ...(b.profile || {}) }); }} onChanged={() => { loadBilling(); loadUsage(); }} />
               )}
 
+              {!intl && <>
               <div className="border border-line rounded-xl bg-raised overflow-x-auto" data-testid="plans-table">
                 <table className="w-full text-[13px] min-w-[680px]">
                   <thead>
@@ -174,7 +180,7 @@ export default function BillingPage() {
                       <tr key={p.key} className={`border-b border-line last:border-0 ${p.key === u.plan.key ? "bg-signal-tint/60" : ""}`}>
                         <td className="px-4 py-3 font-semibold">{p.name}{p.key === u.plan.key ? <span className="ml-2 text-[10.5px] text-signal">Current</span> : null}</td>
                         <td className="px-4 py-3 tabular-nums">{p.key === "trial" ? `Free · ${TRIAL_DAYS} days` : p.pricePerMonth ? inr(p.pricePerMonth) : `From ${inr(ENTERPRISE_FROM)}`}</td>
-                        <td className="px-4 py-3 tabular-nums">{p.key === "enterprise" ? `${p.minutes.toLocaleString("en-IN")}+` : p.minutes.toLocaleString("en-IN")}</td>
+                        <td className="px-4 py-3 tabular-nums">{p.key === "enterprise" ? `${p.minutes.toLocaleString(displayLocale())}+` : p.minutes.toLocaleString(displayLocale())}</td>
                         <td className="px-4 py-3 tabular-nums">{p.overagePerMin ? `${inr(p.overagePerMin)}` : "—"}</td>
                         <td className="px-4 py-3">{p.employees >= 999 ? "Unlimited" : p.employees}</td>
                         <td className="px-4 py-3">{p.concurrency}</td>
@@ -186,8 +192,9 @@ export default function BillingPage() {
                 </table>
               </div>
               <div className="text-[12px] text-ink-soft" data-testid="billing-engines"><b className="text-ink">{enginesPricingLine()}</b> Prices exclude 18% GST. Minutes are counted per call, rounded up to the next 30 seconds. Unused minutes don't roll over. Annual prepay: 12 months for the price of 10, onboarding free. Enterprise and custom deals: <span className="font-semibold">support@ranaai.in</span>.</div>
+              </>}
 
-              {b && b.market && b.market !== "in" && <IntlPlans marketKey={b.market} />}
+              {intl && <IntlPlans marketKey={market} />}
 
               {b && (!b.market || b.market === "in") && (
                 <div className="border border-line rounded-xl bg-raised p-5 flex flex-col gap-4" data-testid="choose-plan">
@@ -211,7 +218,7 @@ export default function BillingPage() {
                         <div key={k} className={`rounded-xl border p-4 flex flex-col gap-2 ${current ? "border-signal bg-signal-tint/40" : "border-line"}`} data-testid={`plan-${k}`}>
                           <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold">{p.name}</div>{k === "growth" && <span className="text-[10.5px] font-semibold text-signal">Most popular</span>}</div>
                           <div><span className="text-[22px] font-display font-semibold tabular-nums">{inr(interval === "annual" ? p.pricePerMonth * 10 : p.pricePerMonth)}</span><span className="text-[12px] text-ink-soft">/{interval === "annual" ? "year" : "month"}</span></div>
-                          <div className="text-[12px] text-ink-soft">{p.minutes.toLocaleString("en-IN")} min/month · {p.employees} employee{p.employees === 1 ? "" : "s"} · {p.concurrency} calls at once</div>
+                          <div className="text-[12px] text-ink-soft">{p.minutes.toLocaleString(displayLocale())} min/month · {p.employees} employee{p.employees === 1 ? "" : "s"} · {p.concurrency} calls at once</div>
                           {q.error ? <div className="text-[12px] text-ink-soft">{q.error}</div> : (
                             <>
                               <div className="text-[11.5px] text-ink-soft border-t border-line pt-2 flex flex-col gap-0.5">

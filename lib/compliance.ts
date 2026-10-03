@@ -1,6 +1,7 @@
 // Do-not-call list and calling-hours rules. Checked on every launch; the DNC list also grows on its own
 // whenever a caller asks not to be called again.
 import { sb, inList } from "./db";
+import { isIndia, zoneOf, zoneName } from "./tz";
 
 export type CallingRules = {
   timezone: string;
@@ -13,15 +14,25 @@ export type CallingRules = {
 export const DEFAULT_RULES: CallingRules = { timezone: "Asia/Kolkata", windowStart: 540, windowEnd: 1260, days: [1, 2, 3, 4, 5, 6], enforce: true };
 export const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+/** The legal calling window a client can narrow but never widen, in minutes after local midnight.
+ *  India: TRAI (TCCCPR) allows promotional calls 9 AM–9 PM IST. US & Canada: TCPA / CRTC allow
+ *  8 AM–9 PM in the called person's local time. Elsewhere we keep the stricter 9 AM–9 PM. */
+export function legalWindow(c: any): { start: number; end: number; law: string } {
+  const m = c?.market || "in";
+  if (m === "in") return { start: 540, end: 1260, law: "TRAI allows promotional calls 9am–9pm" };
+  if (m === "us" || m === "global") return { start: 480, end: 1260, law: "US and Canadian rules allow sales calls 8am–9pm" };
+  return { start: 540, end: 1260, law: "RANA keeps sales calls between 9am and 9pm" };
+}
+
 export function rulesFromClient(c: any): CallingRules {
   if (!c) return DEFAULT_RULES;
-  // TRAI (TCCCPR) allows promotional calls only 9 AM–9 PM IST. A client can narrow the window, never widen it or switch it off.
+  const law = legalWindow(c);
   const start = Number.isFinite(c.calling_window_start) ? c.calling_window_start : DEFAULT_RULES.windowStart;
   const end = Number.isFinite(c.calling_window_end) ? c.calling_window_end : DEFAULT_RULES.windowEnd;
-  const ws = Math.min(1259, Math.max(DEFAULT_RULES.windowStart, start));
-  const we = Math.max(ws + 1, Math.min(DEFAULT_RULES.windowEnd, end));
+  const ws = Math.min(law.end - 1, Math.max(law.start, start));
+  const we = Math.max(ws + 1, Math.min(law.end, end));
   return {
-    timezone: DEFAULT_RULES.timezone,
+    timezone: isIndia(c) ? DEFAULT_RULES.timezone : zoneOf(c),
     windowStart: ws,
     windowEnd: we,
     days: Array.isArray(c.calling_days) && c.calling_days.length ? c.calling_days.map(Number) : DEFAULT_RULES.days,
@@ -38,7 +49,7 @@ export function fmtMinutes(m: number): string {
 
 export function describeRules(r: CallingRules): string {
   const days = r.days.length === 7 ? "every day" : r.days.slice().sort().map((d) => DAY_NAMES[d]).join(", ");
-  return `${fmtMinutes(r.windowStart)}–${fmtMinutes(r.windowEnd)}, ${days} (${r.timezone})`;
+  return `${fmtMinutes(r.windowStart)}–${fmtMinutes(r.windowEnd)}, ${days} (${zoneName(r.timezone)})`;
 }
 
 /** Local weekday + minutes-after-midnight for an instant in a timezone. */

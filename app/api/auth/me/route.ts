@@ -4,6 +4,7 @@ import { clearSessionCookie, roleOf, ROLE_INFO } from "@/lib/auth";
 import { getSession } from "@/lib/session";
 import { HQ_ROLES } from "@/lib/hq";
 import { usageOf, employeeBlock } from "@/lib/plans";
+import { zoneOf, localeOf } from "@/lib/tz";
 
 export async function GET(req: Request) {
   const session = await getSession(req);
@@ -15,6 +16,7 @@ export async function GET(req: Request) {
   const u = c.is_hq ? null : await usageOf(c).catch(() => null);
   return Response.json({
     id: client.id, name: client.name, industry: client.industry, sarvam_app_id: client.sarvam_app_id,
+    market: c.market || "in", timezone: zoneOf(c), locale: localeOf(c),
     hq: !!session.hqRole && !session.hqFrom && !!c.is_hq,
     hqRole: session.hqRole ? { key: session.hqRole, label: HQ_ROLES[session.hqRole].label, perms: HQ_ROLES[session.hqRole].perms } : null,
     actingAsHq: !!session.hqFrom,

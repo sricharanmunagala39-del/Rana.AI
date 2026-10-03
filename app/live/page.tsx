@@ -2,6 +2,7 @@
 // Mission control: a live, futuristic view of your AI employees at work — today's numbers, running campaigns,
 // every call the moment it finishes (with a replay), and "Ask Rana" by voice or text.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fmtClock, fmtNum, fmtZone, displayZone } from "@/lib/format";
 import Sidebar from "@/components/Sidebar";
 import RanaCore, { CORE_LABEL, type CoreMode } from "@/components/RanaCore";
 import AskRana, { type AskState } from "@/components/AskRana";
@@ -15,7 +16,7 @@ const LEAD: Record<string, { label: string; cls: string }> = {
 };
 const who = (f: { name: string | null; phone: string | null }) => f.name || (f.phone ? `•••• ${String(f.phone).slice(-4)}` : "Unknown caller");
 const dur = (s: number) => (s >= 60 ? `${Math.floor(s / 60)}m ${Math.round(s % 60)}s` : `${Math.round(s)}s`);
-const time = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+const time = (iso: string) => fmtClock(iso);
 
 function CountUp({ v, suffix = "" }: { v: number; suffix?: string }) {
   const [n, setN] = useState(0);
@@ -25,13 +26,13 @@ function CountUp({ v, suffix = "" }: { v: number; suffix?: string }) {
     const f = (t: number) => { const k = Math.min(1, (t - st) / 900); const x = a + (v - a) * (1 - Math.pow(1 - k, 3)); setN(x); if (k < 1) raf = requestAnimationFrame(f); else from.current = v; };
     raf = requestAnimationFrame(f); return () => cancelAnimationFrame(raf);
   }, [v]);
-  return <>{Number.isInteger(v) ? Math.round(n).toLocaleString("en-IN") : n.toFixed(1)}{suffix}</>;
+  return <>{Number.isInteger(v) ? fmtNum(Math.round(n)) : n.toFixed(1)}{suffix}</>;
 }
 
 function Clock() {
   const [t, setT] = useState<string>("");
-  useEffect(() => { const f = () => setT(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Kolkata" })); f(); const i = setInterval(f, 1000); return () => clearInterval(i); }, []);
-  return <span className="font-mono tabular-nums">{t} IST</span>;
+  useEffect(() => { const f = () => setT(`${new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: displayZone() })} ${fmtZone()}`); f(); const i = setInterval(f, 1000); return () => clearInterval(i); }, []);
+  return <span className="font-mono tabular-nums">{t}</span>;
 }
 
 export default function LivePage() {

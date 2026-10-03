@@ -1,6 +1,7 @@
 // Lead alerts: after every real call, send the leads each client chose to the places they chose — Slack, WhatsApp,
 // email or their own webhook (Zapier, Make, Google Sheets, a CRM). Each call goes to each channel at most once.
 import { createHmac, randomBytes } from "crypto";
+import { zoneOf, localeOf, zoneLabel } from "./tz";
 import { sb } from "./db";
 import { seal, open, hint } from "./secretBox";
 import { sendEmail, emailHtml, APP_URL } from "./notify";
@@ -59,7 +60,8 @@ function leadOf(call: any, fields: string[], extra: { campaign: string | null; c
   const name = call.caller_name || extra.contact?.name || "Unknown caller";
   const lead = (LEAD_LABEL as any)[call.lead_status] || "New";
   const talk = Math.round(Number(call.duration_seconds) || 0);
-  const when = new Date(call.started_at || call.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: true });
+  const tz = zoneOf(extra.client);
+  const when = `${new Date(call.started_at || call.created_at).toLocaleString(localeOf(extra.client), { timeZone: tz, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: true })} ${zoneLabel(tz)}`;
   const turns = (Array.isArray(call.transcript) ? call.transcript : []).filter((t: any) => String(t?.text || "").trim()).slice(-6).map((t: any) => `${t.role === "user" ? "Customer" : "RANA"}: ${clip(t.text, 160)}`).join("\n");
   const all: Record<string, [string, any]> = {
     name: ["Name", name], phone: ["Phone", call.caller_phone || ""], lead: ["Lead", lead], reason: ["Why", call.lead_reason || ""],
