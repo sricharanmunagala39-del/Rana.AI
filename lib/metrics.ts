@@ -1,8 +1,9 @@
 // The single source of truth for every number on the RANA dashboard.
 // Pure functions over LeanCall rows — the API route fetches, this file counts.
 import type { LeanCall, CampaignRow, LeadStatus } from "./calls";
+import { DEFAULT_ZONE, dayStart, localDate, offsetMs } from "./tz";
 
-export const TZ_OFFSET_MS = 5.5 * 3600 * 1000; // IST — all RANA clients are India-based
+export const TZ_OFFSET_MS = 5.5 * 3600 * 1000; // IST (kept for older callers; ranges below take the client's zone)
 
 /* ── Definitions (also rendered in the dashboard's "How we count" panel) ── */
 export const DEFINITIONS: { term: string; rule: string }[] = [
@@ -67,12 +68,8 @@ const pct = (a: number, b: number) => Math.round((a / b) * 1000) / 10;
 export type RangeKey = "today" | "yesterday" | "day_before" | "7d" | "30d" | "custom";
 export type Range = { key: RangeKey; from: string; to: string; label: string; days: number };
 
-function istMidnight(msUtc: number): number {
-  const ist = msUtc + TZ_OFFSET_MS;
-  return ist - (ist % 86400000) - TZ_OFFSET_MS;
-}
-export function resolveRange(key: string, fromDate?: string | null, toDate?: string | null, now = Date.now()): Range {
-  const today0 = istMidnight(now);
+export function resolveRange(key: string, fromDate?: string | null, toDate?: string | null, now = Date.now(), tz: string = DEFAULT_ZONE): Range {
+  const today0 = dayStart(tz, localDate(tz, now));
   const D = 86400000;
   const mk = (k: RangeKey, from: number, to: number, label: string): Range => ({ key: k, from: new Date(from).toISOString(), to: new Date(to).toISOString(), label, days: Math.max(1, Math.round((to - from) / D)) });
   switch (key) {
@@ -81,8 +78,9 @@ export function resolveRange(key: string, fromDate?: string | null, toDate?: str
     case "7d": return mk("7d", today0 - 6 * D, today0 + D, "Last 7 days");
     case "30d": return mk("30d", today0 - 29 * D, today0 + D, "Last 30 days");
     case "custom": {
-      const f = fromDate ? Date.parse(`${fromDate}T00:00:00+05:30`) : NaN;
-      const t = toDate ? Date.parse(`${toDate}T00:00:00+05:30`) + D : NaN;
+      const ok = (x?: string | null) => !!x && /^\d{4}-\d{2}-\d{2}$/.test(x);
+      const f = ok(fromDate) ? dayStart(tz, fromDate!) : NaN;
+      const t = ok(toDate) ? dayStart(tz, toDate!) + D : NaN;
       if (!isNaN(f) && !isNaN(t) && t > f && t - f <= 92 * D) return mk("custom", f, t, `${fromDate} → ${toDate}`);
       return mk("today", today0, today0 + D, "Today");
     }
@@ -101,22 +99,22 @@ export function previousRange(r: Range, now = Date.now()): Range {
 }
 
 /* ── Breakdowns ── */
-export function hourly(rows: LeanCall[]) {
+export function hourly(rows: LeanCall[], tz: string = DEFAULT_ZONE) {
   const h = Array.from({ length: 24 }, (_, i) => ({ hour: i, inbound: 0, outbound: 0, connected: 0 }));
   for (const r of rows) {
-    const hr = new Date(Date.parse(r.created_at) + TZ_OFFSET_MS).getUTCHours();
+    const t = Date.parse(r.created_at); const hr = new Date(t + offsetMs(tz, t)).getUTCHours();
     h[hr][r.direction === "outbound" ? "outbound" : "inbound"]++;
     if (isConnected(r)) h[hr].connected++;
   }
   return h;
 }
 
-export function daily(rows: LeanCall[], fromIso: string, toIso: string) {
+export function daily(rows: LeanCall[], fromIso: string, toIso: string, tz: string = DEFAULT_ZONE) {
   const D = 86400000;
   const out: { date: string; inbound: number; outbound: number; connected: number; hot: number }[] = [];
   const start = Date.parse(fromIso);
   const n = Math.max(1, Math.round((Date.parse(toIso) - start) / D));
-  for (let i = 0; i < n; i++) out.push({ date: new Date(start + i * D + TZ_OFFSET_MS).toISOString().slice(0, 10), inbound: 0, outbound: 0, connected: 0, hot: 0 });
+  for (let i = 0; i < n; i++) out.push({ date: localDate(tz, start + i * D + 3 * 3600e3), inbound: 0, outbound: 0, connected: 0, hot: 0 });
   for (const r of rows) {
     const i = Math.floor((Date.parse(r.created_at) - start) / D);
     if (i < 0 || i >= n) continue;

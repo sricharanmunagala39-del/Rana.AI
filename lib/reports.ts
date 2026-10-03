@@ -5,7 +5,7 @@ import { LEAD_LABEL } from "./format";
 import { buildXlsx, type Cell, type Sheet } from "./xlsx";
 
 const DAY = 86400e3;
-const IST = 5.5 * 3600e3;
+import { DEFAULT_ZONE, dayStart, localDate, offsetMs, zoneLabel } from "./tz";
 
 export type LeadKey = "ready_to_close" | "hot" | "warm" | "new" | "cold" | "not_interested" | "no_answer" | "follow_up" | "needs_person";
 export const LEAD_CHOICES: { key: LeadKey; label: string }[] = [
@@ -15,7 +15,7 @@ export const LEAD_CHOICES: { key: LeadKey; label: string }[] = [
 ];
 
 export type ReportFilter = {
-  from: string; to: string;                   // YYYY-MM-DD, India time, inclusive
+  from: string; to: string;                   // YYYY-MM-DD in the client's zone, inclusive
   direction: "all" | "outbound" | "inbound";
   campaign: string;                          // "all" or a campaign id
   leads: LeadKey[];                          // empty = every call
@@ -24,9 +24,9 @@ export type ReportFilter = {
 };
 
 type Col = { key: string; label: string; width: number; wrap?: boolean; get: (c: any, x: Ctx) => Cell };
-type Ctx = { campaignName: Map<string, string>; contact: Map<string, any> };
+type Ctx = { campaignName: Map<string, string>; contact: Map<string, any>; tz: string };
 
-const istTime = (t: string) => new Date(Date.parse(t) + IST).toISOString().slice(0, 16).replace("T", " ");
+const localTime = (t: string, tz: string) => { const ms = Date.parse(t); return new Date(ms + offsetMs(tz, ms)).toISOString().slice(0, 16).replace("T", " "); };
 const result = (c: any) => {
   if (isConnected(c)) return "Connected";
   const raw = String(c.failure_reason || c.connectivity_status || "").toLowerCase();
@@ -36,7 +36,7 @@ const contactOf = (c: any, x: Ctx) => x.contact.get(`${c.campaign_id}|${c.caller
 const transcriptText = (t: any) => (Array.isArray(t) ? t : []).map((x: any) => `${x.role === "user" ? "Customer" : "RANA"}: ${String(x.text || "").trim()}`).filter((l: string) => l.length > 8).join("\n");
 
 export const COLUMNS: Col[] = [
-  { key: "when", label: "Date & time (IST)", width: 18, get: (c) => istTime(c.started_at || c.created_at) },
+  { key: "when", label: "Date & time", width: 18, get: (c, x) => localTime(c.started_at || c.created_at, x.tz) },
   { key: "direction", label: "Direction", width: 10, get: (c) => (c.direction === "outbound" ? "Outbound" : "Inbound") },
   { key: "campaign", label: "Campaign", width: 22, get: (c, x) => (c.campaign_id ? x.campaignName.get(c.campaign_id) || "Campaign" : c.direction === "outbound" ? "Single call" : "") },
   { key: "name", label: "Name", width: 20, get: (c, x) => c.caller_name || contactOf(c, x)?.name || "" },
@@ -56,10 +56,10 @@ export const COLUMNS: Col[] = [
 ];
 export const DEFAULT_COLUMNS = ["when", "direction", "campaign", "name", "phone", "connected", "talk", "lead", "why", "summary", "follow_up", "needs_person", "recording"];
 
-export function normalizeFilter(q: any): ReportFilter {
-  const today = new Date(Date.now() + IST).toISOString().slice(0, 10);
+export function normalizeFilter(q: any, tz: string = DEFAULT_ZONE): ReportFilter {
+  const today = localDate(tz);
   const d = (s: any, dflt: string) => (/^\d{4}-\d{2}-\d{2}$/.test(String(s || "")) ? String(s) : dflt);
-  let from = d(q.from, new Date(Date.now() + IST - 6 * DAY).toISOString().slice(0, 10));
+  let from = d(q.from, localDate(tz, Date.now() - 6 * DAY));
   let to = d(q.to, today);
   if (from > to) [from, to] = [to, from];
   if (Date.parse(to) - Date.parse(from) > 366 * DAY) from = new Date(Date.parse(to) - 366 * DAY).toISOString().slice(0, 10);
@@ -81,9 +81,9 @@ function leadMatch(c: any, leads: LeadKey[]): boolean {
 }
 
 /** Everything the Reports page shows, plus what the Excel needs. */
-export async function runReport(clientId: string, f: ReportFilter) {
-  const start = new Date(Date.parse(`${f.from}T00:00:00+05:30`)).toISOString();
-  const end = new Date(Date.parse(`${f.to}T00:00:00+05:30`) + DAY).toISOString();
+export async function runReport(clientId: string, f: ReportFilter, tz: string = DEFAULT_ZONE) {
+  const start = new Date(dayStart(tz, f.from)).toISOString();
+  const end = new Date(dayStart(tz, f.to) + DAY).toISOString();
   const campaigns = (await sb<any[]>(`/campaigns?client_id=eq.${clientId}&select=id,name,cartesia_batch_id,created_at&order=created_at.desc&limit=500`).catch(() => [])) || [];
   const batch = f.campaign !== "all" ? campaigns.find((c) => c.id === f.campaign)?.cartesia_batch_id || "__none__" : null;
   const dir = f.direction !== "all" ? `&direction=eq.${f.direction}` : "";
@@ -104,7 +104,7 @@ export async function runReport(clientId: string, f: ReportFilter) {
     contact.set(`${batchOf.get(ct.campaign_id)}|${ct.phone}`, ct);
     for (const k of Object.keys(ct.variables || {})) if (k && k.length <= 40 && !/^(name|phone|number|mobile)$/i.test(k)) listVars.add(k);
   }
-  const ctx: Ctx = { campaignName: new Map(campaigns.filter((c) => c.cartesia_batch_id).map((c) => [c.cartesia_batch_id, c.name || "Campaign"])), contact };
+  const ctx: Ctx = { campaignName: new Map(campaigns.filter((c) => c.cartesia_batch_id).map((c) => [c.cartesia_batch_id, c.name || "Campaign"])), contact, tz };
 
   const connected = rows.filter(isConnected);
   const talk = connected.reduce((a, c) => a + (Number(c.duration_seconds) || 0), 0);
@@ -126,31 +126,33 @@ export async function runReport(clientId: string, f: ReportFilter) {
   return { rows, stats, ctx, listVars: Array.from(listVars).sort(), campaigns: campaigns.map((c) => ({ id: c.id, name: c.name || "Campaign", created_at: c.created_at })) };
 }
 
-export function columnDefs(keys: string[]): Col[] {
+export function columnDefs(keys: string[], tz: string = DEFAULT_ZONE): Col[] {
   return keys.map((k) => {
+    if (k === "when") return { ...COLUMNS[0], label: `Date & time (${zoneLabel(tz)})` };
     if (k.startsWith("list:")) { const v = k.slice(5); return { key: k, label: v, width: 18, get: (c: any, x: Ctx) => contactOf(c, x)?.variables?.[v] ?? "" } as Col; }
     return COLUMNS.find((c) => c.key === k)!;
   }).filter(Boolean);
 }
 
 export function previewRows(rows: any[], ctx: Ctx, keys: string[], n = 8) {
-  const defs = columnDefs(keys);
+  const defs = columnDefs(keys, ctx.tz);
   return { headers: defs.map((d) => d.label), rows: rows.slice(0, n).map((r) => defs.map((d) => { const v = d.get(r, ctx); return typeof v === "object" && v ? (v as any).text || "" : v ?? ""; })) };
 }
 
 /** The Excel file: "Calls" (the chosen columns) and "Summary" (totals, leads, campaigns, the filters used). */
 export function reportXlsx(rep: Awaited<ReturnType<typeof runReport>>, f: ReportFilter, clientName: string): Uint8Array {
-  const defs = columnDefs(f.columns);
+  const tz = rep.ctx.tz;
+  const defs = columnDefs(f.columns, tz);
   const calls: Sheet = { name: "Calls", columns: defs.map((d) => ({ header: d.label, width: d.width, wrap: d.wrap })), rows: rep.rows.map((r) => defs.map((d) => d.get(r, rep.ctx))) };
   const s = rep.stats;
   const leadRows = Object.entries(s.byLead).sort((a, b) => b[1] - a[1]).map(([k, n]) => [(LEAD_LABEL as any)[k] || k, n] as Cell[]);
   const filters = [
-    ["Company", clientName], ["Dates", `${f.from} to ${f.to} (India time)`],
+    ["Company", clientName], ["Dates", `${f.from} to ${f.to} (${zoneLabel(tz)})`],
     ["Calls", f.direction === "all" ? "Incoming and outgoing" : f.direction === "outbound" ? "Outgoing only" : "Incoming only"],
     ["Campaign", f.campaign === "all" ? "All" : rep.campaigns.find((c) => c.id === f.campaign)?.name || "—"],
     ["Leads", f.leads.length ? f.leads.map((k) => LEAD_CHOICES.find((x) => x.key === k)?.label || k).join(", ") : "All"],
     ["Connected", f.connected === "all" ? "All" : f.connected === "connected" ? "Connected only" : "Not connected only"],
-    ["Made", `${istTime(new Date().toISOString())} IST`],
+    ["Made", `${localTime(new Date().toISOString(), tz)} ${zoneLabel(tz)}`],
   ];
   const summary: Sheet = {
     name: "Summary", columns: [{ header: "What", width: 28 }, { header: "Count", width: 14 }, { header: "", width: 12 }, { header: "", width: 12 }, { header: "", width: 12 }],
