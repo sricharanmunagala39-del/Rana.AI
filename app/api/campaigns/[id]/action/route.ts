@@ -9,6 +9,8 @@ import { getCampaignRow, refreshCampaignFromCartesia, updateCampaignRow } from "
 import { cancelCartesiaBatch, retryCartesiaBatch } from "@/lib/cartesia";
 import { sarvamConfig, setSarvamCampaignStatus } from "@/lib/sarvamAgent";
 import { getSession } from "@/lib/session";
+import { sb } from "@/lib/db";
+import { localDate } from "@/lib/tz";
 
 /** POST { action: "cancel" | "retry" | "refresh" } — retry re-dials the numbers that didn't connect. */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -21,8 +23,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const { action } = await req.json().catch(() => ({}));
   if (action === "cancel" || action === "retry") { const denied = forbidUnless(session, "manager"); if (denied) return denied; }
   if (action === "retry") {
-    const rules = rulesFromClient(await getClientById(session.clientId));
+    const client: any = await getClientById(session.clientId);
+    const rules = rulesFromClient(client);
     if (!insideWindow(rules)) return Response.json({ error: `It's outside your calling hours (${describeRules(rules)}). Re-dial when the window opens.` }, { status: 409 });
+    // UAE telemarketing rules: an unanswered number may be called at most once a day and twice a week.
+    if (client?.market === "ae") {
+      const since = new Date(Date.now() - 7 * 86400e3).toISOString();
+      const rows = (await sb<any[]>(`/calls?client_id=eq.${session.clientId}&campaign_id=eq.${encodeURIComponent(c.cartesia_batch_id)}&created_at=gte.${encodeURIComponent(since)}&select=created_at&order=created_at.desc&limit=5000`).catch(() => [])) || [];
+      const days = new Set(rows.map((r) => localDate(rules.timezone, Date.parse(r.created_at))));
+      if (days.has(localDate(rules.timezone))) return Response.json({ error: "UAE rules allow one call a day to a number that didn't answer. These numbers were already called today — retry tomorrow." }, { status: 409 });
+      if (days.size >= 2) return Response.json({ error: "UAE rules allow at most two calls a week to a number that didn't answer. These numbers have already been called twice this week." }, { status: 409 });
+    }
   }
   try {
     if (onSarvam && (action === "cancel" || action === "retry")) {

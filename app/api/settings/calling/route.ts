@@ -10,7 +10,7 @@ function view(c: any) {
   const r = rulesFromClient(c);
   const next = nextWindowOpen(r);
   const law = legalWindow(c);
-  return { rules: r, summary: describeRules(r), openNow: insideWindow(r), nextOpen: next ? next.toISOString() : null, india: isIndia(c), zoneName: zoneName(r.timezone), law: law.law, legal: { start: law.start, end: law.end } };
+  return { rules: r, summary: describeRules(r), openNow: insideWindow(r), nextOpen: next ? next.toISOString() : null, india: isIndia(c), market: c?.market || "in", zoneName: zoneName(r.timezone), law: law.law, legal: { start: law.start, end: law.end } };
 }
 
 export async function GET(req: Request) {
