@@ -2,13 +2,15 @@ export const runtime = "nodejs";
 import { getSession } from "@/lib/session";
 import { unauthorized, forbidUnless } from "@/lib/auth";
 import { getClientById, updateClient } from "@/lib/supabase";
-import { rulesFromClient, describeRules, insideWindow, nextWindowOpen, countDnc } from "@/lib/compliance";
+import { rulesFromClient, describeRules, insideWindow, nextWindowOpen, countDnc, legalWindow } from "@/lib/compliance";
+import { isIndia, zoneName } from "@/lib/tz";
 import { audit } from "@/lib/audit";
 
 function view(c: any) {
   const r = rulesFromClient(c);
   const next = nextWindowOpen(r);
-  return { rules: r, summary: describeRules(r), openNow: insideWindow(r), nextOpen: next ? next.toISOString() : null };
+  const law = legalWindow(c);
+  return { rules: r, summary: describeRules(r), openNow: insideWindow(r), nextOpen: next ? next.toISOString() : null, india: isIndia(c), zoneName: zoneName(r.timezone), law: law.law, legal: { start: law.start, end: law.end } };
 }
 
 export async function GET(req: Request) {
@@ -25,7 +27,8 @@ export async function PATCH(req: Request) {
   const denied = forbidUnless(session, "admin"); if (denied) return denied;
   const b = await req.json().catch(() => ({}));
   const patch: any = {};
-  if (b.timezone !== undefined) {
+  // India workspaces always call in India time (TRAI); everyone else picks their zone.
+  if (b.timezone !== undefined && !isIndia(await getClientById(session.clientId))) {
     try { new Intl.DateTimeFormat("en-US", { timeZone: String(b.timezone) }); } catch { return Response.json({ error: "Unknown timezone" }, { status: 400 }); }
     patch.timezone = String(b.timezone);
   }

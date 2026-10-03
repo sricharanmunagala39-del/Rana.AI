@@ -2,6 +2,7 @@
 // Mission control: a live, futuristic view of your AI employees at work — today's numbers, running campaigns,
 // every call the moment it finishes (with a replay), and "Ask Rana" by voice or text.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fmtClock, fmtNum, fmtZone, displayZone } from "@/lib/format";
 import Sidebar from "@/components/Sidebar";
 import RanaCore, { CORE_LABEL, type CoreMode } from "@/components/RanaCore";
 import AskRana, { type AskState } from "@/components/AskRana";
@@ -15,7 +16,7 @@ const LEAD: Record<string, { label: string; cls: string }> = {
 };
 const who = (f: { name: string | null; phone: string | null }) => f.name || (f.phone ? `•••• ${String(f.phone).slice(-4)}` : "Unknown caller");
 const dur = (s: number) => (s >= 60 ? `${Math.floor(s / 60)}m ${Math.round(s % 60)}s` : `${Math.round(s)}s`);
-const time = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+const time = (iso: string) => fmtClock(iso);
 
 function CountUp({ v, suffix = "" }: { v: number; suffix?: string }) {
   const [n, setN] = useState(0);

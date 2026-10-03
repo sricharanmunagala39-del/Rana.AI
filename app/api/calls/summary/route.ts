@@ -3,14 +3,13 @@ import { parseSession, unauthorized } from "@/lib/auth";
 import { listCalls } from "@/lib/calls";
 import { maybeSyncClientCalls } from "@/lib/callSync";
 import { getSession } from "@/lib/session";
+import { getClientById } from "@/lib/supabase";
+import { zoneOf, dayStart, localDate } from "@/lib/tz";
 
-/** Start of today in Asia/Kolkata as ISO (clients are India-based). */
-function startOfTodayIST(): string {
-  const now = new Date();
-  const ist = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-  ist.setHours(0, 0, 0, 0);
-  const offsetMs = 5.5 * 60 * 60 * 1000;
-  return new Date(ist.getTime() - offsetMs).toISOString();
+/** Start of today in the client's own zone, as ISO. */
+async function startOfToday(clientId: string): Promise<string> {
+  const tz = zoneOf(await getClientById(clientId).catch(() => null));
+  return new Date(dayStart(tz, localDate(tz))).toISOString();
 }
 
 export async function GET(req: Request) {
@@ -18,7 +17,7 @@ export async function GET(req: Request) {
   if (!session) return unauthorized();
   await maybeSyncClientCalls(session.clientId); // throttled to once a minute per client
   try {
-    const todayStart = startOfTodayIST();
+    const todayStart = await startOfToday(session.clientId);
     const yesterdayStart = new Date(new Date(todayStart).getTime() - 24 * 3600 * 1000).toISOString();
     const rows = await listCalls(session.clientId, { since: yesterdayStart, limit: 500 });
 

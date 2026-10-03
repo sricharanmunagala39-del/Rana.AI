@@ -8,6 +8,8 @@ import {
   isHot, isFollowUp, DEFINITIONS,
 } from "@/lib/metrics";
 import { getSession } from "@/lib/session";
+import { getClientById } from "@/lib/supabase";
+import { zoneOf } from "@/lib/tz";
 
 /**
  * GET /api/dashboard?range=today|yesterday|day_before|7d|30d|custom&from=YYYY-MM-DD&to=YYYY-MM-DD&direction=all|inbound|outbound
@@ -19,7 +21,8 @@ export async function GET(req: Request) {
   await maybeSyncClientCalls(session.clientId);
 
   const sp = new URL(req.url).searchParams;
-  const range = resolveRange(sp.get("range") || "today", sp.get("from"), sp.get("to"));
+  const tz = zoneOf(await getClientById(session.clientId).catch(() => null));
+  const range = resolveRange(sp.get("range") || "today", sp.get("from"), sp.get("to"), Date.now(), tz);
   const prev = previousRange(range);
   const direction = (["inbound", "outbound"].includes(sp.get("direction") || "") ? sp.get("direction") : "all") as "all" | "inbound" | "outbound";
 
@@ -50,8 +53,8 @@ export async function GET(req: Request) {
       kpis: kpis(curDir),
       previousKpis: kpis(prv),
       split: { inbound: kpis(cur.filter((r) => r.direction === "inbound")), outbound: kpis(cur.filter((r) => r.direction === "outbound")) },
-      hourly: hourly(curDir),
-      trend: daily(trendRows.filter(dir), trendFrom, range.to),
+      hourly: hourly(curDir, tz),
+      trend: daily(trendRows.filter(dir), trendFrom, range.to, tz),
       notConnected: notConnectedReasons(curDir),
       leadMix: leadMix(curDir),
       campaigns: direction === "inbound" ? [] : campaignBreakdown(cur, campaigns),

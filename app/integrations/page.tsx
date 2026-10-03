@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { fmtDateTime } from "@/lib/format";
 import Sidebar from "@/components/Sidebar";
 
 const KINDS: { k: string; name: string; icon: string; blurb: string }[] = [
@@ -19,7 +20,7 @@ const SHEETS_SCRIPT = `function doPost(e) {
   sh.appendRow([new Date()].concat(cols.map(function (c) { return l[c] || ""; })));
   return ContentService.createTextOutput("ok");
 }`;
-const when = (d: string | null) => (d ? new Date(d).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: true }) : "never");
+const when = (d: string | null) => (d ? fmtDateTime(d) : "never");
 
 /** Lead alerts: the client decides where leads go (Slack, WhatsApp, email, webhook), which leads, and what's in them. */
 export default function IntegrationsPage() {
