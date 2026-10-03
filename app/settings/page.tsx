@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { fmtDateTime, fmtNum, setDisplayZone } from "@/lib/format";
 import Sidebar from "@/components/Sidebar";
 import StatusPill, { type PillTone } from "@/components/StatusPill";
 
@@ -9,7 +10,7 @@ type RoleInfo = { key: Role; label: string; can: string };
 type User = { id: string; email: string; name: string | null; role: Role; is_active: boolean; must_change_password: boolean; last_login_at: string | null; created_at: string };
 type Me = { id: string | null; role: Role; personal: boolean };
 type Rules = { timezone: string; windowStart: number; windowEnd: number; days: number[]; enforce: boolean };
-type Calling = { rules: Rules; summary: string; openNow: boolean; nextOpen: string | null; dncCount: number };
+type Calling = { rules: Rules; summary: string; openNow: boolean; nextOpen: string | null; dncCount: number; india?: boolean; zoneName?: string; law?: string };
 type Dnc = { id: string; phone: string; reason: string | null; source: string; added_by: string | null; created_at: string };
 type Event = { id: number; action: string; label: string; user_email: string | null; target_type: string | null; target_id: string | null; detail: any; ip: string | null; created_at: string };
 
@@ -32,7 +33,7 @@ const TIMEZONES = [
 
 const toHHMM = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const fromHHMM = (s: string) => { const [h, m] = s.split(":").map(Number); return h * 60 + (m || 0); };
-const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "—");
+const when = (iso: string | null) => (iso ? fmtDateTime(iso) : "—");
 function ago(iso: string | null) {
   if (!iso) return "Never";
   const s = (Date.now() - Date.parse(iso)) / 1000;
@@ -219,6 +220,8 @@ function CallingTab({ me }: { me: Me }) {
     try {
       const d = await api<Calling>("/api/settings/calling", { method: "PATCH", body: JSON.stringify(draft) });
       setData({ ...d, dncCount: data?.dncCount ?? 0 }); setDraft(d.rules); setMsg({ tone: "ok", text: `Saved. Campaigns now only call ${d.summary}.` });
+      // A new time zone changes how every time in the app is shown.
+      if (!d.india && setDisplayZone(d.rules.timezone, "en-US")) setTimeout(() => window.location.reload(), 900);
     } catch (e: any) { setMsg({ tone: "err", text: e.message }); } finally { setSaving(false); }
   }
   async function addNumbers(e: React.FormEvent) {
@@ -244,12 +247,19 @@ function CallingTab({ me }: { me: Me }) {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <div className="text-[15px] font-semibold">Calling hours</div>
-            <div className="text-[12.5px] text-ink-soft mt-0.5">Campaigns only call inside these hours (India time). TRAI allows promotional calls 9am–9pm, so RANA never calls outside that — you can make the window shorter.</div>
+            <div className="text-[12.5px] text-ink-soft mt-0.5">Campaigns only call inside these hours ({data.zoneName || "India time"}). {data.law || "TRAI allows promotional calls 9am–9pm"}, so RANA never calls outside that — you can make the window shorter.</div>
           </div>
           <StatusPill label={data.rules.enforce ? (data.openNow ? "Open now" : `Closed · opens ${when(data.nextOpen)}`) : "Not enforced"} tone={data.rules.enforce ? (data.openNow ? "signal" : "warm") : "miss"} />
         </div>
 
         <fieldset disabled={!canEdit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {data.india === false && (
+            <label className="flex flex-col gap-1 text-[12px] text-ink-soft md:col-span-2">Time zone (calling hours, call times and reports use it)
+              <select className={input} value={draft.timezone} onChange={(e) => setDraft({ ...draft, timezone: e.target.value })}>
+                {Array.from(new Set([draft.timezone, ...TIMEZONES.filter((z) => z !== "Asia/Kolkata")])).map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")}</option>)}
+              </select>
+            </label>
+          )}
           <label className="flex flex-col gap-1 text-[12px] text-ink-soft">From
             <input type="time" className={input} value={toHHMM(draft.windowStart)} onChange={(e) => setDraft({ ...draft, windowStart: fromHHMM(e.target.value) })} />
           </label>
@@ -277,7 +287,7 @@ function CallingTab({ me }: { me: Me }) {
 
       <div className={`${card} p-5 flex flex-col gap-4`}>
         <div>
-          <div className="text-[15px] font-semibold">Do-not-call list <span className="text-ink-soft font-normal">· {dncTotal.toLocaleString("en-IN")}</span></div>
+          <div className="text-[15px] font-semibold">Do-not-call list <span className="text-ink-soft font-normal">· {fmtNum(dncTotal)}</span></div>
           <div className="text-[12.5px] text-ink-soft mt-0.5">Numbers here are removed from every campaign before dialling. When a caller says &ldquo;don&apos;t call me again&rdquo;, RANA adds them automatically.</div>
         </div>
         {canAddDnc && (

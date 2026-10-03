@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import { displayZone, displayLocale, fmtNum } from "@/lib/format";
+import { localToUtc, offsetMs } from "@/lib/tz";
 import LeadListImport from "@/components/LeadListImport";
 
 type Script = { id: string; name: string; cartesia_agent_id: string | null; tested_at: string | null };
@@ -38,7 +40,8 @@ export default function NewCampaignPage() {
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
   const [nextOpen, setNextOpen] = useState<string | null>(null);
-  const [hours, setHours] = useState<{ summary: string; openNow: boolean; enforce: boolean } | null>(null);
+  const [hours, setHours] = useState<{ summary: string; openNow: boolean; enforce: boolean; tz: string; zoneName: string; india: boolean } | null>(null);
+  const tz = hours?.tz || displayZone();
 
   useEffect(() => {
     fetch("/api/scripts").then((r) => r.json()).then((d) => {
@@ -48,7 +51,7 @@ export default function NewCampaignPage() {
       const pick = list.find((s: Script) => s.id === pre) || list.find((s: Script) => s.tested_at);
       if (pick) setScriptId(pick.id);
     }).catch(() => {});
-    fetch("/api/settings/calling").then((r) => r.json()).then((d) => d?.summary && setHours({ summary: d.summary, openNow: d.openNow, enforce: d.rules?.enforce !== false })).catch(() => {});
+    fetch("/api/settings/calling").then((r) => r.json()).then((d) => d?.summary && setHours({ summary: d.summary, openNow: d.openNow, enforce: d.rules?.enforce !== false, tz: d.rules?.timezone || displayZone(), zoneName: d.zoneName || "India time", india: d.india !== false })).catch(() => {});
     fetch("/api/admin/cartesia-phone-numbers").then((r) => r.json()).then((d) => {
       setNumbers(d.numbers || []);
       if (d.numbers?.length === 1) setFromId(d.numbers[0].id);
@@ -68,7 +71,7 @@ export default function NewCampaignPage() {
     else if (!onSarvam && fromId === "sarvam") setFromId(cartesiaNumbers.length === 1 ? cartesiaNumbers[0].id : "");
   }, [onSarvam, sarvamNumber]);
   const from = numbers.find((n) => n.id === fromId);
-  const scheduledIso = when === "later" && at ? new Date(`${at}:00+05:30`).toISOString() : null;
+  const scheduledIso = when === "later" && at ? new Date(localToUtc(tz, at)).toISOString() : null;
   const problems = [
     !consent && "Choose who you're calling (below)",
     !name.trim() && "Name the campaign",
@@ -149,7 +152,7 @@ export default function NewCampaignPage() {
               <span>— keep this at or below how many leads your sales team can follow up quickly.</span>
             </label>
             <div className="text-[11.5px] text-ink-soft">
-              Times are India time. Call only people who&apos;ve agreed to hear from you.{" "}
+              Times are {hours?.zoneName || "India time"}. Call only people who&apos;ve agreed to hear from you.{" "}
               {hours && (hours.enforce
                 ? <>Your calling hours: <span className="font-semibold">{hours.summary}</span>{when === "now" && !hours.openNow ? <span className="text-miss font-semibold"> — closed right now, so schedule this for later</span> : ""}. Numbers on your do-not-call list are skipped automatically. <a href="/settings?tab=calling" className="text-signal font-semibold">Change</a></>
                 : <>Calling hours aren&apos;t enforced. <a href="/settings?tab=calling" className="text-signal font-semibold">Set them</a></>)}
@@ -159,22 +162,24 @@ export default function NewCampaignPage() {
           <section className="bg-raised border border-line rounded-2xl p-5 flex flex-col gap-3">
             <div className="text-[14.5px] font-semibold">Review</div>
             <div className="text-[13px] leading-relaxed">
-              <span className="font-semibold">{script?.name || "—"}</span> will call <span className="font-semibold">{ok.length.toLocaleString("en-IN")}</span> people
-              from <span className="font-semibold">{from?.number || "—"}</span>, {when === "now" ? "starting now" : scheduledIso ? `starting ${new Date(scheduledIso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" })}` : "at the time you pick"},
+              <span className="font-semibold">{script?.name || "—"}</span> will call <span className="font-semibold">{fmtNum(ok.length)}</span> people
+              from <span className="font-semibold">{from?.number || "—"}</span>, {when === "now" ? "starting now" : scheduledIso ? `starting ${new Date(scheduledIso).toLocaleString(displayLocale(), { dateStyle: "medium", timeStyle: "short", timeZone: tz })}` : "at the time you pick"},
               up to {concurrency} at a time.
             </div>
             <div className="flex flex-col gap-2 border border-line rounded-lg p-3 bg-paper" data-testid="campaign-consent">
               <div className="text-[12.5px] font-semibold">Who are you calling?</div>
               {[
                 ["enquiries", "People who enquired with us (form, ad, missed call, walk-in) and expect a call"],
-                ["customers", "Our existing students / customers (reminders, fee dues, follow-ups)"],
+                ["customers", hours && !hours.india ? "Our existing customers (reminders, renewals, follow-ups)" : "Our existing students / customers (reminders, fee dues, follow-ups)"],
               ].map(([k, t]) => (
                 <label key={k} className="flex items-start gap-2 text-[12.5px] cursor-pointer">
                   <input type="radio" name="consent" checked={consent === k} onChange={() => setConsent(k)} className="mt-0.5 accent-signal" data-testid={`consent-${k}`} />
                   <span>{t}</span>
                 </label>
               ))}
-              <div className="text-[11.5px] text-ink-soft">Cold lists of people who never enquired can't be called from a normal number — TRAI requires a 140-series number for that. Ask RANA if you need one.</div>
+              <div className="text-[11.5px] text-ink-soft">{hours && !hours.india
+                ? "Don't upload cold lists: AI calls in the US and Canada need the person's prior consent (TCPA / CRTC), and numbers on the national do-not-call list must be skipped."
+                : "Cold lists of people who never enquired can't be called from a normal number — TRAI requires a 140-series number for that. Ask RANA if you need one."}</div>
             </div>
             {problems.length > 0 && <ul className="text-[12.5px] text-ink-soft list-disc pl-5">{problems.map((p) => <li key={p}>{p}</li>)}</ul>}
             {error && (
@@ -183,11 +188,12 @@ export default function NewCampaignPage() {
                 {nextOpen && (
                   <button type="button" className="bg-ink text-paper rounded-md px-3 py-1.5 text-[12px] font-semibold"
                     onClick={() => {
-                      // The picker works in IST, like the rest of the wizard.
-                      const ist = new Date(Date.parse(nextOpen) + 330 * 60000).toISOString().slice(0, 16);
-                      setWhen("later"); setAt(ist); setError(""); setNextOpen(null);
+                      // The picker works in the workspace's own zone, like the rest of the wizard.
+                      const ms = Date.parse(nextOpen);
+                      const local = new Date(ms + offsetMs(tz, ms)).toISOString().slice(0, 16);
+                      setWhen("later"); setAt(local); setError(""); setNextOpen(null);
                     }}>
-                    Schedule for {new Date(nextOpen).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" })}
+                    Schedule for {new Date(nextOpen).toLocaleString(displayLocale(), { dateStyle: "medium", timeStyle: "short", timeZone: tz })}
                   </button>
                 )}
               </div>

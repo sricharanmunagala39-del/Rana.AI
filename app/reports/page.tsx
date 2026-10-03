@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import { displayZone } from "@/lib/format";
+import { localDate } from "@/lib/tz";
 
-const IST = 5.5 * 3600e3;
-const day = (offset = 0) => new Date(Date.now() + IST - offset * 86400e3).toISOString().slice(0, 10);
+const day = (offset = 0) => localDate(displayZone(), Date.now() - offset * 86400e3);
 const RANGES: [string, string, () => [string, string]][] = [
   ["today", "Today", () => [day(0), day(0)]],
   ["yesterday", "Yesterday", () => [day(1), day(1)]],

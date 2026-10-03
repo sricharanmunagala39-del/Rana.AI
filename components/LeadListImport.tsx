@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { fmtNum } from "@/lib/format";
 import { analyse, parseText, readXlsx, FIELD_LABELS, type FieldKey, type Contact, type ImportResult } from "@/lib/leadImport";
 
 const input = "border border-line rounded-lg px-3 py-2 text-[13px] bg-paper outline-none focus:border-signal";
@@ -9,7 +10,7 @@ Dr Priya Reddy,98480 12345,NEET PG,Anita
 RAHUL VARMA,+91 90000 54321,FMGE,Anita
 Sita,09848012346 / 9000012345,NEET PG,Raj`;
 const PICKABLE: FieldKey[] = ["name", "first_name", "last_name", "phone", "alt_phone", "email", "course", "status", "owner", "date", "city", "extra", "ignore"];
-const fmt = (n: number) => n.toLocaleString("en-IN");
+const fmt = (n: number) => fmtNum(n);
 
 /**
  * Paste or upload a lead list (CSV or Excel), see what RANA understood and what it would correct,

@@ -15,7 +15,7 @@ export default function SignupPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr("");
     try {
-      const r = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, source: utmTag(), market: (document.cookie.match(/(?:^|; )rana_market=([a-z]+)/) || [])[1] || "in" }) });
+      const r = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, source: utmTag(), market: (document.cookie.match(/(?:^|; )rana_market=([a-z]+)/) || [])[1] || "in", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }) });
       const j = await r.json(); if (!r.ok) { setErr(j.error || "Sign-up failed"); return; }
       setDone(true);
     } finally { setBusy(false); }

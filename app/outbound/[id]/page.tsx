@@ -6,7 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import StatusPill, { type PillTone } from "@/components/StatusPill";
 import CallDrawer from "@/components/CallDrawer";
 import type { CallRow, LeadStatus } from "@/lib/calls";
-import { LEAD_LABEL, LEAD_TONE, fmtDuration, fmtPhone, fmtDate, fmtClock } from "@/lib/format";
+import { LEAD_LABEL, LEAD_TONE, fmtDuration, fmtPhone, fmtDate, fmtClock, displayLocale } from "@/lib/format";
 import { CAMPAIGN_STATUS } from "@/lib/campaignUi";
 
 type Row = {
@@ -101,7 +101,7 @@ export default function CampaignDetailPage({ params }: { params: { id: string } 
   const progressPct = d ? Math.min(100, Math.round((d.progress.dialled / Math.max(1, d.progress.total)) * 100)) : 0;
 
   const tiles = k && d ? [
-    { l: "Numbers", v: d.progress.total.toLocaleString("en-IN"), s: `${d.progress.dialled.toLocaleString("en-IN")} dialled so far` },
+    { l: "Numbers", v: d.progress.total.toLocaleString(displayLocale()), s: `${d.progress.dialled.toLocaleString(displayLocale())} dialled so far` },
     { l: "Lifted", v: String(k.connected), s: `${k.connectRate}% connectivity` },
     { l: "DNP", v: String(k.dnp), s: `${pct(k.dnp, k.dialled)} of dialled` },
     { l: "Hot", v: String(k.hot), s: `${k.readyToClose} ready to close` },
@@ -140,7 +140,7 @@ export default function CampaignDetailPage({ params }: { params: { id: string } 
 
         {d && (
           <div>
-            <div className="flex justify-between text-[12px] text-ink-soft mb-1"><span>{d.progress.dialled.toLocaleString("en-IN")} of {d.progress.total.toLocaleString("en-IN")} numbers dialled</span><span>{progressPct}%</span></div>
+            <div className="flex justify-between text-[12px] text-ink-soft mb-1"><span>{d.progress.dialled.toLocaleString(displayLocale())} of {d.progress.total.toLocaleString(displayLocale())} numbers dialled</span><span>{progressPct}%</span></div>
             <div className="h-[10px] bg-raised border border-line rounded-full overflow-hidden"><div className="h-full bg-signal" style={{ width: `${progressPct}%` }} /></div>
           </div>
         )}

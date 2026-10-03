@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import StatusPill, { type PillTone } from "@/components/StatusPill";
-import { fmtDate, fmtClock } from "@/lib/format";
+import { fmtDate, fmtClock, displayLocale } from "@/lib/format";
 import { CAMPAIGN_STATUS as STATUS } from "@/lib/campaignUi";
 
 type Kpis = { dialled: number; connected: number; connectRate: number; dnp: number; hot: number; warm: number; followUps: number; talkSeconds: number };
@@ -74,7 +74,7 @@ export default function CampaignsPage() {
                   {c.last_error && <div className="text-[11.5px] text-miss mt-0.5 truncate">{c.last_error}</div>}
                 </div>
                 <div>
-                  <div className="flex justify-between text-[11.5px] text-ink-soft mb-1"><span>{c.kpis.dialled.toLocaleString("en-IN")} of {c.total_contacts.toLocaleString("en-IN")} dialled</span><span>{pct}%</span></div>
+                  <div className="flex justify-between text-[11.5px] text-ink-soft mb-1"><span>{c.kpis.dialled.toLocaleString(displayLocale())} of {c.total_contacts.toLocaleString(displayLocale())} dialled</span><span>{pct}%</span></div>
                   <div className="h-[8px] bg-paper rounded-full overflow-hidden"><div className="h-full bg-signal rounded-full" style={{ width: `${pct}%` }} /></div>
                 </div>
                 <div className="grid grid-cols-5 gap-2 text-center">

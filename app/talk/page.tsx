@@ -2,6 +2,7 @@
 "use client";
 
 import { engineOfScript } from "@/lib/voice/engines";
+import { fmtDate } from "@/lib/format";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -460,7 +461,7 @@ function TalkInner() {
                   </div>
                 </div>
                 {testedAt ? (
-                  <span className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-signal-tint text-signal">Signed off {new Date(testedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+                  <span className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-signal-tint text-signal">Signed off {fmtDate(testedAt)}</span>
                 ) : (
                   <span className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-paper border border-line text-ink-soft">Not signed off</span>
                 )}

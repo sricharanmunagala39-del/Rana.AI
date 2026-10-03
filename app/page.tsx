@@ -6,7 +6,7 @@ import SetupChecklist from "@/components/SetupChecklist";
 import StatusPill from "@/components/StatusPill";
 import CallDrawer from "@/components/CallDrawer";
 import type { CallRow, LeadStatus } from "@/lib/calls";
-import { LEAD_LABEL, LEAD_TONE, fmtDuration, fmtPhone, fmtTimeAgo, fmtClock, fmtDate } from "@/lib/format";
+import { LEAD_LABEL, LEAD_TONE, fmtDuration, fmtPhone, fmtTimeAgo, fmtClock, fmtDate, fmtDay, fmtNum } from "@/lib/format";
 
 /* ───────── types mirrored from /api/dashboard ───────── */
 type Kpis = {
@@ -40,7 +40,7 @@ const RANGES = [
 ];
 const DIRS = [{ key: "all", label: "All activity" }, { key: "inbound", label: "Inbound" }, { key: "outbound", label: "Outbound" }] as const;
 
-const n = (v: number) => v.toLocaleString("en-IN");
+const n = (v: number) => fmtNum(v);
 const talk = (s: number) => (s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m` : fmtDuration(s));
 const share = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "—");
 
@@ -231,10 +231,10 @@ export default function DashboardPage() {
     return data.trend.map((d) => ({ key: d.date, inbound: d.inbound, outbound: d.outbound, connected: d.connected }));
   }, [data, singleDay]);
   const hourLabel = (key: string) => { const h = Number(key); return `${((h + 11) % 12) + 1}${h < 12 ? "a" : "p"}`; };
-  const dayLabel = (key: string) => new Date(`${key}T00:00:00+05:30`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
+  const dayLabel = (key: string) => fmtDay(key);
 
   const dirLink = (extra = "") => (dir === "outbound" ? `/outbound${extra}` : `/inbound${extra}`);
-  const subtitle = data ? `${data.range.label} · ${new Date(data.range.from).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}${data.range.days > 1 ? ` – ${new Date(Date.parse(data.range.to) - 1).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}` : ""}` : "";
+  const subtitle = data ? `${data.range.label} · ${fmtDate(data.range.from)}${data.range.days > 1 ? ` – ${fmtDate(new Date(Date.parse(data.range.to) - 1).toISOString())}` : ""}` : "";
 
   const funnel = k ? [
     { label: dir === "inbound" ? "Received" : dir === "outbound" ? "Dialled" : "All calls", value: k.total },
