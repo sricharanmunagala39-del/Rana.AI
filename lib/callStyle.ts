@@ -36,6 +36,11 @@ export function directionStyle(dir: CallDirection | null | undefined): string {
 
 /** A first name that is safe to speak and to place in a prompt. */
 export function cleanFirstName(v: any): string {
+  const s = String(v ?? "").normalize("NFC").replace(/[\u0000-\u001f0-9<>{}()\[\]@#$%^&*_=+|\\/:;"`~!?,]/g, "").replace(/\s+/g, " ").trim();
+  return s.split(" ")[0].slice(0, 24);
+}
+
+function _unusedOldFilter(v: any): string {
   const s = String(v ?? "").normalize("NFC").replace(/[\u0000-\u001f  0-9<>{}()\[\]@#$%^&*_=+|\\/:;"`~!?,]/g, "").replace(/\s+/g, " ").trim();
   return s.split(" ")[0].slice(0, 24);
 }
