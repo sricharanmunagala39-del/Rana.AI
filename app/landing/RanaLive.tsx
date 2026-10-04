@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { SarvamVoiceCall } from "@/lib/sarvam-voice-client";
+import { ElevenVoiceCall } from "@/lib/eleven-voice-client";
 import RanaCore, { CORE_LABEL, type CoreMode } from "@/components/RanaCore";
 import { SCENARIOS, TALK_LANGS, DEMO_LANGS, TALK_MAX_S, scenarioOf, type DemoKey, type TalkLang } from "./talkContent";
 import type { Market } from "./markets";
@@ -75,7 +76,7 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
   const [sampleMode, setSampleMode] = useState<CoreMode>("idle");
   const [latency, setLatency] = useState<number | null>(null);
   const [spoken, setSpoken] = useState<string>("");
-  const call = useRef<SarvamVoiceCall | null>(null);
+  const call = useRef<SarvamVoiceCall | ElevenVoiceCall | null>(null);
   const sess = useRef<{ id: string; secret: string } | null>(null);
   const linesRef = useRef<Line[]>([]);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -166,7 +167,7 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
       const session = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(session.error || "Rana couldn't pick up just now.");
       sess.current = { id: session.talkId, secret: session.secret }; setTalkId(session.talkId);
-      const c = new SarvamVoiceCall((e) => {
+      const c = new (session.engine === "elevenlabs" ? ElevenVoiceCall : SarvamVoiceCall)((e) => {
         if (e.type === "live") { setStep("live"); blip.play(1180, 0.09); setLeft(session.maxSeconds); tick.current = setInterval(() => setLeft((v) => Math.max(0, v - 1)), 1000); }
         else if (e.type === "transcript") push({ role: e.role, text: e.text });
         else if (e.type === "language") setSpoken(e.language);

@@ -10,6 +10,7 @@ import { industryOf, useCaseOf } from "@/app/industries";
 import { useCaseScript } from "@/lib/industryDemo";
 import { cleanProfile } from "@/lib/siteProfile";
 import { cleanFirstName } from "@/lib/callStyle";
+import { elevenReady, elevenSession, getWebVoice } from "@/lib/elevenlabs";
 
 /**
  * Public (no login): POST { kind: "talk" | "demo" | "usecase", scenario?, industry?, useCase?, profile?, lang, market } → a single-use R1 voice session for the
@@ -43,6 +44,22 @@ export async function POST(req: Request) {
   const profile = kind === "usecase" ? cleanProfile(b.profile) : null;
   const s = kind === "usecase" ? { ...useCaseScript(ind!, uc!, { lang, profile, name: cleanFirstName(b.name) }), lang, voice: "priya" as const } : webTalkScript(kind, { scenario, lang, market });
   const secret = crypto.randomBytes(18).toString("base64url");
+  const record = () => startWebTalk({ kind, scenario: kind === "usecase" ? `${ind!.slug}:${uc!.key}` : scenario, language: lang, market, ip, max_seconds: s.maxSeconds, secret,
+    ...(kind === "usecase" ? { context: { industry: ind!.slug, useCase: uc!.key, title: uc!.title, company: profile?.company || null, url: profile?.url || null } } : {}) });
+
+  // HQ → Voice engines can switch the website to R3 (natural voices). Any problem there falls back to R1.
+  const wv = await getWebVoice();
+  if (wv.engine === "elevenlabs" && wv.voiceId && elevenReady()) {
+    try {
+      const el = await elevenSession({ instructions: s.instructions, greeting: s.greeting, lang: s.lang, voiceId: wv.voiceId, model: wv.model });
+      const id = await record();
+      if (!id) throw new Error("could not record session");
+      return Response.json({ engine: "elevenlabs", url: el.url, init: el.init, talkId: id, secret, maxSeconds: s.maxSeconds, voice: wv.voiceName || "Rana" });
+    } catch (e: any) {
+      console.error("[web talk] R3 failed, using R1", e?.message || e);
+    }
+  }
+
   try {
     const signed = await signedSessionUrl(withVoice(cfg, s.voice), `rana-web-${kind}-${now}`);
     const id = await startWebTalk({ kind, scenario: kind === "usecase" ? `${ind!.slug}:${uc!.key}` : scenario, language: lang, market, ip, max_seconds: s.maxSeconds, secret,
