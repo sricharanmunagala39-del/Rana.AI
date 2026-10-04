@@ -447,14 +447,14 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
       <header className={`sticky top-0 z-50 transition-all ${scrolled ? "glass border-b border-white/[.06]" : ""}`}>
         <div className="max-w-[1280px] mx-auto px-5 sm:px-8 h-[68px] flex items-center justify-between gap-4 whitespace-nowrap">
           <a href="#top" className="flex items-center gap-2.5 shrink-0"><Logo size={30} /><span className="font-display text-[18px] font-semibold tracking-tight">RANA<span className="text-gradient"> AI</span></span></a>
-          <nav className="hidden xl:flex items-center gap-7 text-[13.5px] text-ink-soft">
-            {NAV.map(([l, h]) => <a key={h} href={h} className="hover:text-ink">{l}</a>)}
+          <nav className="hidden lg:flex items-center gap-7 text-[13.5px] text-ink-soft">
+            {NAV.map(([l, h]) => h.startsWith("/") ? <Link key={h} href={h} className="hover:text-ink" data-testid="nav-industries">{l}</Link> : <a key={h} href={h} className="hover:text-ink">{l}</a>)}
           </nav>
           <div className="hidden md:flex items-center gap-3">
             <MarketSwitcher market={market} />
             <Link href="/login" className="text-[13.5px] font-medium text-ink-soft hover:text-ink px-3 py-2">Sign in</Link>
             <Link href="/signup" className="btn-glow rounded-full px-4 py-2 text-[13.5px] font-semibold" data-testid="nav-trial">Start free trial</Link>
-            <button onClick={() => setMenu(true)} className="xl:hidden font-mono text-[12px] border border-signal/60 text-signal rounded-full px-3.5 py-2" aria-label="Open menu">MENU +</button>
+            <button onClick={() => setMenu(true)} className="lg:hidden font-mono text-[12px] border border-signal/60 text-signal rounded-full px-3.5 py-2" aria-label="Open menu">MENU +</button>
           </div>
           <div className="md:hidden flex items-center gap-2"><MarketSwitcher market={market} />
           <button onClick={() => setMenu(true)} className="font-mono text-[12px] border border-signal/60 text-signal rounded-full px-4 py-2" aria-label="Open menu" data-testid="menu-btn">MENU +</button></div>
@@ -463,7 +463,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
       {menu && (
         <div className="fixed inset-0 z-[60] bg-paper/[.98] flex flex-col items-center justify-center gap-6 animate-rise" data-testid="menu">
           <button onClick={() => setMenu(false)} className="absolute top-5 right-6 text-[32px] leading-none text-ink-soft" aria-label="Close menu">×</button>
-          {NAV.map(([l, h]) => <a key={h} href={h} onClick={() => setMenu(false)} className="font-display text-[36px] font-semibold tracking-tight hover:text-signal">{l}</a>)}
+          {NAV.map(([l, h]) => h.startsWith("/") ? <Link key={h} href={h} onClick={() => setMenu(false)} className="font-display text-[36px] font-semibold tracking-tight hover:text-signal">{l}</Link> : <a key={h} href={h} onClick={() => setMenu(false)} className="font-display text-[36px] font-semibold tracking-tight hover:text-signal">{l}</a>)}
           <div className="flex flex-wrap justify-center gap-3 mt-4">
             <Link href="/login" className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Sign in</Link>
             <button onClick={openDemo("menu")} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Book a demo</button>
