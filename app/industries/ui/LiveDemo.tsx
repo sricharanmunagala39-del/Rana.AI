@@ -5,6 +5,9 @@ import { SarvamVoiceCall } from "@/lib/sarvam-voice-client";
 import RanaCore from "@/components/RanaCore";
 import type { Industry, UseCase } from "../types";
 import type { SiteProfile } from "@/lib/siteProfile";
+import type { TalkLang } from "@/app/landing/talkContent";
+import { greetingFor } from "@/lib/industryDemo";
+import { cleanFirstName } from "@/lib/callStyle";
 
 type Line = { role: "agent" | "user"; text: string };
 type Step = "ready" | "connecting" | "live" | "summing" | "done" | "error";
@@ -17,12 +20,15 @@ export default function LiveDemo({ ind, uc, profile, lang, onBuild }: { ind: Ind
   const [err, setErr] = useState("");
   const [left, setLeft] = useState(0);
   const [result, setResult] = useState<any>(null);
+  const [name, setName] = useState("");
   const call = useRef<SarvamVoiceCall | null>(null);
   const sess = useRef<{ id: string; secret: string } | null>(null);
   const linesRef = useRef<Line[]>([]);
   const tick = useRef<any>(0);
   const box = useRef<HTMLDivElement>(null);
   const biz = profile?.company || ind.biz;
+  const out = uc.dir === "out";
+  const opening = greetingFor(uc, biz, (["en", "hi", "te", "ta", "kn"].includes(lang) ? lang : "en") as TalkLang, out ? cleanFirstName(name) : "");
 
   useEffect(() => { box.current?.scrollTo({ top: box.current.scrollHeight, behavior: "smooth" }); }, [lines]);
   // Changing the use case, website or language ends any call in progress.
@@ -54,7 +60,7 @@ export default function LiveDemo({ ind, uc, profile, lang, onBuild }: { ind: Ind
   async function start() {
     setErr(""); setLines([]); linesRef.current = []; setResult(null); setStep("connecting");
     try {
-      const r = await fetch("/api/public/talk/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "usecase", industry: ind.slug, useCase: uc.key, profile, lang, market: "in" }) });
+      const r = await fetch("/api/public/talk/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "usecase", industry: ind.slug, useCase: uc.key, profile, lang, market: "in", name: out ? cleanFirstName(name) : "" }) });
       const session = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(session.error || "Rana couldn't pick up just now.");
       sess.current = { id: session.talkId, secret: session.secret };
@@ -84,8 +90,19 @@ export default function LiveDemo({ ind, uc, profile, lang, onBuild }: { ind: Ind
             <div className="rounded-xl border border-white/10 bg-white/[.03] p-3.5"><div className="text-[10.5px] font-mono text-ink-soft mb-1">YOU PLAY</div>{uc.who[0].toUpperCase() + uc.who.slice(1)}</div>
             <div className="rounded-xl border border-signal/25 bg-signal/[.06] p-3.5"><div className="text-[10.5px] font-mono text-signal mb-1">RANA PLAYS</div>The AI employee of <b>{biz}</b>{uc.dir === "out" ? ", calling you" : ", answering your call"}</div>
           </div>
+          {out && (
+            <label className="flex flex-col gap-1.5 text-[13px]">
+              <span className="text-[10.5px] font-mono text-ink-soft">YOUR FIRST NAME <span className="text-ink-soft/70">— so Rana can call you by name</span></span>
+              <input value={name} onChange={(e) => setName(e.target.value)} maxLength={24} placeholder="e.g. Rahul" autoComplete="given-name" className="rounded-xl border border-white/10 bg-white/[.04] px-3 py-2.5 text-[14px] outline-none focus:border-signal/70 max-w-[260px]" data-testid="live-name" />
+            </label>
+          )}
+          <div className={`rounded-xl border p-3.5 ${out ? "border-violet/30 bg-violet/[.06]" : "border-signal/25 bg-signal/[.05]"}`} data-testid="live-opening">
+            <div className={`text-[10.5px] font-mono mb-1.5 ${out ? "text-violet" : "text-signal"}`}>{out ? "OUTBOUND · RANA'S FIRST THREE SECONDS" : "INBOUND · RANA ANSWERS"}</div>
+            <div className="text-[14.5px] leading-snug">&ldquo;{opening}&rdquo;</div>
+            <div className="text-[12px] text-ink-soft mt-2">{out ? "Your name, who's calling and why it matters to you — then she asks for permission." : "Then she listens. You lead; she answers, helps and books."}</div>
+          </div>
           <div className="rounded-xl border border-white/10 p-3.5 text-[13.5px]">
-            <div className="text-[10.5px] font-mono text-ink-soft mb-2">RANA WILL ASK THINGS LIKE</div>
+            <div className="text-[10.5px] font-mono text-ink-soft mb-2">{out ? "THEN RANA WILL ASK THINGS LIKE" : "IF IT HELPS YOU, RANA MAY ASK"}</div>
             <ul className="flex flex-col gap-1.5">{uc.asks.slice(0, 5).map((a) => <li key={a} className="flex gap-2"><span className="text-signal">›</span>{a}</li>)}</ul>
             <div className="text-[12px] text-ink-soft mt-3">Answer naturally — or interrupt, change your mind, ask your own questions. Rana adapts.</div>
           </div>

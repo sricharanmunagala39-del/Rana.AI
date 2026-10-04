@@ -9,6 +9,7 @@ import { isMarket } from "@/app/landing/markets";
 import { industryOf, useCaseOf } from "@/app/industries";
 import { useCaseScript } from "@/lib/industryDemo";
 import { cleanProfile } from "@/lib/siteProfile";
+import { cleanFirstName } from "@/lib/callStyle";
 
 /**
  * Public (no login): POST { kind: "talk" | "demo" | "usecase", scenario?, industry?, useCase?, profile?, lang, market } → a single-use R1 voice session for the
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
   if (blocked) return Response.json({ error: blocked, code: "limit" }, { status: 429 });
 
   const profile = kind === "usecase" ? cleanProfile(b.profile) : null;
-  const s = kind === "usecase" ? { ...useCaseScript(ind!, uc!, { lang, profile }), lang, voice: "priya" as const } : webTalkScript(kind, { scenario, lang, market });
+  const s = kind === "usecase" ? { ...useCaseScript(ind!, uc!, { lang, profile, name: cleanFirstName(b.name) }), lang, voice: "priya" as const } : webTalkScript(kind, { scenario, lang, market });
   const secret = crypto.randomBytes(18).toString("base64url");
   try {
     const signed = await signedSessionUrl(withVoice(cfg, s.voice), `rana-web-${kind}-${now}`);
