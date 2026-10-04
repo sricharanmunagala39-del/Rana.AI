@@ -682,7 +682,7 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
             {LEGAL_LINKS.map(([l, h]) => <Link key={h} href={h} className="hover:text-signal">{l}</Link>)}
             {SOCIAL_LINKS.map(([l, h]) => <a key={h} href={h} target="_blank" rel="noopener noreferrer" className="hover:text-signal">{l}</a>)}
           </nav>
-          <div>RANA AI is a brand of Munagala Sri Charan · {CONTACT_EMAIL}</div>
+          <div>RANA AI · Hyderabad, India · {CONTACT_EMAIL}</div>
         </div>
       </footer>
     </div>

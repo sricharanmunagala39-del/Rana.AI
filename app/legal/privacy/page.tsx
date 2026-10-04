@@ -8,7 +8,7 @@ export default function Privacy() {
     <Doc
       title="Privacy Policy"
       updated="27 September 2026"
-      intro={`This policy explains what personal data ${LEGAL.brand} (operated by ${LEGAL.owner}, ${LEGAL.city}) collects, why, and the choices you have. It is written to meet the Digital Personal Data Protection Act, 2023 and the Information Technology Act, 2000.`}
+      intro={`This policy explains what personal data ${LEGAL.brand} (${LEGAL.city}) collects, why, and the choices you have. It is written to meet the Digital Personal Data Protection Act, 2023 and the Information Technology Act, 2000.`}
     >
       <Sec h="What we collect">
         <ul>
@@ -52,7 +52,7 @@ export default function Privacy() {
         <p>You can ask to access, correct or delete your personal data, withdraw consent, or nominate someone to act for you, by emailing <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>. We reply within 30 days. If you are not satisfied with our response, you may complain to the Data Protection Board of India.</p>
       </Sec>
       <Sec h="Grievance officer">
-        <p>{LEGAL.owner}, {LEGAL.brand}, {LEGAL.city}. Email: <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>. We acknowledge complaints within 48 hours and aim to resolve them within 30 days.</p>
+        <p>Grievance Officer, {LEGAL.brand}, {LEGAL.city}. Email: <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>. We acknowledge complaints within 48 hours and aim to resolve them within 30 days.</p>
       </Sec>
       <Sec h="Changes">
         <p>If we change this policy we will update the date above and, for significant changes, tell customers by email.</p>

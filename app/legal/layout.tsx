@@ -20,7 +20,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
           <nav className="flex flex-wrap gap-x-6 gap-y-2 font-mono text-[12px]">
             {LEGAL_LINKS.map(([l, h]) => <Link key={h} href={h} className="hover:text-signal">{l}</Link>)}
           </nav>
-          <p>RANA AI is a brand of {LEGAL.owner} (sole proprietor), {LEGAL.city}. Contact: <a className="text-signal" href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a></p>
+          <p>RANA AI, {LEGAL.city}. Contact: <a className="text-signal" href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a></p>
         </div>
       </footer>
     </div>
