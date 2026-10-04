@@ -11,6 +11,8 @@ import { useCaseScript } from "@/lib/industryDemo";
 import { cleanProfile } from "@/lib/siteProfile";
 import { cleanFirstName } from "@/lib/callStyle";
 import { elevenReady, elevenSession, getWebVoice } from "@/lib/elevenlabs";
+import { getSession } from "@/lib/session";
+import { hqCan } from "@/lib/hq";
 
 /**
  * Public (no login): POST { kind: "talk" | "demo" | "usecase", scenario?, industry?, useCase?, profile?, lang, market } → a single-use R1 voice session for the
@@ -21,8 +23,10 @@ const burst = new Map<string, number[]>();
 export async function POST(req: Request) {
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "?";
   const now = Date.now();
+  // Signed-in RANA HQ staff test demos all day: no visitor limits for them.
+  const staff = hqCan(await getSession(req).catch(() => null), "view");
   const recent = (burst.get(ip) || []).filter((t) => now - t < 60e3);
-  if (recent.length >= 3) return Response.json({ error: "One moment — please wait a minute before starting another conversation." }, { status: 429 });
+  if (!staff && recent.length >= 3) return Response.json({ error: "One moment — please wait a minute before starting another conversation." }, { status: 429 });
   recent.push(now); burst.set(ip, recent);
 
   const b = await req.json().catch(() => ({} as any));
@@ -38,7 +42,7 @@ export async function POST(req: Request) {
 
   const cfg = sarvamConfig();
   if (!cfg) return Response.json({ error: "Live conversations are paused right now. Watch a sample call or book a demo." }, { status: 503 });
-  const blocked = await webTalkBlock(ip);
+  const blocked = staff ? null : await webTalkBlock(ip);
   if (blocked) return Response.json({ error: blocked, code: "limit" }, { status: 429 });
 
   const profile = kind === "usecase" ? cleanProfile(b.profile) : null;
