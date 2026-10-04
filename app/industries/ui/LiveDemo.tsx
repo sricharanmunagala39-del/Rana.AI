@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { SarvamVoiceCall } from "@/lib/sarvam-voice-client";
+import { ElevenVoiceCall } from "@/lib/eleven-voice-client";
 import RanaCore from "@/components/RanaCore";
 import type { Industry, UseCase } from "../types";
 import type { SiteProfile } from "@/lib/siteProfile";
@@ -21,7 +22,7 @@ export default function LiveDemo({ ind, uc, profile, lang, onBuild }: { ind: Ind
   const [left, setLeft] = useState(0);
   const [result, setResult] = useState<any>(null);
   const [name, setName] = useState("");
-  const call = useRef<SarvamVoiceCall | null>(null);
+  const call = useRef<SarvamVoiceCall | ElevenVoiceCall | null>(null);
   const sess = useRef<{ id: string; secret: string } | null>(null);
   const linesRef = useRef<Line[]>([]);
   const tick = useRef<any>(0);
@@ -64,7 +65,7 @@ export default function LiveDemo({ ind, uc, profile, lang, onBuild }: { ind: Ind
       const session = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(session.error || "Rana couldn't pick up just now.");
       sess.current = { id: session.talkId, secret: session.secret };
-      const c = new SarvamVoiceCall((e: any) => {
+      const c = new (session.engine === "elevenlabs" ? ElevenVoiceCall : SarvamVoiceCall)((e: any) => {
         if (e.type === "live") { setStep("live"); setLeft(session.maxSeconds); tick.current = setInterval(() => setLeft((v) => Math.max(0, v - 1)), 1000); }
         else if (e.type === "transcript") push({ role: e.role, text: e.text });
         else if (e.type === "ended") ended();
