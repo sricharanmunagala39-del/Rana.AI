@@ -40,7 +40,8 @@ async function el<T = any>(path: string, init: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     let msg = text.slice(0, 300);
     try { const j = JSON.parse(text); msg = String(j?.detail?.message || j?.detail || j?.message || msg).slice(0, 300); } catch {}
-    throw new ElevenError(res.status, `ElevenLabs ${res.status}: ${msg}`);
+    const hint = res.status === 401 ? " — the key in Vercel (ELEVENLABS_API_KEY) is wrong or incomplete: create a new key, use the copy icon, paste it in Vercel, then redeploy." : "";
+    throw new ElevenError(res.status, `ElevenLabs ${res.status}: ${msg}${hint}`);
   }
   return (text ? JSON.parse(text) : null) as T;
 }
