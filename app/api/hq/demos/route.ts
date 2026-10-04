@@ -9,7 +9,7 @@ const STATUSES = ["new", "contacted", "demo_booked", "won", "lost"];
 export async function GET(req: Request) {
   const session = await getSession(req);
   const denied = requireHq(session, "view"); if (denied) return denied;
-  const rows = (await sb<any[]>(`/demo_requests?order=created_at.desc&limit=500&select=id,created_at,name,phone,email,company,industry,wants,languages,volume,best_time,message,source,status,note,updated_at,updated_by`).catch(() => [])) || [];
+  const rows = (await sb<any[]>(`/demo_requests?order=created_at.desc&limit=500&select=id,created_at,name,phone,email,company,industry,wants,languages,volume,best_time,message,source,kind,city,lead_count,leads,status,note,updated_at,updated_by`).catch(() => [])) || [];
   return Response.json({ rows });
 }
 

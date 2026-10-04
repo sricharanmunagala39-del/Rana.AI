@@ -19,6 +19,16 @@ const when = (d: string) => {
 };
 
 /** RANA HQ → Demo requests from the website's "Book a demo" form. */
+/** Proof-run list → CSV the campaign importer understands (name, phone, note). */
+function downloadLeads(r: any) {
+  const q = (x: any) => `"${String(x ?? "").replace(/"/g, '""')}"`;
+  const csv = ["name,phone,note", ...(r.leads || []).map((l: any) => [q(l.name), q(l.phone), q(l.note)].join(","))].join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = `proof-run-${String(r.company || "list").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 export default function HqDemosPage() {
   const [rows, setRows] = useState<any[] | null>(null);
   const [err, setErr] = useState("");
@@ -62,7 +72,7 @@ export default function HqDemosPage() {
                 <div key={r.id} className="border border-line rounded-xl bg-raised p-4 flex flex-col gap-2.5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <div className="text-[15px] font-semibold">{r.company} <span className="text-ink-soft font-normal">· {r.name}</span></div>
+                      <div className="text-[15px] font-semibold">{r.kind === "proof_run" && <span className="mr-2 text-[11px] font-mono font-semibold text-on-accent bg-signal rounded-full px-2 py-0.5 align-middle" data-testid="proof-badge">PROOF RUN</span>}{r.company} <span className="text-ink-soft font-normal">· {r.name}{r.city ? ` · ${r.city}` : ""}</span></div>
                       <div className="text-[13px] mt-0.5 flex flex-wrap gap-x-3">
                         <a href={`tel:${r.phone}`} className="text-signal font-semibold">📞 {r.phone}</a>
                         {r.email && <a href={`mailto:${r.email}`} className="text-signal">✉️ {r.email}</a>}
@@ -78,6 +88,8 @@ export default function HqDemosPage() {
                     {r.volume && <span className="rounded-md bg-sunken px-2 py-0.5">{r.volume}</span>}
                   </div>
                   {r.message && <div className="text-[13px] text-ink-soft">“{r.message}”</div>}
+                  {r.kind === "proof_run" && (r.lead_count ? <div className="flex flex-wrap items-center gap-3 text-[13px]"><b>{r.lead_count} numbers to call</b><button onClick={() => downloadLeads(r)} className="text-signal font-semibold hover:underline" data-testid="proof-download">Download list (CSV)</button><span className="text-ink-soft">→ upload it in their workspace as a campaign</span></div>
+                    : <div className="text-[13px] text-hot">No list uploaded yet — ask them to WhatsApp or email it.</div>)}
                   <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-line/60">
                     <select value={r.status} onChange={(e) => save(r.id, { status: e.target.value })} className="border border-line rounded-lg px-2 py-1 text-[12.5px] bg-sunken" aria-label="Status">
                       {STATUS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
