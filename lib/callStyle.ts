@@ -40,11 +40,6 @@ export function cleanFirstName(v: any): string {
   return s.split(" ")[0].slice(0, 24);
 }
 
-function _unusedOldFilter(v: any): string {
-  const s = String(v ?? "").normalize("NFC").replace(/[\u0000-\u001f  0-9<>{}()\[\]@#$%^&*_=+|\\/:;"`~!?,]/g, "").replace(/\s+/g, " ").trim();
-  return s.split(" ")[0].slice(0, 24);
-}
-
 /** Put the person's name into an outbound opening: "Hi, this is…" → "Hi Charan, this is…". */
 export function withName(open: string, name: string): string {
   if (!name) return open;
