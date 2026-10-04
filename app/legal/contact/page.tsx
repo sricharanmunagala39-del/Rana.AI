@@ -10,7 +10,7 @@ export default function Contact() {
     ["Billing", LEGAL.billingEmail, "Invoices, payments, refunds and cancellations"],
   ];
   return (
-    <Doc title="Contact Us" intro={`${LEGAL.brand} is operated by ${LEGAL.owner} (sole proprietor), ${LEGAL.city}. We reply to every email within 1 working day (Monday–Saturday, 10 am – 7 pm IST).`}>
+    <Doc title="Contact Us" intro={`${LEGAL.brand} is based in ${LEGAL.city}. We reply to every email within 1 working day (Monday–Saturday, 10 am – 7 pm IST).`}>
       <div className="grid sm:grid-cols-3 gap-4">
         {rows.map(([t, e, d]) => (
           <a key={e} href={`mailto:${e}`} className="card p-5 block">
@@ -29,7 +29,7 @@ export default function Contact() {
         </ul>
       </Sec>
       <Sec h="Complaints">
-        <p>For complaints about the service or your personal data, write to our grievance officer, {LEGAL.owner}, at <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>.</p>
+        <p>For complaints about the service or your personal data, write to our Grievance Officer at <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>.</p>
       </Sec>
     </Doc>
   );

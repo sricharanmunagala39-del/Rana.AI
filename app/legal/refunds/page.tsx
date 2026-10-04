@@ -7,7 +7,7 @@ export default function Refunds() {
   return (
     <Doc
       title="Refund & Cancellation Policy"
-      intro={`${LEGAL.brand} is operated by ${LEGAL.owner}. Every new workspace starts with a 14-day free trial, so you can test the service fully before paying anything. This policy covers what happens after you pay.`}
+      intro={`Every new workspace starts with a 14-day free trial, so you can test the service fully before paying anything. This policy covers what happens after you pay.`}
     >
       <Sec h="Cancelling a plan">
         <ul>

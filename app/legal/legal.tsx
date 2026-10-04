@@ -1,6 +1,7 @@
 // Shared facts for the public policy pages. The legal name must match the Razorpay account (Business details).
 export const LEGAL = {
   brand: "RANA AI",
+  // Legal name of the sole proprietor. Shown ONLY on the Contact page (payment-gateway requirement), nowhere else.
   owner: "Munagala Sri Charan",
   city: "Hyderabad, Telangana, India",
   email: "support@ranaai.in",

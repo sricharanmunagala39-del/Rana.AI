@@ -36,7 +36,7 @@ export default function SeoLayout({ children }: { children: React.ReactNode }) {
             <Link href="/" className="hover:text-signal">Home</Link>
             {LEGAL_LINKS.map(([l, h]) => <Link key={h} href={h} className="hover:text-signal">{l}</Link>)}
           </nav>
-          <p>RANA AI is a brand of {LEGAL.owner} (sole proprietor), {LEGAL.city}. Contact: <a className="text-signal" href={`mailto:${LEGAL.salesEmail}`}>{LEGAL.salesEmail}</a></p>
+          <p>RANA AI, {LEGAL.city}. Contact: <a className="text-signal" href={`mailto:${LEGAL.salesEmail}`}>{LEGAL.salesEmail}</a></p>
         </div>
       </footer>
     </div>

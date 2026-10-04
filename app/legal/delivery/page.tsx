@@ -7,7 +7,7 @@ export default function Delivery() {
   return (
     <Doc
       title="Shipping & Delivery Policy"
-      intro={`${LEGAL.brand} (operated by ${LEGAL.owner}) is an online software service. We do not sell or ship physical goods.`}
+      intro={`${LEGAL.brand} is an online software service. We do not sell or ship physical goods.`}
     >
       <Sec h="How the service is delivered">
         <ul>

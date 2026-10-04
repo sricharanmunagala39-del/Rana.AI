@@ -8,7 +8,7 @@ export default function Terms() {
   return (
     <Doc
       title="Terms & Conditions"
-      intro={`These terms govern your use of ${LEGAL.brand} (${LEGAL.site}), a service operated by ${LEGAL.owner}, a sole proprietor based in ${LEGAL.city} ("we", "us"). By creating an account or paying for a plan you ("the customer") agree to these terms.`}
+      intro={`These terms govern your use of ${LEGAL.brand} (${LEGAL.site}), a service based in ${LEGAL.city} ("we", "us"). By creating an account or paying for a plan you ("the customer") agree to these terms.`}
     >
       <Sec h="1. The service">
         <p>{LEGAL.brand} provides AI voice agents ("AI employees") that answer and place phone calls for your business, record and transcribe those calls, score leads and show the results in an online dashboard. The service is delivered online as software-as-a-service; nothing is shipped physically.</p>
