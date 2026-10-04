@@ -1,6 +1,7 @@
 "use client";
 import { TRIAL_DAYS, TRIAL_MINUTES } from "@/lib/pricing";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { COUNTRIES, countryOf, flagOf, guessCountry } from "@/lib/countries";
 import AuthShell from "@/components/AuthShell";
 import { utmTag } from "@/app/landing/utm";
 
@@ -12,10 +13,18 @@ export default function SignupPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [done, setDone] = useState(false);
+  const [country, setCountry] = useState("IN");
+  const marketCookie = () => (typeof document === "undefined" ? "" : (document.cookie.match(/(?:^|; )rana_market=([a-z]+)/) || [])[1] || "");
+  // First guess from the website version they came from and their browser time zone; they can change it.
+  useEffect(() => { setCountry(guessCountry(marketCookie() || "in", Intl.DateTimeFormat().resolvedOptions().timeZone)); }, []);
+  const cty = countryOf(country) || COUNTRIES[0];
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr("");
     try {
-      const r = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, source: utmTag(), market: (document.cookie.match(/(?:^|; )rana_market=([a-z]+)/) || [])[1] || "in", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }) });
+      // Full international number: country code + the local number without a leading 0.
+      const local = f.phone.replace(/[^\d]/g, "").replace(/^0+/, "");
+      const phone = local ? `+${cty.dial}${local.startsWith(cty.dial) && local.length > 10 ? local.slice(cty.dial.length) : local}` : "";
+      const r = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, phone, country: cty.code, source: utmTag(), market: cty.market, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }) });
       const j = await r.json(); if (!r.ok) { setErr(j.error || "Sign-up failed"); return; }
       setDone(true);
     } finally { setBusy(false); }
@@ -39,7 +48,14 @@ export default function SignupPage() {
             <input id="su-name" className={field} placeholder="Your name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
           </div>
           <input id="su-email" className={field} placeholder="Work email" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
-          <input id="su-phone" className={field} placeholder="Mobile number (add country code outside India)" inputMode="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+          <label htmlFor="su-country" className="sr-only">Country</label>
+          <select id="su-country" className={field} value={country} onChange={(e) => setCountry(e.target.value)} data-testid="signup-country" aria-label="Country">
+            {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{flagOf(c.code)}  {c.name} (+{c.dial})</option>)}
+          </select>
+          <div className="flex gap-2">
+            <span className="shrink-0 border border-line rounded-xl px-3.5 py-3 text-[14px] bg-sunken text-ink-soft tabular-nums" data-testid="signup-dial">{flagOf(cty.code)} +{cty.dial}</span>
+            <input id="su-phone" className={field} placeholder="Mobile number" inputMode="tel" autoComplete="tel-national" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+          </div>
           <select id="su-industry" className={field} value={f.industry} onChange={(e) => setF({ ...f, industry: e.target.value })}>
             <option value="edtech">Education / coaching</option><option value="realestate">Real estate</option><option value="hospitality">Hospitality</option><option value="saas">Software / SaaS</option><option value="other">Other</option>
           </select>
