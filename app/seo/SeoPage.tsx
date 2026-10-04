@@ -90,7 +90,7 @@ export default function SeoPage({ p, children }: { p: SeoPageData; children?: Re
       {p.kind !== "glossary" && (
         <div className="flex flex-wrap gap-3 mt-8">
           <Link href="/?talk=1" className="btn-glow rounded-full px-6 py-3 text-[15px] font-semibold" data-testid="seo-talk">🎙️ Talk to Rana now</Link>
-          {p.demo && <Link href={`/?try=${p.demo}`} className="btn-ghost rounded-full px-6 py-3 text-[15px] font-medium">Try a 90-second demo</Link>}
+          {p.demo && <Link href={`/?try=${p.demo}`} className="btn-ghost rounded-full px-6 py-3 text-[15px] font-medium">Try a live demo</Link>}
           <Link href="/signup" className="btn-ghost rounded-full px-6 py-3 text-[15px] font-medium">Start free trial</Link>
         </div>
       )}

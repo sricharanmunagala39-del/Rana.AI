@@ -10,8 +10,8 @@ export const TALK_LANGS: { code: TalkLang; label: string }[] = [
 /** Demo scenarios are written for these languages (the talk concierge also speaks Kannada). */
 export const DEMO_LANGS: TalkLang[] = ["en", "hi", "te", "ta"];
 
-export const TALK_MAX_S = 300;
-export const DEMO_MAX_S = 90;
+export const TALK_MAX_S = 180;
+export const DEMO_MAX_S = 180;
 
 export type Scenario = {
   key: DemoKey; icon: string; title: string; line: string;

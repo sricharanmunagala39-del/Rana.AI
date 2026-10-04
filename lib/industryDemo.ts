@@ -6,7 +6,7 @@ import type { SiteProfile } from "./siteProfile";
 import type { TalkLang } from "@/app/landing/talkContent";
 import { directionStyle, withName } from "./callStyle";
 
-export const USECASE_MAX_S = 120;
+export const USECASE_MAX_S = 180;
 const LANG: Record<TalkLang, string> = { en: "English", hi: "Hindi", te: "Telugu", ta: "Tamil", kn: "Kannada" };
 
 /** Inbound: a warm welcome, then Rana waits. Outbound: name + who + why + permission, in the first breath. */
@@ -34,7 +34,7 @@ export function useCaseScript(ind: Industry, uc: UseCase, o: { lang: TalkLang; p
     p.roles.length ? `Open roles: ${p.roles.join("; ")}.` : "",
     ...p.faqs.map((f) => `Q: ${f.q} A: ${f.a}`),
   ].filter(Boolean).join("\n") : "";
-  const instructions = `You are Rana, the AI employee of ${biz}, on a live ${uc.dir === "out" ? "outbound call" : "inbound call"}. This is a 2-minute demo on the RANA AI website: a visitor is playing ${uc.who} so they can experience how RANA AI handles "${uc.title}" for a ${ind.label} business. Stay fully in character as Rana from ${biz}; do not mention the website, the demo or RANA AI unless asked directly.
+  const instructions = `You are Rana, the AI employee of ${biz}, on a live ${uc.dir === "out" ? "outbound call" : "inbound call"}. This is a 3-minute demo on the RANA AI website: a visitor is playing ${uc.who} so they can experience how RANA AI handles "${uc.title}" for a ${ind.label} business. Stay fully in character as Rana from ${biz}; do not mention the website, the demo or RANA AI unless asked directly.
 
 ABOUT THE BUSINESS
 ${about}

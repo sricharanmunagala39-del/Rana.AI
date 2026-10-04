@@ -301,7 +301,7 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
             <div className="hud-state mt-3">{step === "error" ? "CHECK MIC" : "STANDBY"}</div>
           </div>
           <div>
-            <div className="hud-label">{mode === "talk" ? "// Live voice · no sign-up" : "// Instant demo · ~90 seconds"}</div>
+            <div className="hud-label">{mode === "talk" ? "// Live voice · no sign-up" : "// Instant demo · up to 3 minutes"}</div>
             <h2 className="font-display text-[30px] sm:text-[38px] font-semibold tracking-tight mt-1.5">{title}</h2>
             {step === "pick" && (
               <>
@@ -351,7 +351,7 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
                   {mode === "demo" && <button type="button" onClick={playSample} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium" data-testid="live-sample">▶ Watch a sample call</button>}
                   {mode === "demo" && <button type="button" onClick={() => setStep("pick")} className="text-[13.5px] text-ink-soft hover:text-ink px-2">← Other demos</button>}
                 </div>
-                <p className="text-[11.5px] text-ink-soft/80 mt-4">Uses your microphone. {mode === "talk" ? `Up to ${Math.round(TALK_MAX_S / 60)} minutes` : "About 90 seconds"}. The conversation is recorded so our team can follow up — see our <Link href="/legal/privacy" className="underline">privacy policy</Link>.</p>
+                <p className="text-[11.5px] text-ink-soft/80 mt-4">Uses your microphone. Up to {Math.round(TALK_MAX_S / 60)} minutes. The conversation is recorded so our team can follow up — see our <Link href="/legal/privacy" className="underline">privacy policy</Link>.</p>
               </>
             )}
           </div>
