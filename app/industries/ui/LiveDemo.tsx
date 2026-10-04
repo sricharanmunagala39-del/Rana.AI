@@ -110,7 +110,7 @@ export default function LiveDemo({ ind, uc, profile, lang, onBuild }: { ind: Ind
           {err && <div className="text-[13px] text-miss" role="alert">{err}</div>}
           <button type="button" onClick={start} className="btn-glow rounded-full px-6 py-3 text-[15px] font-semibold self-start flex items-center gap-2" data-testid="live-start">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
-            Start live demo · 2 min
+            Start live demo · 3 min
           </button>
           <p className="text-[11.5px] text-ink-soft/80">Uses your microphone. The conversation is recorded so our team can follow up — see our <Link href="/legal/privacy" className="underline">privacy policy</Link>.</p>
         </div>

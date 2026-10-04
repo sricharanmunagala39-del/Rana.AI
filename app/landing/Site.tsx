@@ -408,7 +408,7 @@ function VerticalStory({ v, onProof, onTry }: { v: Vertical; onProof: () => void
         </div>
       </div>
       <div className="reveal card mt-3 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="text-[14.5px]"><b>Hear it first.</b> <span className="text-ink-soft">Play the customer and hear Rana handle a real-style {v.label.toLowerCase()} call — 90 seconds, no sign-up.</span></div>
+        <div className="text-[14.5px]"><b>Hear it first.</b> <span className="text-ink-soft">Play the customer and hear Rana handle a real-style {v.label.toLowerCase()} call — up to 3 minutes, no sign-up.</span></div>
         <div className="flex gap-2 shrink-0">
           <button onClick={onTry} className="btn-ghost rounded-full px-5 py-2.5 text-[14px] font-semibold whitespace-nowrap">Try the demo call</button>
           <button onClick={onProof} className="btn-glow rounded-full px-5 py-2.5 text-[14px] font-semibold whitespace-nowrap">Free proof run →</button>

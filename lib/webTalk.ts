@@ -11,8 +11,8 @@ import { scenarioOf, TALK_MAX_S, DEMO_MAX_S, type DemoKey, type TalkLang } from 
 import { MARKETS, isMarket } from "@/app/landing/markets";
 import { directionStyle } from "./callStyle";
 
-export const PER_IP_PER_DAY = Number(process.env.RANA_WEB_TALK_PER_IP) || 6;
-export const DAILY_MINUTES = Number(process.env.RANA_WEB_TALK_DAILY_MIN) || 180;
+export const PER_IP_PER_DAY = Number(process.env.RANA_WEB_TALK_PER_IP) || 0; // 0 = no daily limit
+export const DAILY_MINUTES = Number(process.env.RANA_WEB_TALK_DAILY_MIN) || 0; // 0 = no site-wide cap
 
 export const LANG_NAME: Record<TalkLang, string> = { en: "English", hi: "Hindi", te: "Telugu", ta: "Tamil", kn: "Kannada" };
 
@@ -121,7 +121,7 @@ HOW TO GET STARTED
 Or book a demo (the "Book a demo" button on the website) and the team builds it on the client's own scripts, prices and languages.
 
 THE WEBSITE (so you can point people to things)
-- "Try an instant demo" on the homepage: the visitor plays a customer and hears Rana handle a real-style call for a sample business, about 90 seconds.
+- "Try an instant demo" on the homepage: the visitor plays a customer and hears Rana handle a real-style call for a sample business, up to 3 minutes.
 - Pricing section on the homepage and ranaai.in/pricing — prices can be shown in rupees, dollars, euros or yen.
 - A free cost calculator at ranaai.in/tools/ai-calling-cost-calculator compares a telecalling team with an AI calling agent.
 - Pages for each industry, language and city, and honest comparisons with other voice-AI platforms.
@@ -145,8 +145,8 @@ export function webTalkScript(kind: "talk" | "demo", o: { scenario?: string | nu
     const greeting = DEMO_GREETING[s.key][lang] || DEMO_GREETING[s.key].en!;
     const instructions = `${DEMO_BRIEF[s.key]}
 
-This is a 90-second live demo on RANA AI's website: a visitor is role-playing the customer so they can hear how an AI employee handles this kind of call. Stay fully in character as Rana from ${s.business.split(" — ")[0]} the whole time — do not mention the website, the demo or RANA AI. Speak ${LANG_NAME[lang]}.
-Move the call forward quickly: aim to reach the goal within about 60 seconds. When you reach it (or the person clearly declines), confirm the outcome in one sentence and say a warm goodbye.
+This is a 3-minute live demo on RANA AI's website: a visitor is role-playing the customer so they can hear how an AI employee handles this kind of call. Stay fully in character as Rana from ${s.business.split(" — ")[0]} the whole time — do not mention the website, the demo or RANA AI. Speak ${LANG_NAME[lang]}.
+Move the call forward quickly: aim to reach the goal within about two minutes. When you reach it (or the person clearly declines), confirm the outcome in one sentence and say a warm goodbye.
 If the person goes off-topic or tests you, answer briefly and politely, then steer back to the goal.
 
 ${directionStyle(s.dir === "out" ? "outbound" : "inbound")}
@@ -205,13 +205,19 @@ const secondsOf = (r: any, now = Date.now()) =>
 
 /** Why a new website session can't start right now, or null. */
 export async function webTalkBlock(ip: string): Promise<string | null> {
-  const since = new Date(Date.now() - 24 * 3600e3).toISOString();
-  const mine = (await sb<any[]>(`/web_talks?ip=eq.${encodeURIComponent(ip)}&started_at=gte.${encodeURIComponent(since)}&select=id`).catch(() => [])) || [];
-  if (mine.length >= PER_IP_PER_DAY) return "You've tried Rana a few times today — thank you! Book a demo and we'll set her up for your own business.";
-  const day = new Date(); day.setUTCHours(0, 0, 0, 0);
-  const today = (await sbAll<any>(`/web_talks?started_at=gte.${encodeURIComponent(day.toISOString())}&select=started_at,ended_at,seconds,max_seconds`).catch(() => [])) || [];
-  const minutes = today.reduce((m: number, r: any) => { const s = secondsOf(r); return s > 0 ? m + Math.ceil(s / 60) : m; }, 0);
-  if (minutes >= DAILY_MINUTES) return "Rana is very busy today. Book a demo and our team will call you with a live one.";
+  // Charan (5 Oct): visitors may try as many times as they like; the only limit is 3 minutes per conversation.
+  // Optional safety caps stay available through env (unset = no cap).
+  if (PER_IP_PER_DAY > 0) {
+    const since = new Date(Date.now() - 24 * 3600e3).toISOString();
+    const mine = (await sb<any[]>(`/web_talks?ip=eq.${encodeURIComponent(ip)}&started_at=gte.${encodeURIComponent(since)}&select=id`).catch(() => [])) || [];
+    if (mine.length >= PER_IP_PER_DAY) return "You've tried Rana a few times today — thank you! Book a demo and we'll set her up for your own business.";
+  }
+  if (DAILY_MINUTES > 0) {
+    const day = new Date(); day.setUTCHours(0, 0, 0, 0);
+    const today = (await sbAll<any>(`/web_talks?started_at=gte.${encodeURIComponent(day.toISOString())}&select=started_at,ended_at,seconds,max_seconds`).catch(() => [])) || [];
+    const minutes = today.reduce((m: number, r: any) => { const s = secondsOf(r); return s > 0 ? m + Math.ceil(s / 60) : m; }, 0);
+    if (minutes >= DAILY_MINUTES) return "Rana is very busy today. Book a demo and our team will call you with a live one.";
+  }
   return null;
 }
 
