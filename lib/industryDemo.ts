@@ -4,22 +4,26 @@ import type { Industry, UseCase } from "@/app/industries/types";
 import { fill } from "@/app/industries/types";
 import type { SiteProfile } from "./siteProfile";
 import type { TalkLang } from "@/app/landing/talkContent";
+import { directionStyle, withName } from "./callStyle";
 
 export const USECASE_MAX_S = 120;
 const LANG: Record<TalkLang, string> = { en: "English", hi: "Hindi", te: "Telugu", ta: "Tamil", kn: "Kannada" };
 
-function greetingFor(uc: UseCase, biz: string, lang: TalkLang): string {
-  if (lang === "en") return uc.dir === "out" && uc.open ? fill(uc.open, biz) : `Thank you for calling ${biz}, this is Rana. How can I help you today?`;
+/** Inbound: a warm welcome, then Rana waits. Outbound: name + who + why + permission, in the first breath. */
+export function greetingFor(uc: UseCase, biz: string, lang: TalkLang, name = ""): string {
+  const out = uc.dir === "out";
+  if (lang === "en") return out && uc.open ? withName(fill(uc.open, biz), name) : `Thank you for calling ${biz}, this is Rana. How can I help you today?`;
+  const n = name ? " " + name : "";
   const g: Record<Exclude<TalkLang, "en">, string> = {
-    hi: `नमस्ते! मैं ${biz} से राना बोल रही हूँ।${uc.dir === "in" ? " बताइए, मैं आपकी क्या मदद कर सकती हूँ?" : " क्या आपके पास दो मिनट हैं?"}`,
-    te: `నమస్కారం! నేను ${biz} నుండి రానా.${uc.dir === "in" ? " మీకు ఎలా సహాయం చేయగలను?" : " రెండు నిమిషాలు మాట్లాడొచ్చా?"}`,
-    ta: `வணக்கம்! நான் ${biz}-இலிருந்து ராணா.${uc.dir === "in" ? " உங்களுக்கு எப்படி உதவலாம்?" : " இரண்டு நிமிடம் பேசலாமா?"}`,
-    kn: `ನಮಸ್ಕಾರ! ನಾನು ${biz} ಇಂದ ರಾಣಾ.${uc.dir === "in" ? " ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?" : " ಎರಡು ನಿಮಿಷ ಮಾತನಾಡಬಹುದೇ?"}`,
+    hi: out ? `नमस्ते${n}${n ? " जी" : ""}, मैं ${biz} से राना बोल रही हूँ — ${uc.title} के बारे में call किया है। क्या आपके पास तीस second हैं?` : `नमस्ते, ${biz} में call करने के लिए धन्यवाद, मैं राना बोल रही हूँ। बताइए, मैं आपकी क्या मदद कर सकती हूँ?`,
+    te: out ? `నమస్కారం${n}${n ? " గారు" : ""}, నేను ${biz} నుండి రానా — ${uc.title} గురించి కాల్ చేశాను. ముప్పై సెకన్లు మాట్లాడొచ్చా?` : `నమస్కారం, ${biz} కి కాల్ చేసినందుకు ధన్యవాదాలు, నేను రానా. మీకు ఎలా సహాయం చేయగలను?`,
+    ta: out ? `வணக்கம்${n}, நான் ${biz}-இலிருந்து ராணா — ${uc.title} பற்றி அழைக்கிறேன். முப்பது வினாடிகள் பேசலாமா?` : `வணக்கம், ${biz}-ஐ அழைத்ததற்கு நன்றி, நான் ராணா. உங்களுக்கு எப்படி உதவலாம்?`,
+    kn: out ? `ನಮಸ್ಕಾರ${n}, ನಾನು ${biz} ಇಂದ ರಾಣಾ — ${uc.title} ಬಗ್ಗೆ ಕರೆ ಮಾಡಿದ್ದೇನೆ. ಮೂವತ್ತು ಸೆಕೆಂಡ್ ಮಾತನಾಡಬಹುದೇ?` : `ನಮಸ್ಕಾರ, ${biz} ಗೆ ಕರೆ ಮಾಡಿದ್ದಕ್ಕೆ ಧನ್ಯವಾದ, ನಾನು ರಾಣಾ. ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?`,
   };
   return g[lang];
 }
 
-export function useCaseScript(ind: Industry, uc: UseCase, o: { lang: TalkLang; profile: SiteProfile | null }) {
+export function useCaseScript(ind: Industry, uc: UseCase, o: { lang: TalkLang; profile: SiteProfile | null; name?: string }) {
   const p = o.profile;
   const biz = p?.company || ind.biz;
   const about = p
@@ -41,6 +45,8 @@ ${uc.goal}
 QUESTIONS TO COVER (one at a time, in a natural order, skip any the person already answered)
 ${uc.asks.map((a, i) => `${i + 1}. ${a}`).join("\n")}
 
+${uc.dir === "out" && o.name ? `THE PERSON YOU CALLED\nTheir first name is ${o.name}. Use it naturally, not in every sentence.\n\n` : ""}${directionStyle(uc.dir === "out" ? "outbound" : "inbound")}
+
 HOW YOU SPEAK
 - Warm, polite, natural and confident — like a skilled human ${ind.label.toLowerCase()} professional, never like an IVR. One or two short sentences per turn, then listen.
 - Acknowledge what the person says before your next question ("Got it", "That makes sense"). If they interrupt, stop and answer them.
@@ -49,5 +55,5 @@ HOW YOU SPEAK
 - When the goal is reached (or the person declines), confirm the outcome in one sentence and close warmly.
 - If the person speaks another language, switch to it. Start in ${LANG[o.lang]}.
 - Never name the software or AI company behind you. If asked, you are Rana from ${biz}, an AI assistant.`;
-  return { instructions, greeting: greetingFor(uc, biz, o.lang), biz, maxSeconds: USECASE_MAX_S };
+  return { instructions, greeting: greetingFor(uc, biz, o.lang, uc.dir === "out" ? o.name || "" : ""), biz, maxSeconds: USECASE_MAX_S };
 }

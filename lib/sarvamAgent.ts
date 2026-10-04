@@ -10,6 +10,7 @@ import { sarvamFetch, SarvamError, classifySarvamError } from "./sarvamHealth";
 import { liveTransferOn, normalizeHandoff, scriptRefLine, transferNumber } from "./handoff";
 import { LANG_NAMES, baseLang, normalizePronunciations } from "./playbook";
 import { speakableGreeting } from "./acronym";
+import { BOTH_STYLES, STYLE_MARKER, directionStyle, type CallDirection } from "./callStyle";
 
 const APPS = "https://apps.sarvam.ai/api";
 
@@ -97,8 +98,10 @@ export function sarvamLanguageName(code: string | null | undefined): string {
 }
 
 /** What every call of this employee sends to Sarvam. Caller details are appended to the instructions so they work without extra agent variables. */
-export function sessionPayload(script: any, caller?: { name?: string | null; variables?: Record<string, string> }) {
-  const base = String(script.instructions || "").trim();
+export function sessionPayload(script: any, caller?: { name?: string | null; variables?: Record<string, string> }, direction?: CallDirection) {
+  // Inbound and outbound must sound different: name the direction when we know it (older employees get both rules).
+  const raw = String(script.instructions || "").trim();
+  const base = direction ? `${raw}\n\n${directionStyle(direction)}` : raw.includes(STYLE_MARKER) ? raw : `${raw}\n\n${BOTH_STYLES}`;
   const details = [
     caller?.name ? `- Name: ${caller.name}` : "",
     ...Object.entries(caller?.variables || {}).filter(([, v]) => String(v || "").trim()).map(([k, v]) => `- ${k.replace(/_/g, " ")}: ${v}`),
@@ -184,7 +187,7 @@ export function webhookUrl(clientSecret: string): string {
 /** One outbound phone call right now. */
 export async function placeOutboundCall(cfg: SarvamConfig, input: { phone: string; script: any; caller?: { name?: string | null; variables?: Record<string, string> }; webhook?: string | null; metadata?: Record<string, string> }) {
   if (!cfg.connectionId) throw new Error("No Sarvam phone connection is set (RANA_SARVAM_CONNECTION_ID).");
-  const p = sessionPayload(input.script, input.caller);
+  const p = sessionPayload(input.script, input.caller, "outbound");
   const body = {
     app_config: {
       app_id: cfg.appId, app_version: cfg.appVersion, app_type: "agent",
@@ -237,7 +240,7 @@ export async function streamCampaignContacts(cfg: SarvamConfig, campaignId: stri
   const results: any[] = [];
   for (let i = 0; i < contacts.length; i += 1000) {
     const users = contacts.slice(i, i + 1000).map((c) => {
-      const p = sessionPayload(script, { name: c.name, variables: c.variables });
+      const p = sessionPayload(script, { name: c.name, variables: c.variables }, "outbound");
       return {
         user_phone_number: c.phone,
         user_identifier: c.phone,

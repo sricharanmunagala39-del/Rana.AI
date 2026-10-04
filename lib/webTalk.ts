@@ -9,6 +9,7 @@ import { sb, sbAll } from "./db";
 import { PRICE_BOOK, PLANS, money, type Currency } from "./pricing";
 import { scenarioOf, TALK_MAX_S, DEMO_MAX_S, type DemoKey, type TalkLang } from "@/app/landing/talkContent";
 import { MARKETS, isMarket } from "@/app/landing/markets";
+import { directionStyle } from "./callStyle";
 
 export const PER_IP_PER_DAY = Number(process.env.RANA_WEB_TALK_PER_IP) || 6;
 export const DAILY_MINUTES = Number(process.env.RANA_WEB_TALK_DAILY_MIN) || 180;
@@ -147,6 +148,8 @@ export function webTalkScript(kind: "talk" | "demo", o: { scenario?: string | nu
 This is a 90-second live demo on RANA AI's website: a visitor is role-playing the customer so they can hear how an AI employee handles this kind of call. Stay fully in character as Rana from ${s.business.split(" — ")[0]} the whole time — do not mention the website, the demo or RANA AI. Speak ${LANG_NAME[lang]}.
 Move the call forward quickly: aim to reach the goal within about 60 seconds. When you reach it (or the person clearly declines), confirm the outcome in one sentence and say a warm goodbye.
 If the person goes off-topic or tests you, answer briefly and politely, then steer back to the goal.
+
+${directionStyle(s.dir === "out" ? "outbound" : "inbound")}
 
 ${RULES}`;
     return { instructions, greeting, lang, maxSeconds: DEMO_MAX_S, voice: s.key === "sales" || s.key === "followup" ? "shreya" : "priya" };

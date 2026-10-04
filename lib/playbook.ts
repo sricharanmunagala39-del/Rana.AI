@@ -3,6 +3,7 @@
 // pronunciation. The AI builds it from whatever the client pastes; the client can edit any card
 // or ask the AI to change it; and at publish time it is compiled into the agent's instructions.
 import { handoffPrompt, type Handoff } from "./handoff";
+import { BOTH_STYLES } from "./callStyle";
 
 export type Objection = { objection: string; response: string };
 export type Faq = { question: string; answer: string };
@@ -419,6 +420,8 @@ ${s.pronunciations.map((x) => `- ${x.word} → ${x.sayAs}`).join("\n")}`);
 
   const handoff = s.handoff ? handoffPrompt(s.handoff) : "";
   if (handoff) parts.push(handoff);
+
+  parts.push(BOTH_STYLES);
 
   parts.push(`# Always
 - Be honest. If asked whether you are an AI or a real person, say you are an AI assistant calling on behalf of the team.
