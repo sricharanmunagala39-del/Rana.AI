@@ -11,7 +11,8 @@ import DemoForm, { type DemoPrefill } from "./DemoForm";
 import RanaLive, { type LiveMode } from "./RanaLive";
 import { SCENARIOS, type DemoKey } from "./talkContent";
 import { captureUtm } from "./utm";
-import { VERTICALS, VERTICAL_BY_KEY, art, type Vertical } from "./verticals";
+import { VERTICAL_BY_KEY, art, type Vertical } from "./verticals";
+import { INDUSTRY_MENU } from "@/app/industries/menu";
 import ProofRunForm from "./ProofRunForm";
 import { LEGAL_LINKS, SOCIAL_LINKS } from "@/app/legal/legal";
 
@@ -20,7 +21,7 @@ const CONTACT_EMAIL = "hello@ranaai.in";
 
 const CUR_NOTE: Record<Currency, string> = { INR: "Prices in Indian rupees, excluding 18% GST.", USD: "Prices in US dollars, excluding local taxes.", EUR: "Prices in euros, excluding VAT.", JPY: "Prices in Japanese yen, excluding consumption tax." };
 
-const NAV = [["Industries", "#industries"], ["How it works", "#how"], ["Pricing", "#pricing"], ["FAQ", "#faq"]];
+const NAV = [["Industries", "/for"], ["How it works", "#how"], ["Pricing", "#pricing"], ["FAQ", "#faq"]];
 
 function MicIcon({ size = 16 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>;
@@ -385,8 +386,8 @@ function IndustryBar({ active }: { active?: string }) {
     <nav aria-label="Industries" className="border-t border-white/[.05]" data-testid="industry-bar">
       <div ref={bar} className="max-w-[1280px] mx-auto px-5 sm:px-8 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
         <span className="shrink-0 font-mono text-[10.5px] tracking-[0.14em] text-ink-soft/80 mr-1">INDUSTRY</span>
-        <Link href="/" className={chip(!active)} aria-current={!active ? "page" : undefined}>All</Link>
-        {VERTICALS.map((v) => <Link key={v.slug} href={`/for/${v.slug}`} className={chip(active === v.slug)} aria-current={active === v.slug ? "page" : undefined} data-testid={`vbar-${v.slug}`}>{v.label}</Link>)}
+        <Link href="/for" className={chip(false)}>All industries →</Link>
+        {INDUSTRY_MENU.map((v) => <Link key={v.slug} href={`/for/${v.slug}`} className={chip(active === v.slug)} aria-current={active === v.slug ? "page" : undefined} data-testid={`vbar-${v.slug}`}>{v.label}</Link>)}
       </div>
     </nav>
   );

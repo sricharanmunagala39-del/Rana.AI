@@ -212,7 +212,7 @@ export async function webTalkBlock(ip: string): Promise<string | null> {
   return null;
 }
 
-export async function startWebTalk(row: { kind: string; scenario: string | null; language: string; market: string; ip: string; max_seconds: number; secret: string }) {
+export async function startWebTalk(row: { kind: string; scenario: string | null; language: string; market: string; ip: string; max_seconds: number; secret: string; context?: any }) {
   const r = await sb<any[]>(`/web_talks`, { method: "POST", body: JSON.stringify(row) });
   return r?.[0]?.id as string | undefined;
 }

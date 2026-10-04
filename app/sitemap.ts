@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { listPosts } from "@/lib/posts";
 import { MARKETS, MARKET_KEYS, HREFLANG } from "./landing/markets";
 import { ALL_SEO } from "./seo/index";
-import { VERTICALS } from "./landing/verticals";
+import { INDUSTRY_MENU } from "./industries/menu";
 
 const SITE_URL = "https://ranaai.in";
 
@@ -25,7 +25,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       alternates: { languages: Object.fromEntries(Object.entries(HREFLANG).map(([l, p]) => [l, `${SITE_URL}${p === "/" ? "" : p}`])) },
     })),
     // Industry home pages (/for/…).
-    ...VERTICALS.map((v) => page(`/for/${v.slug}`, 0.9, "weekly")),
+    page("/for", 0.9, "weekly"), ...INDUSTRY_MENU.map((v) => page(`/for/${v.slug}`, 0.9, "weekly")),
     // SEO landing pages: money pages first, then comparisons, industries, cities, glossary.
     ...ALL_SEO.map((p) => page(p.path, p.kind === "solution" || p.kind === "pricing" || p.kind === "language" ? 0.9 : p.kind === "glossary" ? 0.5 : 0.8, "monthly")),
     page("/industries", 0.7, "monthly"), page("/compare", 0.7, "monthly"), page("/glossary", 0.5, "monthly"),

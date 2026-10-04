@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 import { chatJson, llmProvider } from "@/lib/llm";
 import { getWebTalk, finishWebTalk } from "@/lib/webTalk";
 import { scenarioOf } from "@/app/landing/talkContent";
+import { industryOf, useCaseOf } from "@/app/industries";
 import { sendEmail, emailHtml, APP_URL } from "@/lib/notify";
 import { hqEmails } from "@/lib/hq";
 
@@ -31,7 +32,18 @@ export async function POST(req: Request) {
   let result: any = null;
   if (userTurns && llmProvider()) {
     try {
-      if (row.kind === "demo") {
+      if (row.kind === "usecase") {
+        const [slug, key] = String(row.scenario || "").split(":");
+        const ind = industryOf(slug); const uc = ind ? useCaseOf(ind, key) : undefined;
+        result = await chatJson([
+          { role: "system", content: "You turn a phone-call transcript into the outcome a business would see in its CRM. Use only what was said. Reply with JSON only." },
+          { role: "user", content: `Business: ${row.context?.company || ind?.biz || "a business"} (${ind?.label || "industry"}). Call type: ${uc?.title || "call"}. Rana is the business's AI employee; the Visitor played ${uc?.who || "the customer"}.
+Transcript:
+${text}
+
+Return JSON: {"outcome": "a short CRM tag in CAPS style like 'SHORTLIST · 3 yrs · 30 days notice' or 'SITE VISIT · Sun 4 PM' (max 70 chars, in English)", "fields": [{"label": "...", "value": "..."}] (2 to 6 facts the person gave, in English), "summary": "one sentence in English about what happened"}` },
+        ], { maxTokens: 400, temperature: 0.2, timeoutMs: 20000 });
+      } else if (row.kind === "demo") {
         const s = scenarioOf(row.scenario);
         result = await chatJson([
           { role: "system", content: "You turn a phone-call transcript into the outcome a business would see in its CRM. Use only what was said. Reply with JSON only." },
@@ -67,6 +79,18 @@ Return JSON (null for anything not said; all text in English): {"name": string|n
     ];
     const hq = Array.from(new Set([...hqEmails(), "hello@ranaai.in"]));
     await sendEmail({ to: hq, kind: "web_talk", subject: `Website visitor talked to Rana${r.company ? `: ${r.company}` : ""}${r.interest ? ` (${r.interest})` : ""}`, html: emailHtml({ title: "Talk to Rana — new conversation", lines, button: { label: "Open demo requests", url: `${APP_URL()}/hq/demos` } }) }).catch(() => {});
+  }
+  // Industry demo with the visitor's own website = a warm lead: tell HQ.
+  if (row.kind === "usecase" && userTurns >= 2) {
+    const c = row.context || {}; const r = result || {};
+    const lines = [
+      `A visitor tried the <b>${esc(String(c.title || row.scenario || "industry"))}</b> live demo (${esc(String(c.industry || ""))}) for ${Math.round(seconds / 6) / 10} min.`,
+      c.url ? `Their website: <b>${esc(String(c.url))}</b> (${esc(String(c.company || ""))})` : "They used the sample business (no website given).",
+      ...(r.outcome ? [`Outcome: ${esc(r.outcome)}`] : []),
+      `<details><summary>Transcript</summary>${transcript.map((t: any) => `<div><b>${t.role === "user" ? "Visitor" : "Rana"}:</b> ${esc(t.text)}</div>`).join("")}</details>`,
+    ];
+    const hq = Array.from(new Set([...hqEmails(), "hello@ranaai.in"]));
+    await sendEmail({ to: hq, kind: "web_talk", subject: `Industry demo tried: ${c.title || row.scenario}${c.company ? ` — ${c.company}` : ""}`, html: emailHtml({ title: "Industry live demo", lines, button: { label: "Open RANA HQ", url: `${APP_URL()}/hq/demos` } }) }).catch(() => {});
   }
   return Response.json({ ok: true, seconds, result });
 }
