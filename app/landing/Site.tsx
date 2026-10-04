@@ -12,7 +12,6 @@ import RanaLive, { type LiveMode } from "./RanaLive";
 import { SCENARIOS, type DemoKey } from "./talkContent";
 import { captureUtm } from "./utm";
 import { VERTICAL_BY_KEY, art, type Vertical } from "./verticals";
-import { INDUSTRY_MENU } from "@/app/industries/menu";
 import ProofRunForm from "./ProofRunForm";
 import { LEGAL_LINKS, SOCIAL_LINKS } from "@/app/legal/legal";
 
@@ -377,22 +376,6 @@ function MarketHint({ market }: { market: Market }) {
   );
 }
 
-/** The industry toggle: every vertical has its own home page. */
-function IndustryBar({ active }: { active?: string }) {
-  const bar = useRef<HTMLDivElement>(null);
-  useEffect(() => { const el = bar.current?.querySelector('[aria-current="page"]') as HTMLElement | null; if (el && bar.current) bar.current.scrollLeft = el.offsetLeft - 80; }, [active]);
-  const chip = (on: boolean) => `shrink-0 rounded-full border px-3 py-1 text-[12.5px] transition-colors ${on ? "border-signal/60 bg-signal/10 text-signal font-semibold" : "border-white/10 text-ink-soft hover:text-ink hover:border-white/25"}`;
-  return (
-    <nav aria-label="Industries" className="border-t border-white/[.05]" data-testid="industry-bar">
-      <div ref={bar} className="max-w-[1280px] mx-auto px-5 sm:px-8 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
-        <span className="shrink-0 font-mono text-[10.5px] tracking-[0.14em] text-ink-soft/80 mr-1">INDUSTRY</span>
-        <Link href="/for" className={chip(false)}>All industries →</Link>
-        {INDUSTRY_MENU.map((v) => <Link key={v.slug} href={`/for/${v.slug}`} className={chip(active === v.slug)} aria-current={active === v.slug ? "page" : undefined} data-testid={`vbar-${v.slug}`}>{v.label}</Link>)}
-      </div>
-    </nav>
-  );
-}
-
 /** A vertical's own story: its problems, the calls RANA takes, and how it goes live. */
 function VerticalStory({ v, onProof, onTry }: { v: Vertical; onProof: () => void; onTry: () => void }) {
   return (
@@ -518,7 +501,6 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
           <div className="md:hidden flex items-center gap-2"><MarketSwitcher market={market} />
           <button onClick={() => setMenu(true)} className="font-mono text-[12px] border border-signal/60 text-signal rounded-full px-4 py-2" aria-label="Open menu" data-testid="menu-btn">MENU +</button></div>
         </div>
-        {india && <IndustryBar active={v?.slug} />}
       </header>
       {menu && (
         <div className="fixed inset-0 z-[60] bg-paper/[.98] flex flex-col items-center justify-center gap-6 animate-rise" data-testid="menu">

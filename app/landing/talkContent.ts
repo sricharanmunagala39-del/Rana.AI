@@ -15,6 +15,8 @@ export const DEMO_MAX_S = 90;
 
 export type Scenario = {
   key: DemoKey; icon: string; title: string; line: string;
+  /** Who starts the call: "out" = Rana calls them, "in" = they call the business. */
+  dir: "in" | "out";
   business: string; ranaPlays: string; youPlay: string; tryThis: string[];
   sample: { who: "ai" | "caller"; text: string }[]; outcome: string;
   /** What the live CRM card learns during the sample call: shown once line `at` has been spoken. */
@@ -23,7 +25,7 @@ export type Scenario = {
 
 export const SCENARIOS: Scenario[] = [
   {
-    key: "qualify", icon: "🎯", title: "Lead qualification", line: "Calls a new enquiry in minutes and finds out if they're ready to buy.",
+    key: "qualify", dir: "out", icon: "🎯", title: "Lead qualification", line: "Calls a new enquiry in minutes and finds out if they're ready to buy.",
     business: "Skyline Homes — a real-estate developer", ranaPlays: "Calls you back 2 minutes after you enquired about a 3BHK flat.",
     youPlay: "A home buyer. Share (or dodge) your budget, timeline and whether you need a loan.",
     tryThis: ["Say your budget is flexible", "Ask if there's a loan option", "Ask for a site visit this weekend"],
@@ -41,7 +43,7 @@ export const SCENARIOS: Scenario[] = [
     card: [{ at: 1, label: "Interest", value: "3BHK flat" }, { at: 3, label: "Budget", value: "₹1.3 Cr" }, { at: 3, label: "Home loan", value: "Yes" }, { at: 5, label: "Timeline", value: "~6 months" }, { at: 7, label: "Site visit", value: "Sat 11 AM" }],
   },
   {
-    key: "sales", icon: "📞", title: "Outbound sales", line: "Dials your lead list, pitches, handles objections and books the next step.",
+    key: "sales", dir: "out", icon: "📞", title: "Outbound sales", line: "Dials your lead list, pitches, handles objections and books the next step.",
     business: "BrightPath Academy — a coaching institute", ranaPlays: "Calls a parent about a new weekend batch and its early-bird offer.",
     youPlay: "A busy, price-conscious parent. Push back on fees or say you'll think about it.",
     tryThis: ["Say the fees are too high", "Ask about weekend timings", "Say “call me later”"],
@@ -57,7 +59,7 @@ export const SCENARIOS: Scenario[] = [
     card: [{ at: 1, label: "Objection", value: "Fees too high" }, { at: 2, label: "Offer", value: "Early-bird + EMI" }, { at: 3, label: "Asked", value: "Weekend timings" }, { at: 5, label: "Next step", value: "Free demo, Sun 10 AM" }],
   },
   {
-    key: "support", icon: "☎️", title: "Inbound support", line: "Answers every customer call, solves the common ones and hands the rest to your team.",
+    key: "support", dir: "in", icon: "☎️", title: "Inbound support", line: "Answers every customer call, solves the common ones and hands the rest to your team.",
     business: "QuickKart — an online store", ranaPlays: "Answers the support line, 24×7.",
     youPlay: "A customer whose order hasn't arrived — a little annoyed. Maybe ask for a return too.",
     tryThis: ["Say your order is late", "Ask to return an item", "Ask to speak to a person"],
@@ -73,7 +75,7 @@ export const SCENARIOS: Scenario[] = [
     card: [{ at: 0, label: "Issue", value: "Order late" }, { at: 2, label: "Order", value: "Found by phone" }, { at: 3, label: "Action", value: "Delivery call today" }, { at: 4, label: "Ask", value: "Refund if late" }, { at: 5, label: "Promise", value: "Refund after tomorrow" }],
   },
   {
-    key: "booking", icon: "📅", title: "Appointment booking", line: "Books, reschedules and confirms appointments — even at 11 PM.",
+    key: "booking", dir: "in", icon: "📅", title: "Appointment booking", line: "Books, reschedules and confirms appointments — even at 11 PM.",
     business: "Smile Dental Clinic", ranaPlays: "The clinic's receptionist.",
     youPlay: "A patient who wants a check-up this week. Ask for a slot, change your mind, ask the fee.",
     tryThis: ["Ask for tomorrow evening", "Ask the consultation fee", "Change the time once"],
@@ -89,7 +91,7 @@ export const SCENARIOS: Scenario[] = [
     card: [{ at: 0, label: "Needs", value: "Dental check-up" }, { at: 2, label: "Slot", value: "Thu 5 PM" }, { at: 3, label: "Fee told", value: "₹500" }, { at: 4, label: "Patient", value: "Ananya Rao" }, { at: 5, label: "Reminder", value: "Day before" }],
   },
   {
-    key: "followup", icon: "💬", title: "Customer follow-up", line: "Follows up every lead and customer so nobody goes cold.",
+    key: "followup", dir: "out", icon: "💬", title: "Customer follow-up", line: "Follows up every lead and customer so nobody goes cold.",
     business: "FitLife Gym", ranaPlays: "Follows up with you after your free trial session last week.",
     youPlay: "Someone who liked the trial but hasn't joined. Be undecided — or say it's too far.",
     tryThis: ["Say you're still deciding", "Ask about a monthly plan", "Say it's too far from home"],

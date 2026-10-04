@@ -305,13 +305,21 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
             {step === "pick" && (
               <>
                 <p className="text-ink-soft text-[15px] mt-2">Pick a call. You play the customer, Rana plays the business — live.</p>
-                <div className="grid sm:grid-cols-2 gap-2.5 mt-5" data-testid="demo-picker">
-                  {SCENARIOS.map((x) => (
-                    <button key={x.key} type="button" onClick={() => { setScenario(x.key); setStep("ready"); }} data-testid={`scenario-${x.key}`}
-                      className="hud-panel text-left p-4 hover:border-signal/50 hover:bg-signal/5 transition-colors">
-                      <div className="text-[15px] font-semibold"><span className="mr-2" aria-hidden>{x.icon}</span>{x.title}</div>
-                      <div className="text-[13px] text-ink-soft mt-1 leading-snug">{x.line}</div>
-                    </button>
+                <div className="grid sm:grid-cols-2 gap-5 mt-5" data-testid="demo-picker">
+                  {([["in", "THEY CALL YOU", "Inbound · Rana listens first, then helps."], ["out", "RANA CALLS THEM", "Outbound · Rana earns attention in the first three seconds."]] as const).map(([d, head, sub]) => (
+                    <div key={d} className="flex flex-col gap-2.5" data-testid={`picker-${d}`}>
+                      <div>
+                        <div className={`font-mono text-[11px] tracking-[0.14em] ${d === "out" ? "text-violet" : "text-signal"}`}>{head}</div>
+                        <div className="text-[12.5px] text-ink-soft mt-0.5">{sub}</div>
+                      </div>
+                      {SCENARIOS.filter((x) => x.dir === d).map((x) => (
+                        <button key={x.key} type="button" onClick={() => { setScenario(x.key); setStep("ready"); }} data-testid={`scenario-${x.key}`}
+                          className="hud-panel text-left p-4 hover:border-signal/50 hover:bg-signal/5 transition-colors">
+                          <div className="text-[15px] font-semibold"><span className="mr-2" aria-hidden>{x.icon}</span>{x.title}</div>
+                          <div className="text-[13px] text-ink-soft mt-1 leading-snug">{x.line}</div>
+                        </button>
+                      ))}
+                    </div>
                   ))}
                 </div>
               </>

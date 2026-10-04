@@ -186,9 +186,10 @@ export default function IndustryExperience({ ind, menu }: { ind: Industry; menu:
                 <div>
                   <div className="font-mono text-[11px] text-signal mb-2">1 · WHAT SHOULD RANA DEMONSTRATE?</div>
                   <select value={ucKey} onChange={(e) => setUcKey(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/[.04] px-3 py-2.5 text-[14px]" aria-label="Use case" data-testid="studio-uc">
-                    {ind.useCases.map((u) => <option key={u.key} value={u.key}>{u.title}</option>)}
+                    <optgroup label="They call you · Inbound">{ind.useCases.filter((u) => u.dir === "in").map((u) => <option key={u.key} value={u.key}>{u.title}</option>)}</optgroup>
+                    <optgroup label="Rana calls them · Outbound">{ind.useCases.filter((u) => u.dir === "out").map((u) => <option key={u.key} value={u.key}>{u.title}</option>)}</optgroup>
                   </select>
-                  <p className="text-[12.5px] text-ink-soft mt-2">{uc.line}</p>
+                  <p className="text-[12.5px] text-ink-soft mt-2"><span className={`font-mono text-[10.5px] mr-1.5 ${uc.dir === "out" ? "text-violet" : "text-signal"}`}>{uc.dir === "out" ? "OUTBOUND" : "INBOUND"}</span>{uc.line}</p>
                 </div>
                 <form onSubmit={readSite}>
                   <div className="font-mono text-[11px] text-signal mb-2">2 · PERSONALISE WITH YOUR WEBSITE <span className="text-ink-soft">(OPTIONAL)</span></div>
