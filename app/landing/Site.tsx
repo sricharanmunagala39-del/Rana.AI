@@ -4,7 +4,7 @@ import Link from "next/link";
 import RanaCore from "@/components/RanaCore";
 import Integrations from "@/components/Integrations";
 import { Logo } from "@/components/Sidebar";
-import { INDUSTRY_CALLS, GLOBAL_CALLS, USE_CASES, ENGINES_LINE, CALC, CALL_LANGUAGE_COUNT, plansFor, faqFor, type Line, type IndustryCall } from "./content";
+import { INDUSTRY_CALLS, GLOBAL_CALLS, ENGINES_LINE, CALC, CALL_LANGUAGE_COUNT, plansFor, faqFor, type Line, type IndustryCall } from "./content";
 import { TRIAL_DAYS, TRIAL_MINUTES, PLANS as PRICE_LIST, PRICE_BOOK, CURRENCIES, CURRENCY_SYMBOL as SYMBOL, money, moneyShort, type Currency } from "@/lib/pricing";
 import { MARKETS, MARKET_KEYS, MARKET_COOKIE, marketForZone, type Market, type MarketKey } from "./markets";
 import DemoForm, { type DemoPrefill } from "./DemoForm";
@@ -217,48 +217,6 @@ function DashboardPreview() {
   );
 }
 
-function Industries({ onDemo }: { onDemo: () => void }) {
-  const [k, setK] = useState(USE_CASES[0].key);
-  const u = USE_CASES.find((x) => x.key === k) || USE_CASES[0];
-  return (
-    <section id="industries" className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24 scroll-mt-20">
-      <div className="reveal max-w-[720px]">
-        <div className="eyebrow">// WHO IT&apos;S FOR</div>
-        <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] leading-[1.05] mt-3">Any business that runs<br /><span className="text-ink-soft">on phone calls.</span></h2>
-        <p className="text-ink-soft text-[16px] leading-relaxed mt-4">Missed calls, slow follow-ups and leads that go cold look the same in every industry. Pick yours and see which calls RANA takes off your team.</p>
-      </div>
-      <div className="reveal flex flex-wrap gap-2 mt-8" role="tablist" aria-label="Industries">
-        {USE_CASES.map((x) => (
-          <button key={x.key} role="tab" aria-selected={x.key === k} onClick={() => setK(x.key)} data-testid={`ind-${x.key}`}
-            className={`rounded-full border px-4 py-2 text-[13.5px] transition-colors ${x.key === k ? "border-signal/60 bg-signal/10 text-signal font-semibold" : "border-white/10 text-ink-soft hover:text-ink hover:border-white/25"}`}>{x.label}</button>
-        ))}
-      </div>
-      <div className="grid lg:grid-cols-[1fr_1fr_1fr] gap-3 mt-5" data-testid="industry-panel">
-        <div className="card p-6 flex flex-col">
-          <div className="font-mono text-[11px] text-hot">THE PROBLEM</div>
-          <div className="font-display text-[20px] font-semibold mt-3 leading-snug">{u.pain}</div>
-          <div className="mt-auto pt-6"><div className="font-mono text-[11px] text-signal">THE RESULT</div><div className="font-display text-[18px] font-semibold mt-1 text-gradient">{u.result}</div></div>
-        </div>
-        <div className="card p-6">
-          <div className="font-mono text-[11px] text-signal">INCOMING CALLS · RANA ANSWERS</div>
-          <ul className="mt-4 flex flex-col gap-2.5 text-[14.5px]">{u.inbound.map((t) => <li key={t} className="flex gap-2.5"><span className="text-signal">✓</span>{t}</li>)}</ul>
-        </div>
-        <div className="card p-6">
-          <div className="font-mono text-[11px] text-violet">OUTGOING CALLS · RANA DIALS</div>
-          <ul className="mt-4 flex flex-col gap-2.5 text-[14.5px]">{u.outbound.map((t) => <li key={t} className="flex gap-2.5"><span className="text-violet">✓</span>{t}</li>)}</ul>
-        </div>
-      </div>
-      {VERTICAL_BY_KEY[u.key] && <div className="mt-3 flex justify-end"><Link href={`/for/${VERTICAL_BY_KEY[u.key]}`} className="text-[14px] font-semibold text-signal hover:underline" data-testid="ind-page-link">See the full page for {u.label} →</Link></div>}
-      <div className="reveal card mt-3 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="text-[14.5px]"><b>Don&apos;t see your business?</b> <span className="text-ink-soft">If your team answers or makes calls, RANA can take the repetitive ones — in your customers&apos; language.</span></div>
-        <button onClick={onDemo} className="btn-ghost rounded-full px-5 py-2.5 text-[14px] font-semibold whitespace-nowrap">Show me for my business →</button>
-      </div>
-    </section>
-  );
-}
-
-/** Honest back-of-the-envelope: the visitor's own numbers, the visitor's own estimate.
- *  Customer value uses a log scale per currency (₹500 → ₹10 crore, $10 → $10M, …) with one-click presets. */
 function MissedCalls({ onDemo, market, init }: { onDemo: () => void; market: Market; init?: { value: number; conv: number } }) {
   const cur: Currency = market.currency;
   const C = CALC[cur];
@@ -613,7 +571,8 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
           </div>
         </section>
 
-        {v ? <VerticalStory v={v} onProof={openProof} onTry={() => openTry(v.demo)} /> : <Industries onDemo={openDemo("industries")} />}
+        {/* The homepage stays clean: every industry lives on its own page (header → Industries → /for). */}
+        {v && <VerticalStory v={v} onProof={openProof} onTry={() => openTry(v.demo)} />}
 
         {/* ---------- Dashboard preview ---------- */}
         <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24 grid lg:grid-cols-[1fr_1.35fr] gap-12 items-center">
