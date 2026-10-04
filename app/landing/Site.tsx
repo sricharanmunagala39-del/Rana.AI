@@ -11,6 +11,8 @@ import DemoForm, { type DemoPrefill } from "./DemoForm";
 import RanaLive, { type LiveMode } from "./RanaLive";
 import { SCENARIOS, type DemoKey } from "./talkContent";
 import { captureUtm } from "./utm";
+import { VERTICALS, VERTICAL_BY_KEY, art, type Vertical } from "./verticals";
+import ProofRunForm from "./ProofRunForm";
 import { LEGAL_LINKS, SOCIAL_LINKS } from "@/app/legal/legal";
 
 // Public contact address (Zoho Mail inbox for ranaai.in).
@@ -69,8 +71,8 @@ const EXPLORE: [string, [string, string][]][] = [
 /** Hero: RANA's live voice core. Tap it to talk to Rana; the ticker shows the kind of calls she handles. */
 const HERO_TICKER_IN = ["Answering a clinic's call in Telugu", "Booking a site visit in Hindi", "Qualifying an admission enquiry in Tamil", "Confirming a COD order in Kannada", "Following up a gym trial in English"];
 const HERO_TICKER_GLOBAL = ["Answering a dental clinic in English", "Booking a viewing in Spanish", "Qualifying a lead in French", "Confirming an order in Japanese", "Following up a trial in English"];
-function HeroCore({ onTalk, india }: { onTalk: () => void; india: boolean }) {
-  const list = india ? HERO_TICKER_IN : HERO_TICKER_GLOBAL;
+function HeroCore({ onTalk, india, ticker }: { onTalk: () => void; india: boolean; ticker?: string[] }) {
+  const list = ticker || (india ? HERO_TICKER_IN : HERO_TICKER_GLOBAL);
   const [i, setI] = useState(0);
   const [hover, setHover] = useState(false);
   useEffect(() => { const t = setInterval(() => setI((x) => x + 1), 3600); return () => clearInterval(t); }, []);
@@ -246,6 +248,7 @@ function Industries({ onDemo }: { onDemo: () => void }) {
           <ul className="mt-4 flex flex-col gap-2.5 text-[14.5px]">{u.outbound.map((t) => <li key={t} className="flex gap-2.5"><span className="text-violet">✓</span>{t}</li>)}</ul>
         </div>
       </div>
+      {VERTICAL_BY_KEY[u.key] && <div className="mt-3 flex justify-end"><Link href={`/for/${VERTICAL_BY_KEY[u.key]}`} className="text-[14px] font-semibold text-signal hover:underline" data-testid="ind-page-link">See the full page for {u.label} →</Link></div>}
       <div className="reveal card mt-3 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="text-[14.5px]"><b>Don&apos;t see your business?</b> <span className="text-ink-soft">If your team answers or makes calls, RANA can take the repetitive ones — in your customers&apos; language.</span></div>
         <button onClick={onDemo} className="btn-ghost rounded-full px-5 py-2.5 text-[14px] font-semibold whitespace-nowrap">Show me for my business →</button>
@@ -256,15 +259,15 @@ function Industries({ onDemo }: { onDemo: () => void }) {
 
 /** Honest back-of-the-envelope: the visitor's own numbers, the visitor's own estimate.
  *  Customer value uses a log scale per currency (₹500 → ₹10 crore, $10 → $10M, …) with one-click presets. */
-function MissedCalls({ onDemo, market }: { onDemo: () => void; market: Market }) {
+function MissedCalls({ onDemo, market, init }: { onDemo: () => void; market: Market; init?: { value: number; conv: number } }) {
   const cur: Currency = market.currency;
   const C = CALC[cur];
   const niceRound = (v: number) => { const m = 10 ** Math.max(0, Math.floor(Math.log10(v)) - 1); return Math.max(C.min, Math.round(v / m) * m); };
   const valueOfPos = (p: number) => niceRound(C.min * (C.max / C.min) ** (p / 1000));
   const posOfValue = (v: number) => Math.round((1000 * Math.log(Math.min(C.max, Math.max(C.min, v)) / C.min)) / Math.log(C.max / C.min));
   const [missed, setMissed] = useState(15);
-  const [conv, setConv] = useState(10);
-  const [value, setValue] = useState(C.def);
+  const [conv, setConv] = useState(init?.conv ?? 10);
+  const [value, setValue] = useState(init?.value ?? C.def);
   const perMonth = missed * market.workDays;
   const won = perMonth * (conv / 100);
   const lost = Math.round(won * value);
@@ -373,14 +376,96 @@ function MarketHint({ market }: { market: Market }) {
   );
 }
 
-export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
+/** The industry toggle: every vertical has its own home page. */
+function IndustryBar({ active }: { active?: string }) {
+  const bar = useRef<HTMLDivElement>(null);
+  useEffect(() => { const el = bar.current?.querySelector('[aria-current="page"]') as HTMLElement | null; if (el && bar.current) bar.current.scrollLeft = el.offsetLeft - 80; }, [active]);
+  const chip = (on: boolean) => `shrink-0 rounded-full border px-3 py-1 text-[12.5px] transition-colors ${on ? "border-signal/60 bg-signal/10 text-signal font-semibold" : "border-white/10 text-ink-soft hover:text-ink hover:border-white/25"}`;
+  return (
+    <nav aria-label="Industries" className="border-t border-white/[.05]" data-testid="industry-bar">
+      <div ref={bar} className="max-w-[1280px] mx-auto px-5 sm:px-8 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
+        <span className="shrink-0 font-mono text-[10.5px] tracking-[0.14em] text-ink-soft/80 mr-1">INDUSTRY</span>
+        <Link href="/" className={chip(!active)} aria-current={!active ? "page" : undefined}>All</Link>
+        {VERTICALS.map((v) => <Link key={v.slug} href={`/for/${v.slug}`} className={chip(active === v.slug)} aria-current={active === v.slug ? "page" : undefined} data-testid={`vbar-${v.slug}`}>{v.label}</Link>)}
+      </div>
+    </nav>
+  );
+}
+
+/** A vertical's own story: its problems, the calls RANA takes, and how it goes live. */
+function VerticalStory({ v, onProof, onTry }: { v: Vertical; onProof: () => void; onTry: () => void }) {
+  return (
+    <section id="industries" className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24 scroll-mt-28" data-testid="vertical-story">
+      <div className="reveal max-w-[760px]">
+        <div className="eyebrow">// THE PROBLEM IN {v.label.toUpperCase()}</div>
+        <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] leading-[1.05] mt-3">Where {v.wins} slip away<br /><span className="text-ink-soft">before anyone notices.</span></h2>
+      </div>
+      <div className="grid md:grid-cols-3 gap-3 mt-10">
+        {v.pains.map((p, i) => (
+          <div key={p.t} className="card reveal p-6">
+            <div className="font-mono text-[11px] text-hot">PROBLEM 0{i + 1}</div>
+            <div className="font-display text-[19px] font-semibold mt-3 leading-snug">{p.t}</div>
+            <p className="text-ink-soft text-[14px] leading-relaxed mt-2">{p.d}</p>
+          </div>
+        ))}
+      </div>
+      <div className="reveal max-w-[760px] mt-20">
+        <div className="eyebrow">// WHAT RANA DOES FOR {v.short.toUpperCase()}</div>
+        <h2 className="font-display text-[30px] sm:text-[42px] font-semibold tracking-[-0.025em] leading-[1.05] mt-3">It picks up, it calls back,<br /><span className="text-gradient">it books the {v.win}.</span></h2>
+      </div>
+      <div className="grid md:grid-cols-2 gap-3 mt-10">
+        <div className="card reveal p-6">
+          <div className="font-mono text-[11px] text-signal">INCOMING CALLS · RANA ANSWERS</div>
+          <ul className="mt-4 flex flex-col gap-2.5 text-[14.5px]">{v.inbound.map((t) => <li key={t} className="flex gap-2.5"><span className="text-signal">✓</span>{t}</li>)}</ul>
+        </div>
+        <div className="card reveal p-6">
+          <div className="font-mono text-[11px] text-violet">OUTGOING CALLS · RANA DIALS</div>
+          <ul className="mt-4 flex flex-col gap-2.5 text-[14.5px]">{v.outbound.map((t) => <li key={t} className="flex gap-2.5"><span className="text-violet">✓</span>{t}</li>)}</ul>
+        </div>
+      </div>
+      <div className="reveal card mt-3 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="text-[14.5px]"><b>Hear it first.</b> <span className="text-ink-soft">Play the customer and hear Rana handle a real-style {v.label.toLowerCase()} call — 90 seconds, no sign-up.</span></div>
+        <div className="flex gap-2 shrink-0">
+          <button onClick={onTry} className="btn-ghost rounded-full px-5 py-2.5 text-[14px] font-semibold whitespace-nowrap">Try the demo call</button>
+          <button onClick={onProof} className="btn-glow rounded-full px-5 py-2.5 text-[14px] font-semibold whitespace-nowrap">Free proof run →</button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** The free proof-run offer: we call their old enquiries, free, and send a report. */
+function ProofRunBlock({ onProof, win }: { onProof: () => void; win?: string }) {
+  return (
+    <section id="proof-run" className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24 scroll-mt-28">
+      <div className="card card-hi reveal p-6 sm:p-10 grid lg:grid-cols-[1.2fr_1fr] gap-8 items-center" data-testid="proof-block">
+        <div>
+          <div className="eyebrow">// FREE PROOF RUN</div>
+          <h2 className="font-display text-[28px] sm:text-[40px] font-semibold tracking-[-0.025em] leading-[1.06] mt-3">Don&apos;t take our word for it.<br /><span className="text-gradient">Test it on your own leads.</span></h2>
+          <p className="text-ink-soft text-[15.5px] leading-relaxed mt-4 max-w-[560px]">Send us up to 200 enquiries your team never called back. RANA calls them in their language during permitted hours, and within 5 working days you get a report: who picked up, who&apos;s still interested, and who wants {win ? `${art(win)} ${win}` : "the next step"} — with recordings.</p>
+        </div>
+        <div className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-2 text-[14.5px]">
+            {["₹0 — no card, no contract", "Only people who enquired with you", "Anyone who says no is never called again", "Your list stays private"].map((t) => <li key={t} className="flex gap-2.5"><span className="text-signal">✓</span>{t}</li>)}
+          </ul>
+          <button onClick={onProof} className="btn-glow rounded-full px-6 py-3.5 text-[15px] font-semibold mt-2" data-testid="proof-cta">Start my free proof run →</button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default function Site({ marketKey = "in", vertical }: { marketKey?: MarketKey; vertical?: Vertical }) {
+  const v = vertical;
   const market = MARKETS[marketKey] || MARKETS.in;
   const india = market.key === "in";
   const FEATURES = featuresFor(india);
   // Visitors can switch the pricing currency right in the pricing section (clean local price points, not live FX).
   const [cur, setCur] = useState<Currency>(market.currency);
   const PLANS = plansFor({ ...market, currency: cur });
-  const FAQ = faqFor(market);
+  const FAQ = v ? [...v.faq, ...faqFor(market).filter(([q]) => !/Which businesses/.test(q))] : faqFor(market);
+  const [proof, setProof] = useState(false);
+  const openProof = () => { setMenu(false); setProof(true); };
   const book = PRICE_BOOK[cur];
   useReveal();
   const [menu, setMenu] = useState(false);
@@ -402,6 +487,7 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
   }, []);
   useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get("demo") === "1" || window.location.hash === "#demo") setDemo("link"); }, []);
   useEffect(() => { captureUtm(); }, []);
+  useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get("proof") === "1" || window.location.hash === "#proof") setProof(true); }, []);
   // Mark the page as scrolling (pauses animations and the voice core) and clear it shortly after scrolling stops.
   useEffect(() => {
     let t: any = 0; const html = document.documentElement;
@@ -431,6 +517,7 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
           <div className="md:hidden flex items-center gap-2"><MarketSwitcher market={market} />
           <button onClick={() => setMenu(true)} className="font-mono text-[12px] border border-signal/60 text-signal rounded-full px-4 py-2" aria-label="Open menu" data-testid="menu-btn">MENU +</button></div>
         </div>
+        {india && <IndustryBar active={v?.slug} />}
       </header>
       {menu && (
         <div className="fixed inset-0 z-[60] bg-paper/[.98] flex flex-col items-center justify-center gap-6 animate-rise" data-testid="menu">
@@ -439,6 +526,7 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
           <div className="flex flex-wrap justify-center gap-3 mt-4">
             <Link href="/login" className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Sign in</Link>
             <button onClick={openDemo("menu")} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Book a demo</button>
+            {india && <button onClick={openProof} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Free proof run</button>}
             <Link href="/signup" className="btn-glow rounded-full px-5 py-3 text-[14px] font-semibold">Start free trial</Link>
           </div>
         </div>
@@ -452,23 +540,28 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
               <span className="w-1.5 h-1.5 rounded-full bg-signal live-dot" /> STATUS: ANSWERING CALLS, RIGHT NOW
             </div>
             <h1>
-              <span className="block eyebrow uppercase mb-4">{india ? "AI voice agent & AI calling agent for Indian businesses" : market.key === "global" ? "AI voice agents for businesses worldwide" : `AI voice agents for businesses in ${market.key === "us" ? "the United States" : market.key === "ae" ? "the UAE & Gulf" : market.name}`}</span>
+              <span className="block eyebrow uppercase mb-4">{v ? v.eyebrow : india ? "AI voice agent & AI calling agent for Indian businesses" : market.key === "global" ? "AI voice agents for businesses worldwide" : `AI voice agents for businesses in ${market.key === "us" ? "the United States" : market.key === "ae" ? "the UAE & Gulf" : market.name}`}</span>
               <span className="block font-display font-semibold tracking-[-0.035em] leading-[0.98] text-[46px] sm:text-[64px] lg:text-[72px]">
-                We build what<br /><span className="text-gradient">answers back.</span>
+                {v ? <>{v.h1a}<br /><span className="text-gradient">{v.h1b}</span></> : <>We build what<br /><span className="text-gradient">answers back.</span></>}
               </span>
             </h1>
             <p className="text-ink-soft text-[16.5px] sm:text-[18px] leading-relaxed mt-6 max-w-[540px] mx-auto lg:mx-0">
-              {india
+              {v ? v.sub : india
                 ? "AI calling agents for any business that runs on phone calls — clinics, real estate, education, e-commerce, finance, hospitality and more. They answer and make your calls in Telugu, Hindi, Tamil and 8 more Indian languages — plus Spanish, French and Japanese for callers abroad — and hand your team only the leads worth calling back."
                 : "AI calling agents for any business that runs on phone calls — clinics, real estate, education, e-commerce, finance, hospitality and more. They answer and make your calls around the clock in English, Spanish, French, Japanese, Hindi and 9 more Indian languages, and hand your team only the leads worth calling back."}
             </p>
             <div className="flex flex-wrap gap-3 mt-9 justify-center lg:justify-start">
-              <button onClick={() => openTry()} className="btn-glow rounded-full px-6 py-3.5 text-[15px] font-semibold" data-testid="hero-try">Try an instant demo</button>
-              <button onClick={openDemo("hero")} className="btn-ghost rounded-full px-6 py-3.5 text-[15px] font-medium" data-testid="hero-demo">Book a demo</button>
+              {v ? <>
+                <button onClick={openProof} className="btn-glow rounded-full px-6 py-3.5 text-[15px] font-semibold" data-testid="hero-proof">Free proof run on my leads</button>
+                <button onClick={() => openTry(v.demo)} className="btn-ghost rounded-full px-6 py-3.5 text-[15px] font-medium" data-testid="hero-try">Hear {art(v.label)} {v.label.toLowerCase()} call</button>
+              </> : <>
+                <button onClick={() => openTry()} className="btn-glow rounded-full px-6 py-3.5 text-[15px] font-semibold" data-testid="hero-try">Try an instant demo</button>
+                <button onClick={openDemo("hero")} className="btn-ghost rounded-full px-6 py-3.5 text-[15px] font-medium" data-testid="hero-demo">Book a demo</button>
+              </>}
             </div>
             <div className="text-[12.5px] text-ink-soft/80 mt-4">Or tap Rana to ask her anything about RANA AI — no sign-up. <Link href="/signup" className="text-signal font-semibold hover:underline" data-testid="hero-trial">start free for {TRIAL_DAYS} days</Link> · {TRIAL_MINUTES} minutes · no card.</div>
           </div>
-          <HeroCore onTalk={openTalk} india={india} />
+          <HeroCore onTalk={openTalk} india={india} ticker={v?.ticker} />
         </section>
 
         {/* ---------- Stats ---------- */}
@@ -512,7 +605,7 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
               <p className="text-ink-soft text-[14px] leading-relaxed mt-2">A call after hours, during a rush, or in a language the front desk isn&apos;t fluent in — it just doesn&apos;t get answered. Nobody finds out what that lead was worth.</p>
             </div>
           </div>
-          <div className="reveal"><LiveCall calls={india ? INDUSTRY_CALLS : GLOBAL_CALLS} /></div>
+          <div className="reveal"><LiveCall calls={v ? [v.call] : india ? INDUSTRY_CALLS : GLOBAL_CALLS} /></div>
         </section>
 
         {/* ---------- Features (bento) ---------- */}
@@ -537,7 +630,7 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
           </div>
         </section>
 
-        <Industries onDemo={openDemo("industries")} />
+        {v ? <VerticalStory v={v} onProof={openProof} onTry={() => openTry(v.demo)} /> : <Industries onDemo={openDemo("industries")} />}
 
         {/* ---------- Dashboard preview ---------- */}
         <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24 grid lg:grid-cols-[1fr_1.35fr] gap-12 items-center">
@@ -552,15 +645,17 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
           <div className="reveal"><DashboardPreview /></div>
         </section>
 
-        <MissedCalls key={market.currency} market={market} onDemo={openDemo("calculator")} />
+        <MissedCalls key={market.currency} market={market} onDemo={openDemo("calculator")} init={v?.calc} />
+
+        {india && <ProofRunBlock onProof={openProof} win={v?.win} />}
 
         {/* ---------- How it works ---------- */}
         <section id="how" className="border-y border-white/[.06] bg-white/[.012]">
           <div className="max-w-[1160px] mx-auto px-5 sm:px-8 py-24">
             <div className="reveal"><div className="eyebrow">// ROLLOUT</div>
-              <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] mt-3">From sign-up to live calls.</h2></div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-10">
-              {STEPS.map((s) => (
+              <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] mt-3">{v ? `Live for your ${v.label.toLowerCase()} business in days.` : "From sign-up to live calls."}</h2></div>
+            <div className={`grid sm:grid-cols-2 ${v ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-3 mt-10`}>
+              {(v ? v.steps.map((x, i) => ({ n: `0${i + 1}`, ...x })) : STEPS).map((s) => (
                 <div key={s.n} className="card reveal p-6">
                   <div className="font-mono text-[28px] font-semibold text-gradient">{s.n}</div>
                   <div className="font-display text-[18px] font-semibold mt-4">{s.t}</div>
@@ -645,7 +740,8 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
             <p className="font-display text-[34px] sm:text-[60px] font-semibold tracking-[-0.03em] leading-[1.02] mt-4">Got a call<br /><span className="text-gradient">you&apos;re missing?</span></p>
             <p className="text-ink-soft text-[16px] mt-5">Hire your first AI employee in minutes. It starts answering today.</p>
             <div className="flex flex-wrap gap-3 justify-center mt-9">
-              <Link href="/signup" className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold">Start free — {TRIAL_DAYS} days</Link>
+              {v ? <button onClick={openProof} className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold">Free proof run on my leads</button>
+                : <Link href="/signup" className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold">Start free — {TRIAL_DAYS} days</Link>}
               <button onClick={openDemo("footer-cta")} className="btn-ghost rounded-full px-7 py-3.5 text-[15px] font-medium">Book a demo</button>
             </div>
             <div className="text-[13px] text-ink-soft mt-5">or write to <a href={`mailto:${CONTACT_EMAIL}`} className="text-signal">{CONTACT_EMAIL}</a></div>
@@ -653,6 +749,7 @@ export default function Site({ marketKey = "in" }: { marketKey?: MarketKey }) {
         </section>
       </main>
 
+      <ProofRunForm open={proof} onClose={() => setProof(false)} industry={v?.label} win={v?.win} />
       <DemoForm open={!!demo} onClose={() => setDemo(null)} source={demo || ""} prefill={prefill} />
       <RanaLive open={!!live} mode={live?.mode || "talk"} scenario={live?.scenario || null} market={market} onClose={() => setLive(null)}
         onBookDemo={(p) => { setLive(null); setPrefill(p); setDemo(`live-${live?.mode || "talk"}${live?.scenario ? `-${live.scenario}` : ""}`); }} />

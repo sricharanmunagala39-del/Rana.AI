@@ -53,3 +53,7 @@ details[open] .plus { transform: rotate(45deg); }
   .js .reveal { opacity: 1; transform: none; }
 }
 .dialog-solid { background: linear-gradient(180deg, rgb(45 225 194 / .08), rgb(146 132 255 / .05)), rgb(var(--c-paper)); }
+
+/* Industry toggle bar: scrolls sideways on phones without a visible scrollbar. */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
