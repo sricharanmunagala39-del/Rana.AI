@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import HqBilling from "@/components/HqBilling";
 import HqOverview, { BAND, Spark } from "@/components/HqOverview";
+import ApprovedOverlay from "@/components/ApprovedOverlay";
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const ago = (iso: string | null) => {
@@ -76,12 +77,14 @@ export default function HqPage() {
     finally { setBusy(""); }
   }
 
+  const [approved, setApproved] = useState<string | null>(null);
   async function patch(id: string, body: any) {
     setBusy(id); setMsg("");
     try {
       const r = await fetch(`/api/hq/clients/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "Couldn't save");
+      if (body.status === "active" && j.client?.trial_started_at && Date.now() - Date.parse(j.client.trial_started_at) < 60000) setApproved(j.client.name || j.client.company_name || "Workspace");
       setMsg("Saved."); await load();
       setEditing((e: any) => e && e.id === id ? { ...e, ...j.client, usage: j.usage } : e);
     } catch (e: any) { setMsg(e.message); }
@@ -119,6 +122,7 @@ export default function HqPage() {
 
   return (
     <div className="flex min-h-screen bg-paper">
+      {approved && <ApprovedOverlay name={approved} onClose={() => setApproved(null)} />}
       <Sidebar active="hq" />
       <div className="flex-1 p-10">
         <div className="w-full max-w-[1600px] flex flex-col gap-6">
