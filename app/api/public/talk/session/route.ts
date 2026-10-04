@@ -6,9 +6,12 @@ import { speakableGreeting } from "@/lib/acronym";
 import { webTalkScript, webTalkBlock, startWebTalk, LANG_NAME } from "@/lib/webTalk";
 import { SCENARIOS } from "@/app/landing/talkContent";
 import { isMarket } from "@/app/landing/markets";
+import { industryOf, useCaseOf } from "@/app/industries";
+import { useCaseScript } from "@/lib/industryDemo";
+import { cleanProfile } from "@/lib/siteProfile";
 
 /**
- * Public (no login): POST { kind: "talk" | "demo", scenario?, lang, market } → a single-use R1 voice session for the
+ * Public (no login): POST { kind: "talk" | "demo" | "usecase", scenario?, industry?, useCase?, profile?, lang, market } → a single-use R1 voice session for the
  * website's "Talk to Rana" and Instant demos. Instructions are built on the server (lib/webTalk); limits keep cost bounded.
  */
 const burst = new Map<string, number[]>();
@@ -22,7 +25,10 @@ export async function POST(req: Request) {
 
   const b = await req.json().catch(() => ({} as any));
   if (b.website) return Response.json({ error: "Not available." }, { status: 400 }); // honeypot
-  const kind = b.kind === "demo" ? "demo" : "talk";
+  const kind: "talk" | "demo" | "usecase" = b.kind === "demo" ? "demo" : b.kind === "usecase" ? "usecase" : "talk";
+  const ind = kind === "usecase" ? industryOf(String(b.industry || "")) : undefined;
+  const uc = ind ? useCaseOf(ind, String(b.useCase || "")) : undefined;
+  if (kind === "usecase" && (!ind || !uc)) return Response.json({ error: "Pick a use case first." }, { status: 400 });
   const scenario = kind === "demo" ? (SCENARIOS.some((s) => s.key === b.scenario) ? String(b.scenario) : null) : null;
   if (kind === "demo" && !scenario) return Response.json({ error: "Pick a demo first." }, { status: 400 });
   const lang = (LANG_NAME as any)[b.lang] ? b.lang : "en";
@@ -33,11 +39,13 @@ export async function POST(req: Request) {
   const blocked = await webTalkBlock(ip);
   if (blocked) return Response.json({ error: blocked, code: "limit" }, { status: 429 });
 
-  const s = webTalkScript(kind, { scenario, lang, market });
+  const profile = kind === "usecase" ? cleanProfile(b.profile) : null;
+  const s = kind === "usecase" ? { ...useCaseScript(ind!, uc!, { lang, profile }), lang, voice: "priya" as const } : webTalkScript(kind, { scenario, lang, market });
   const secret = crypto.randomBytes(18).toString("base64url");
   try {
     const signed = await signedSessionUrl(withVoice(cfg, s.voice), `rana-web-${kind}-${now}`);
-    const id = await startWebTalk({ kind, scenario, language: lang, market, ip, max_seconds: s.maxSeconds, secret });
+    const id = await startWebTalk({ kind, scenario: kind === "usecase" ? `${ind!.slug}:${uc!.key}` : scenario, language: lang, market, ip, max_seconds: s.maxSeconds, secret,
+      ...(kind === "usecase" ? { context: { industry: ind!.slug, useCase: uc!.key, title: uc!.title, company: profile?.company || null, url: profile?.url || null } } : {}) });
     if (!id) throw new Error("could not record session");
     const greeting = speakableGreeting(s.greeting, [], lang) || s.greeting;
     return Response.json({
