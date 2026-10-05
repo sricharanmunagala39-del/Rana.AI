@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { TALK_LANGS, type TalkLang } from "@/app/landing/talkContent";
 
 /** One compact button that opens every language Rana speaks (Indian and global) to pick from. */
@@ -10,10 +11,9 @@ export default function LanguagePicker({ value, onChange, globalFirst = false, t
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const off = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", off); document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", off); document.removeEventListener("keydown", esc); };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
   }, [open]);
   const cur = TALK_LANGS.find((l) => l.code === value) || TALK_LANGS[0];
   const groups: [string, typeof TALK_LANGS][] = [["Indian languages", TALK_LANGS.filter((l) => l.indian)], ["Global languages", TALK_LANGS.filter((l) => !l.indian)]];
@@ -27,8 +27,13 @@ export default function LanguagePicker({ value, onChange, globalFirst = false, t
         <span className="font-semibold">{cur.label}</span>{cur.label !== cur.name && <span className="text-ink-soft text-[12.5px]">{cur.name}</span>}
         <span className="text-ink-soft text-[11px]">{open ? "▲" : "▼"}</span>
       </button>
-      {open && (
-        <div role="listbox" aria-label="Language" className="absolute z-[130] mt-2 left-0 w-[min(92vw,460px)] rounded-2xl border border-white/10 bg-[#0d121b] shadow-2xl p-4">
+      {open && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
+        <div role="listbox" aria-label="Language" className="relative w-full max-w-[480px] max-h-[80vh] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-[#0d121b] shadow-2xl p-4" data-testid="lang-sheet">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-[15px] font-semibold">Choose a language</div>
+            <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="w-8 h-8 rounded-full border border-white/10 text-ink-soft hover:text-ink text-[18px] leading-none">&times;</button>
+          </div>
           {groups.map(([title, list]) => (
             <div key={title} className="mb-3 last:mb-0">
               <div className="font-mono text-[10.5px] tracking-[0.14em] text-ink-soft/80 mb-2">{title.toUpperCase()}</div>
@@ -45,6 +50,8 @@ export default function LanguagePicker({ value, onChange, globalFirst = false, t
           ))}
           <div className="text-[11.5px] text-ink-soft mt-2">Rana starts the conversation in this language.</div>
         </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
