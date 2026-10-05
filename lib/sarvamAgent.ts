@@ -10,7 +10,7 @@ import { sarvamFetch, SarvamError, classifySarvamError } from "./sarvamHealth";
 import { liveTransferOn, normalizeHandoff, scriptRefLine, transferNumber } from "./handoff";
 import { LANG_NAMES, baseLang, normalizePronunciations } from "./playbook";
 import { speakableGreeting } from "./acronym";
-import { BOTH_STYLES, STYLE_MARKER, directionStyle, type CallDirection } from "./callStyle";
+import { BOTH_STYLES, STYLE_MARKER, TONE_MARKER, TONE_STYLE, directionStyle, type CallDirection } from "./callStyle";
 
 const APPS = "https://apps.sarvam.ai/api";
 
@@ -101,7 +101,8 @@ export function sarvamLanguageName(code: string | null | undefined): string {
 export function sessionPayload(script: any, caller?: { name?: string | null; variables?: Record<string, string> }, direction?: CallDirection) {
   // Inbound and outbound must sound different: name the direction when we know it (older employees get both rules).
   const raw = String(script.instructions || "").trim();
-  const base = direction ? `${raw}\n\n${directionStyle(direction)}` : raw.includes(STYLE_MARKER) ? raw : `${raw}\n\n${BOTH_STYLES}`;
+  const styled = direction ? `${raw}\n\n${directionStyle(direction)}` : raw.includes(STYLE_MARKER) ? raw : `${raw}\n\n${BOTH_STYLES}`;
+  const base = styled.includes(TONE_MARKER) ? styled : `${styled}\n\n${TONE_STYLE}`;
   const details = [
     caller?.name ? `- Name: ${caller.name}` : "",
     ...Object.entries(caller?.variables || {}).filter(([, v]) => String(v || "").trim()).map(([k, v]) => `- ${k.replace(/_/g, " ")}: ${v}`),
