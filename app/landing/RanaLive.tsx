@@ -9,7 +9,8 @@ import Link from "next/link";
 import { SarvamVoiceCall } from "@/lib/sarvam-voice-client";
 import { ElevenVoiceCall } from "@/lib/eleven-voice-client";
 import RanaCore, { CORE_LABEL, type CoreMode } from "@/components/RanaCore";
-import { SCENARIOS, TALK_LANGS, DEMO_LANGS, TALK_MAX_S, scenarioOf, type DemoKey, type TalkLang } from "./talkContent";
+import { SCENARIOS, TALK_MAX_S, scenarioOf, langName, type DemoKey, type TalkLang } from "./talkContent";
+import LanguagePicker from "@/components/LanguagePicker";
 import type { Market } from "./markets";
 import type { DemoPrefill } from "./DemoForm";
 import type { VoiceLevels } from "@/lib/voice/meter";
@@ -19,7 +20,7 @@ type Line = { role: "agent" | "user"; text: string; typing?: boolean };
 type Step = "pick" | "ready" | "connecting" | "live" | "summing" | "done" | "sample" | "error";
 type Peek = { fields: any; score: number; tag?: string; interest?: string };
 
-const LANG_FOR_FORM: Record<string, string> = { en: "English", hi: "Hindi", te: "Telugu", ta: "Tamil", kn: "Kannada" };
+
 const TALK_FIELDS: [string, string][] = [["business", "Business"], ["city", "City"], ["calls", "Call volume"], ["pain", "Main problem"], ["languages", "Languages"], ["name", "Name"]];
 
 function Mic({ className = "" }: { className?: string }) {
@@ -60,7 +61,7 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
   open: boolean; mode: LiveMode; scenario?: DemoKey | null; market: Market; onClose: () => void; onBookDemo: (p: DemoPrefill) => void;
 }) {
   const india = market.key === "in";
-  const langs = (mode === "talk" ? TALK_LANGS : TALK_LANGS.filter((l) => DEMO_LANGS.includes(l.code))).filter((l) => india || l.code === "en" || l.code === "hi");
+
   const [step, setStep] = useState<Step>(mode === "demo" && !startScenario ? "pick" : "ready");
   const [scenario, setScenario] = useState<DemoKey>(startScenario || "qualify");
   const [lang, setLang] = useState<TalkLang>("en");
@@ -160,7 +161,7 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
   async function begin() {
     blip.arm(); resetCall(); setStep("connecting");
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-    const bootLines = ["Securing a private line", "Voice engine R1 · online", `Language · ${LANG_FOR_FORM[lang] || "English"}`, mode === "demo" ? `Loading ${s.business.split(" — ")[0]}` : "Rana is joining"];
+    const bootLines = ["Securing a private line", "Voice engine R1 · online", `Language · ${langName(lang)}`, mode === "demo" ? `Loading ${s.business.split(" — ")[0]}` : "Rana is joining"];
     (async () => { for (const b of bootLines) { setBoot((x) => [...x, b]); blip.play(990, 0.03); await sleep(380); } })();
     try {
       const r = await fetch("/api/public/talk/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: mode, scenario: mode === "demo" ? scenario : null, lang, market: market.key }) });
@@ -262,7 +263,7 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
     const note = mode === "talk"
       ? [r.business && `Business: ${r.business}`, r.calls && `Calls: ${r.calls}`, r.pain && `Pain: ${r.pain}`].filter(Boolean).join(" · ")
       : `Tried the ${s.title} demo on the website.`;
-    onBookDemo({ name: r.name || undefined, company: r.company || undefined, phone: r.phone || undefined, email: r.email || undefined, message: note || undefined, languages: [LANG_FOR_FORM[lang]].filter(Boolean), talkId: talkId || undefined });
+    onBookDemo({ name: r.name || undefined, company: r.company || undefined, phone: r.phone || undefined, email: r.email || undefined, message: note || undefined, languages: [langName(lang)], talkId: talkId || undefined });
   };
   if (!open) return null;
 
@@ -286,7 +287,7 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
           {inCall && <span className="hidden sm:inline text-ink-soft font-normal tracking-[0.12em]">/ {title.toUpperCase()}</span>}
         </div>
         <div className="flex items-center gap-2">
-          {inCall && langs.length > 1 && <div className="hidden md:flex gap-1.5" aria-label="Language">{langs.map((l) => <span key={l.code} className={chip(l.code === lang || (!!spoken && LANG_FOR_FORM[l.code]?.toLowerCase() === spoken.toLowerCase().split(/[-\s]/)[0]))}>{l.label}</span>)}</div>}
+          {inCall && <div className="hidden md:flex gap-1.5" aria-label="Language"><span className={chip(true)}>{spoken || langName(lang)}</span></div>}
           <button onClick={close} className="w-9 h-9 rounded-full border border-white/10 text-ink-soft hover:text-ink hover:border-white/30 text-[20px] leading-none" aria-label="Close" data-testid="live-close">×</button>
         </div>
       </div>
@@ -336,13 +337,12 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
                       <div className="hud-label mt-3">Try saying</div><ul className="mt-1 flex flex-col gap-0.5">{s.tryThis.map((t) => <li key={t}>“{t}”</li>)}</ul></div>
                   </div>
                 )}
-                {langs.length > 1 && (
+                {true && (
                   <div className="mt-5">
                     <div className="hud-label mb-2">Talk in</div>
-                    <div className="flex flex-wrap gap-2" role="group" aria-label="Language">
-                      {langs.map((l) => <button key={l.code} type="button" onClick={() => setLang(l.code)} className={chip(lang === l.code)} data-testid={`lang-${l.code}`}>{l.label}</button>)}
-                    </div>
-                    {mode === "talk" && india && <div className="text-[11.5px] text-ink-soft mt-2">Speak any of 11 Indian languages — Rana follows you if you switch.</div>}
+                    <LanguagePicker value={lang} onChange={setLang} globalFirst={!india} />
+                    <div className="text-[11.5px] text-ink-soft mt-2">11 Indian languages plus Arabic, Spanish, French, German and Japanese.</div>
+                    {false && <div className="text-[11.5px] text-ink-soft mt-2">Speak any of 11 Indian languages — Rana follows you if you switch.</div>}
                   </div>
                 )}
                 {step === "error" && err && <div className="mt-5 rounded-xl border border-hot/40 bg-hot/10 text-hot px-4 py-3 text-[13.5px]" data-testid="live-error">{err}</div>}

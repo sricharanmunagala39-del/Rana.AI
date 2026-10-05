@@ -2,13 +2,15 @@
 // The prompts the voice agent follows live server-side in lib/webTalk.ts.
 
 export type DemoKey = "qualify" | "sales" | "support" | "booking" | "followup";
-export type TalkLang = "en" | "hi" | "te" | "ta" | "kn";
+export type TalkLang = "en" | "hi" | "te" | "ta" | "kn" | "ml" | "mr" | "bn" | "gu" | "pa" | "or" | "es" | "fr" | "ar" | "de" | "ja";
 
-export const TALK_LANGS: { code: TalkLang; label: string }[] = [
+export const TALK_LANGS_OLD_UNUSED: { code: TalkLang; label: string }[] = [
   { code: "en", label: "English" }, { code: "hi", label: "हिन्दी" }, { code: "te", label: "తెలుగు" }, { code: "ta", label: "தமிழ்" }, { code: "kn", label: "ಕನ್ನಡ" },
 ];
 /** Demo scenarios are written for these languages (the talk concierge also speaks Kannada). */
-export const DEMO_LANGS: TalkLang[] = ["en", "hi", "te", "ta"];
+export { TALK_LANGS, isTalkLang, langLabel, langName } from "./talkLangs";
+import { TALK_LANGS } from "./talkLangs";
+export const DEMO_LANGS: TalkLang[] = TALK_LANGS.map((l) => l.code);
 
 export const TALK_MAX_S = 180;
 export const DEMO_MAX_S = 180;
