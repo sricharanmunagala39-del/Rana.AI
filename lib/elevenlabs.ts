@@ -135,7 +135,7 @@ export async function runtimeAgent(model: string, voiceId: string): Promise<{ id
   throw last || new Error("Couldn't set up the ElevenLabs agent.");
 }
 
-const EL_LANG: Record<string, string> = { en: "en", hi: "hi", te: "te", ta: "ta", kn: "kn", ml: "ml", mr: "mr", bn: "bn" };
+const EL_LANG: Record<string, string> = { en: "en", hi: "hi", te: "te", ta: "ta", kn: "kn", ml: "ml", mr: "mr", bn: "bn", gu: "gu", pa: "pa", or: "or", ar: "ar", es: "es", fr: "fr", de: "de", ja: "ja" };
 
 /** A single-use browser session: signed WebSocket URL + the first message the browser sends. */
 export async function elevenSession(o: { instructions: string; greeting: string; lang: string; voiceId: string; model?: string }) {

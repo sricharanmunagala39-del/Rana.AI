@@ -3,11 +3,11 @@ import crypto from "crypto";
 import { friendly } from "@/lib/sarvamHealth";
 import { sarvamConfig, signedSessionUrl, voiceFor, withVoice } from "@/lib/sarvamAgent";
 import { speakableGreeting } from "@/lib/acronym";
-import { webTalkScript, webTalkBlock, startWebTalk, LANG_NAME } from "@/lib/webTalk";
+import { webTalkScript, webTalkBlock, startWebTalk, translateLine, LANG_NAME, R1_LANGS } from "@/lib/webTalk";
 import { SCENARIOS } from "@/app/landing/talkContent";
 import { isMarket } from "@/app/landing/markets";
 import { industryOf, useCaseOf } from "@/app/industries";
-import { useCaseScript } from "@/lib/industryDemo";
+import { useCaseScript, WRITTEN_GREETING_LANGS } from "@/lib/industryDemo";
 import { cleanProfile } from "@/lib/siteProfile";
 import { cleanFirstName } from "@/lib/callStyle";
 import { elevenReady, elevenSession, getWebVoice } from "@/lib/elevenlabs";
@@ -46,14 +46,19 @@ export async function POST(req: Request) {
   if (blocked) return Response.json({ error: blocked, code: "limit" }, { status: 429 });
 
   const profile = kind === "usecase" ? cleanProfile(b.profile) : null;
-  const s = kind === "usecase" ? { ...useCaseScript(ind!, uc!, { lang, profile, name: cleanFirstName(b.name) }), lang, voice: "priya" as const } : webTalkScript(kind, { scenario, lang, market });
+  const base = kind === "usecase" ? { ...useCaseScript(ind!, uc!, { lang, profile, name: cleanFirstName(b.name) }), lang, voice: "priya" as const, translateGreeting: !WRITTEN_GREETING_LANGS.includes(lang) } : webTalkScript(kind, { scenario, lang, market });
+  // Opening lines are hand-written for the main languages; any other language gets an AI translation (cached).
+  const s = { ...base, greeting: (base as any).translateGreeting ? await translateLine(base.greeting, lang) : base.greeting };
   const secret = crypto.randomBytes(18).toString("base64url");
   const record = () => startWebTalk({ kind, scenario: kind === "usecase" ? `${ind!.slug}:${uc!.key}` : scenario, language: lang, market, ip, max_seconds: s.maxSeconds, secret,
     ...(kind === "usecase" ? { context: { industry: ind!.slug, useCase: uc!.key, title: uc!.title, company: profile?.company || null, url: profile?.url || null } } : {}) });
 
   // HQ → Voice engines can switch the website to R3 (natural voices). Any problem there falls back to R1.
   const wv = await getWebVoice();
-  if (wv.engine === "elevenlabs" && wv.voiceId && elevenReady()) {
+  // Global languages (Arabic, Spanish, ...) only run on R3, whatever the website default is.
+  const needsR3 = !R1_LANGS.includes(lang);
+  if (needsR3 && !(wv.voiceId && elevenReady())) return Response.json({ error: "This language isn't available right now. Please pick English or an Indian language." }, { status: 400 });
+  if ((wv.engine === "elevenlabs" || needsR3) && wv.voiceId && elevenReady()) {
     try {
       const el = await elevenSession({ instructions: s.instructions, greeting: s.greeting, lang: s.lang, voiceId: wv.voiceId, model: wv.model });
       const id = await record();
@@ -61,6 +66,7 @@ export async function POST(req: Request) {
       return Response.json({ engine: "elevenlabs", url: el.url, init: el.init, talkId: id, secret, maxSeconds: s.maxSeconds, voice: wv.voiceName || "Rana" });
     } catch (e: any) {
       console.error("[web talk] R3 failed, using R1", e?.message || e);
+      if (needsR3) return Response.json({ error: "Rana couldn't pick up in this language just now. Please try again, or pick English." }, { status: 502 });
     }
   }
 

@@ -7,12 +7,13 @@ import RanaCore from "@/components/RanaCore";
 import type { Industry, UseCase } from "../types";
 import type { SiteProfile } from "@/lib/siteProfile";
 import type { TalkLang } from "@/app/landing/talkContent";
-import { greetingFor } from "@/lib/industryDemo";
+import { greetingFor, WRITTEN_GREETING_LANGS } from "@/lib/industryDemo";
+import { langName } from "@/app/landing/talkContent";
 import { cleanFirstName } from "@/lib/callStyle";
 
 type Line = { role: "agent" | "user"; text: string };
 type Step = "ready" | "connecting" | "live" | "summing" | "done" | "error";
-export const DEMO_LANG_OPTIONS: [string, string][] = [["en", "English"], ["hi", "हिन्दी"], ["te", "తెలుగు"], ["ta", "தமிழ்"]];
+
 
 /** "Try live demo": the visitor talks to Rana, who plays this business's AI employee for this one use case. */
 export default function LiveDemo({ ind, uc, profile, lang, onBuild }: { ind: Industry; uc: UseCase; profile: SiteProfile | null; lang: string; onBuild: () => void }) {
@@ -29,7 +30,8 @@ export default function LiveDemo({ ind, uc, profile, lang, onBuild }: { ind: Ind
   const box = useRef<HTMLDivElement>(null);
   const biz = profile?.company || ind.biz;
   const out = uc.dir === "out";
-  const opening = greetingFor(uc, biz, (["en", "hi", "te", "ta", "kn"].includes(lang) ? lang : "en") as TalkLang, out ? cleanFirstName(name) : "");
+  const opening = greetingFor(uc, biz, lang as TalkLang, out ? cleanFirstName(name) : "");
+  const translated = !WRITTEN_GREETING_LANGS.includes(lang);
 
   useEffect(() => { box.current?.scrollTo({ top: box.current.scrollHeight, behavior: "smooth" }); }, [lines]);
   // Changing the use case, website or language ends any call in progress.
@@ -100,6 +102,7 @@ export default function LiveDemo({ ind, uc, profile, lang, onBuild }: { ind: Ind
           <div className={`rounded-xl border p-3.5 ${out ? "border-violet/30 bg-violet/[.06]" : "border-signal/25 bg-signal/[.05]"}`} data-testid="live-opening">
             <div className={`text-[10.5px] font-mono mb-1.5 ${out ? "text-violet" : "text-signal"}`}>{out ? "OUTBOUND · RANA'S FIRST THREE SECONDS" : "INBOUND · RANA ANSWERS"}</div>
             <div className="text-[14.5px] leading-snug">&ldquo;{opening}&rdquo;</div>
+            {translated && <div className="text-[11.5px] text-ink-soft mt-1">Rana says this in {langName(lang)}.</div>}
             <div className="text-[12px] text-ink-soft mt-2">{out ? "Your name, who's calling and why it matters to you — then she asks for permission." : "Then she listens. You lead; she answers, helps and books."}</div>
           </div>
           <div className="rounded-xl border border-white/10 p-3.5 text-[13.5px]">

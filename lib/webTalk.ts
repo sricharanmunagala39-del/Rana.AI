@@ -7,18 +7,32 @@
 // (default 180). A session that is never closed counts as its full length.
 import { sb, sbAll } from "./db";
 import { PRICE_BOOK, PLANS, money, type Currency } from "./pricing";
-import { scenarioOf, TALK_MAX_S, DEMO_MAX_S, type DemoKey, type TalkLang } from "@/app/landing/talkContent";
+import { scenarioOf, TALK_MAX_S, DEMO_MAX_S, TALK_LANGS, type DemoKey, type TalkLang } from "@/app/landing/talkContent";
+import { chatJson, llmProvider } from "./llm";
 import { MARKETS, isMarket } from "@/app/landing/markets";
 import { directionStyle } from "./callStyle";
 
 export const PER_IP_PER_DAY = Number(process.env.RANA_WEB_TALK_PER_IP) || 0; // 0 = no daily limit
 export const DAILY_MINUTES = Number(process.env.RANA_WEB_TALK_DAILY_MIN) || 0; // 0 = no site-wide cap
 
-export const LANG_NAME: Record<TalkLang, string> = { en: "English", hi: "Hindi", te: "Telugu", ta: "Tamil", kn: "Kannada" };
+export const LANG_NAME: Record<TalkLang, string> = Object.fromEntries(TALK_LANGS.map((l) => [l.code, l.name])) as Record<TalkLang, string>;
+/** R1 speaks only the Indian languages + English; global ones run on R3. */
+export const R1_LANGS: string[] = TALK_LANGS.filter((l) => l.indian).map((l) => l.code);
 
 // Short and warm, then wait for the visitor. No introduction or pitch in the opening line.
 const TALK_GREETING: Record<TalkLang, string> = {
   en: "Hi! This is Rana. How are you?",
+  ml: "ഹായ്! ഞാൻ റാണ. സുഖമാണോ?",
+  mr: "नमस्कार! मी राणा बोलतेय. तुम्ही कसे आहात?",
+  bn: "নমস্কার! আমি রানা। আপনি কেমন আছেন?",
+  gu: "નમસ્તે! હું રાના. તમે કેમ છો?",
+  pa: "ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਰਾਣਾ ਹਾਂ। ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ?",
+  or: "ନମସ୍କାର! ମୁଁ ରାଣା। ଆପଣ କେମିତି ଅଛନ୍ତି?",
+  ar: "مرحباً! معك رنا. كيف حالك؟",
+  es: "¡Hola! Soy Rana. ¿Cómo estás?",
+  fr: "Bonjour ! Ici Rana. Comment allez-vous ?",
+  de: "Hallo! Hier ist Rana. Wie geht es Ihnen?",
+  ja: "こんにちは！ラナです。お元気ですか？",
   hi: "नमस्ते! मैं राना बोल रही हूँ। आप कैसे हैं?",
   te: "హాయ్! నేను రానా. మీరు ఎలా ఉన్నారు?",
   ta: "வணக்கம்! நான் ராணா. எப்படி இருக்கீங்க?",
@@ -142,7 +156,8 @@ export function webTalkScript(kind: "talk" | "demo", o: { scenario?: string | nu
   const m = MARKETS[isMarket(o.market) ? o.market : "in"];
   if (kind === "demo") {
     const s = scenarioOf(String(o.scenario || ""));
-    const greeting = DEMO_GREETING[s.key][lang] || DEMO_GREETING[s.key].en!;
+    const written = DEMO_GREETING[s.key][lang];
+    const greeting = written || DEMO_GREETING[s.key].en!;
     const instructions = `${DEMO_BRIEF[s.key]}
 
 This is a 3-minute live demo on RANA AI's website: a visitor is role-playing the customer so they can hear how an AI employee handles this kind of call. Stay fully in character as Rana from ${s.business.split(" — ")[0]} the whole time — do not mention the website, the demo or RANA AI. Speak ${LANG_NAME[lang]}.
@@ -152,7 +167,7 @@ If the person goes off-topic or tests you, answer briefly and politely, then ste
 ${directionStyle(s.dir === "out" ? "outbound" : "inbound")}
 
 ${RULES}`;
-    return { instructions, greeting, lang, maxSeconds: DEMO_MAX_S, voice: s.key === "sales" || s.key === "followup" ? "shreya" : "priya" };
+    return { instructions, greeting, translateGreeting: !written, lang, maxSeconds: DEMO_MAX_S, voice: s.key === "sales" || s.key === "followup" ? "shreya" : "priya" };
   }
   const where = m.key === "in" ? "" : " (" + m.name + " page)";
   const instructions = `You are Rana from RANA AI, talking live with a visitor who just pressed "Talk to Rana" on the ranaai.in website${where}. Your name is Rana. You know RANA AI inside out.
@@ -204,6 +219,23 @@ const secondsOf = (r: any, now = Date.now()) =>
   r.ended_at ? Math.max(0, Number(r.seconds) || 0) : Math.min(Number(r.max_seconds) || 0, Math.max(0, Math.round((now - Date.parse(r.started_at)) / 1000)));
 
 /** Why a new website session can't start right now, or null. */
+const lineCache = new Map<string, string>();
+/** The opening line in a language we haven't written it for: translated once by the AI, then cached. */
+export async function translateLine(text: string, lang: string): Promise<string> {
+  if (!text || lang === "en" || !llmProvider()) return text;
+  const k = lang + "|" + text;
+  const hit = lineCache.get(k); if (hit) return hit;
+  try {
+    const j = await chatJson<{ text: string }>([
+      { role: "system", content: "You translate one short line that a phone agent says out loud. Keep names, company names and numbers exactly as they are. Use natural, polite, everyday spoken style, not formal written style. Reply with JSON only." },
+      { role: "user", content: "Translate into " + ((LANG_NAME as any)[lang] || "English") + ", written in that language's own script:\n" + text + "\n\nReturn {\"text\": \"...\"}" },
+    ], { maxTokens: 300, temperature: 0.2, timeoutMs: 8000 });
+    const out = String(j?.text || "").trim();
+    if (out) { lineCache.set(k, out); return out; }
+  } catch (e: any) { console.error("[web talk] translate", e?.message || e); }
+  return text;
+}
+
 export async function webTalkBlock(ip: string): Promise<string | null> {
   // Charan (5 Oct): visitors may try as many times as they like; the only limit is 3 minutes per conversation.
   // Optional safety caps stay available through env (unset = no cap).

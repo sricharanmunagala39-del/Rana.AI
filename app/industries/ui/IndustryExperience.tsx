@@ -9,7 +9,8 @@ import { LEGAL_LINKS } from "@/app/legal/legal";
 import type { Industry, UseCase } from "../types";
 import type { SiteProfile } from "@/lib/siteProfile";
 import SamplePlayer from "./SamplePlayer";
-import LiveDemo, { DEMO_LANG_OPTIONS } from "./LiveDemo";
+import LiveDemo from "./LiveDemo";
+import LanguagePicker from "@/components/LanguagePicker";
 
 export type MenuItem = { slug: string; label: string; mark: string };
 
@@ -209,7 +210,7 @@ export default function IndustryExperience({ ind, menu }: { ind: Industry; menu:
                 </form>
                 <div>
                   <div className="font-mono text-[11px] text-signal mb-2">3 · LANGUAGE</div>
-                  <div className="flex flex-wrap gap-1.5">{DEMO_LANG_OPTIONS.map(([k, l]) => <button key={k} type="button" onClick={() => setLang(k)} aria-pressed={lang === k} className={`rounded-full border px-3 py-1 text-[13px] ${lang === k ? "border-signal/60 bg-signal/10 text-signal font-semibold" : "border-white/10 text-ink-soft hover:text-ink"}`}>{l}</button>)}</div>
+                  <LanguagePicker value={lang} onChange={setLang} />
                 </div>
               </div>
               <div className="card card-hi p-5 sm:p-6 min-h-[460px] flex flex-col">
