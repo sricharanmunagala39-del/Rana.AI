@@ -22,6 +22,8 @@ export const DEFAULT_ELEVEN_MODEL = ELEVEN_MODELS[0].id;
 export type WebVoice = {
   engine: "sarvam" | "elevenlabs";
   voiceId?: string; voiceName?: string;
+  /** Optional male voice for visitors who pick "Male" (the voice above is the default, female). */
+  maleVoiceId?: string; maleVoiceName?: string;
   model?: string;
 };
 export const WEB_VOICE_KEY = "web_voice";
@@ -86,6 +88,18 @@ export async function addLibraryVoice(ownerId: string, voiceId: string, name: st
   return String(j?.voice_id || voiceId);
 }
 
+let maleCache: { at: number; v: { id: string; name: string } | null } | null = null;
+/** A male voice from RANA's account (Indian accent preferred) when HQ hasn't picked one. Cached for 10 minutes. */
+export async function defaultMaleVoice(): Promise<{ id: string; name: string } | null> {
+  if (maleCache && Date.now() - maleCache.at < 600_000) return maleCache.v;
+  try {
+    const all = (await accountVoices()).filter((v) => String(v.gender || "").toLowerCase() === "male");
+    const pick = all.find((v) => /indian|hindi/i.test(`${v.accent} ${v.language}`)) || all[0];
+    maleCache = { at: Date.now(), v: pick ? { id: pick.voiceId, name: pick.name } : null };
+  } catch { maleCache = { at: Date.now(), v: null }; }
+  return maleCache.v;
+}
+
 function runtimeAgentBody(model: string, voiceId: string) {
   return {
     name: "RANA Runtime (R3)",
@@ -138,8 +152,9 @@ export async function runtimeAgent(model: string, voiceId: string): Promise<{ id
 const EL_LANG: Record<string, string> = { en: "en", hi: "hi", te: "te", ta: "ta", kn: "kn", ml: "ml", mr: "mr", bn: "bn", gu: "gu", pa: "pa", or: "or", ar: "ar", es: "es", fr: "fr", de: "de", ja: "ja" };
 
 /** A single-use browser session: signed WebSocket URL + the first message the browser sends. */
-export async function elevenSession(o: { instructions: string; greeting: string; lang: string; voiceId: string; model?: string }) {
-  const agent = await runtimeAgent(o.model || DEFAULT_ELEVEN_MODEL, o.voiceId);
+export async function elevenSession(o: { instructions: string; greeting: string; lang: string; voiceId: string; agentVoiceId?: string; model?: string }) {
+  // The agent keeps the website's default voice; a different voice (e.g. male) is a per-session override.
+  const agent = await runtimeAgent(o.model || DEFAULT_ELEVEN_MODEL, o.agentVoiceId || o.voiceId);
   const j = await el<{ signed_url: string }>(`/v1/convai/conversation/get-signed-url?agent_id=${encodeURIComponent(agent.id)}`);
   return {
     url: j.signed_url,

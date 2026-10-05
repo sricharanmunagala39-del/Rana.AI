@@ -15,6 +15,7 @@ export default function HqVoicesPage() {
   const [msg, setMsg] = useState("");
   const [engine, setEngine] = useState<"sarvam" | "elevenlabs">("sarvam");
   const [voiceId, setVoiceId] = useState("");
+  const [maleId, setMaleId] = useState("");
   const [model, setModel] = useState("");
   const [saving, setSaving] = useState(false);
   const [lang, setLang] = useState(0);
@@ -28,7 +29,7 @@ export default function HqVoicesPage() {
 
   const load = () => fetch("/api/hq/voices").then(async (r) => {
     const j = await r.json(); if (!r.ok) throw new Error(j.error);
-    setData(j); setEngine(j.web?.engine || "sarvam"); setVoiceId(j.web?.voiceId || ""); setModel(j.web?.model || j.eleven?.models?.[0]?.id || "");
+    setData(j); setEngine(j.web?.engine || "sarvam"); setVoiceId(j.web?.voiceId || ""); setMaleId(j.web?.maleVoiceId || ""); setModel(j.web?.model || j.eleven?.models?.[0]?.id || "");
   }).catch((e) => setErr(e.message));
   useEffect(() => { load(); }, []);
 
@@ -66,8 +67,9 @@ export default function HqVoicesPage() {
   async function save() {
     setSaving(true); setErr(""); setMsg("");
     const v = (data?.eleven?.voices || []).find((x: Voice) => x.voiceId === voiceId);
+    const mv = (data?.eleven?.voices || []).find((x: Voice) => x.voiceId === maleId);
     try {
-      const r = await fetch("/api/hq/voices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ engine, voiceId, voiceName: v?.name, model }) });
+      const r = await fetch("/api/hq/voices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ engine, voiceId, voiceName: v?.name, maleVoiceId: maleId, maleVoiceName: mv?.name || "", model }) });
       const j = await r.json(); if (!r.ok) throw new Error(j.error);
       setMsg(engine === "elevenlabs" ? `Website now speaks with ${v?.name || "the chosen voice"} (R3). Try it on ranaai.in.` : "Website is back on R1."); await load();
     } catch (e: any) { setErr(e.message); } finally { setSaving(false); }
@@ -128,12 +130,19 @@ export default function HqVoicesPage() {
               </div>
               {engine === "elevenlabs" && (
                 <div className="grid md:grid-cols-2 gap-3 mt-4 text-[13px]">
-                  <label className="flex flex-col gap-1">Voice
+                  <label className="flex flex-col gap-1">Default voice (female)
                     <select value={voiceId} onChange={(e) => setVoiceId(e.target.value)} className="rounded-lg border border-line bg-paper px-3 py-2" data-testid="web-voice-select">
                       <option value="">— pick one of RANA&apos;s voices —</option>
                       {mine.map((v) => <option key={v.voiceId} value={v.voiceId}>{v.name}{v.accent ? ` · ${v.accent}` : ""}{v.gender ? ` · ${v.gender}` : ""}</option>)}
                     </select>
                     <span className="text-[11.5px] text-ink-soft">Not here? Find one below and press “Add to RANA”.</span>
+                  </label>
+                  <label className="flex flex-col gap-1">Male voice (when a visitor picks &ldquo;Male voice&rdquo;)
+                    <select value={maleId} onChange={(e) => setMaleId(e.target.value)} className="rounded-lg border border-line bg-paper px-3 py-2" data-testid="web-male-voice-select">
+                      <option value="">Automatic: a male voice from RANA&apos;s account</option>
+                      {mine.map((v) => <option key={v.voiceId} value={v.voiceId}>{v.name}{v.accent ? ` · ${v.accent}` : ""}{v.gender ? ` · ${v.gender}` : ""}</option>)}
+                    </select>
+                    <span className="text-[11.5px] text-ink-soft">For Indian languages R1&apos;s male voice (Aditya) is used if R3 has none.</span>
                   </label>
                   <label className="flex flex-col gap-1">Voice model
                     <select value={model} onChange={(e) => setModel(e.target.value)} className="rounded-lg border border-line bg-paper px-3 py-2">

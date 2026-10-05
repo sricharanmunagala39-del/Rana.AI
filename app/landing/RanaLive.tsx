@@ -65,6 +65,7 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
   const [step, setStep] = useState<Step>(mode === "demo" && !startScenario ? "pick" : "ready");
   const [scenario, setScenario] = useState<DemoKey>(startScenario || "qualify");
   const [lang, setLang] = useState<TalkLang>("en");
+  const [voice, setVoice] = useState<"female" | "male">("female");
   const [lines, setLines] = useState<Line[]>([]);
   const [boot, setBoot] = useState<string[]>([]);
   const [left, setLeft] = useState(0);
@@ -164,7 +165,7 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
     const bootLines = ["Securing a private line", "Voice engine R1 · online", `Language · ${langName(lang)}`, mode === "demo" ? `Loading ${s.business.split(" — ")[0]}` : "Rana is joining"];
     (async () => { for (const b of bootLines) { setBoot((x) => [...x, b]); blip.play(990, 0.03); await sleep(380); } })();
     try {
-      const r = await fetch("/api/public/talk/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: mode, scenario: mode === "demo" ? scenario : null, lang, market: market.key }) });
+      const r = await fetch("/api/public/talk/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: mode, scenario: mode === "demo" ? scenario : null, lang, voice, market: market.key }) });
       const session = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(session.error || "Rana couldn't pick up just now.");
       sess.current = { id: session.talkId, secret: session.secret }; setTalkId(session.talkId);
@@ -329,7 +330,7 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
             {(step === "ready" || step === "error") && (
               <>
                 {mode === "talk" ? (
-                  <p className="text-ink-soft text-[15px] mt-2 leading-relaxed max-w-[560px]">Rana is RANA AI&apos;s own AI employee. Tell her about your business — she&apos;ll ask a few questions, show how an AI employee would handle <i>your</i> calls, and build your lead card <b className="text-ink">live while you talk</b>.</p>
+                  <p className="text-ink-soft text-[15px] mt-2 leading-relaxed max-w-[560px]">Rana is RANA AI&apos;s own AI employee. Tell {voice === "male" ? "him" : "her"} about your business — {voice === "male" ? "he" : "she"}&apos;ll ask a few questions, show how an AI employee would handle <i>your</i> calls, and build your lead card <b className="text-ink">live while you talk</b>.</p>
                 ) : (
                   <div className="grid sm:grid-cols-2 gap-2.5 mt-4 text-[13.5px]" data-testid="demo-brief">
                     <div className="hud-panel p-4"><div className="hud-label !text-signal">Rana plays</div><div className="font-semibold mt-1">{s.business}</div><div className="text-ink-soft mt-1">{s.ranaPlays}</div></div>
@@ -338,8 +339,16 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
                   </div>
                 )}
                                   <div className="mt-5">
-                    <div className="hud-label mb-2">Talk in</div>
+                    <div className="hud-label mb-2">Language and voice</div>
+                    <div className="flex flex-wrap items-center gap-3">
                     <LanguagePicker value={lang} onChange={setLang} globalFirst={!india} />
+                    <div className="inline-flex rounded-full border border-white/10 bg-white/[.03] p-1" role="group" aria-label="Voice" data-testid="voice-switch">
+                      {(["female", "male"] as const).map((g) => (
+                        <button key={g} type="button" onClick={() => setVoice(g)} aria-pressed={voice === g} data-testid={`voice-${g}`}
+                          className={"rounded-full px-3.5 py-1.5 text-[13px] transition-colors " + (voice === g ? "bg-signal text-on-accent font-semibold" : "text-ink-soft hover:text-ink")}>{g === "female" ? "Female voice" : "Male voice"}</button>
+                      ))}
+                    </div>
+                  </div>
                     <div className="text-[11.5px] text-ink-soft mt-2">11 Indian languages plus Arabic, Spanish, French, German and Japanese.</div>
                   </div>
                 {step === "error" && err && <div className="mt-5 rounded-xl border border-hot/40 bg-hot/10 text-hot px-4 py-3 text-[13.5px]" data-testid="live-error">{err}</div>}
