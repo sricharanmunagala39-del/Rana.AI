@@ -5,7 +5,7 @@ import RanaCore from "@/components/RanaCore";
 import Integrations from "@/components/Integrations";
 import { Logo } from "@/components/Sidebar";
 import { INDUSTRY_CALLS, GLOBAL_CALLS, ENGINES_LINE, CALC, CALL_LANGUAGE_COUNT, plansFor, faqFor, type Line, type IndustryCall } from "./content";
-import { TRIAL_DAYS, TRIAL_MINUTES, PLANS as PRICE_LIST, PRICE_BOOK, CURRENCIES, CURRENCY_SYMBOL as SYMBOL, money, moneyShort, type Currency } from "@/lib/pricing";
+import { TRIAL_DAYS, TRIAL_MINUTES, PLANS as PRICE_LIST, PRICE_BOOK, CURRENCIES, CURRENCY_SYMBOL as SYMBOL, money, moneyShort, inr0, type Currency } from "@/lib/pricing";
 import { MARKETS, MARKET_KEYS, MARKET_COOKIE, marketForZone, type Market, type MarketKey } from "./markets";
 import DemoForm, { type DemoPrefill } from "./DemoForm";
 import RanaLive, { type LiveMode } from "./RanaLive";
@@ -404,7 +404,15 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
   const FEATURES = featuresFor(india);
   // Visitors can switch the pricing currency right in the pricing section (clean local price points, not live FX).
   const [cur, setCur] = useState<Currency>(market.currency);
-  const PLANS = plansFor({ ...market, currency: cur });
+  // Rupee prices: one tap adds 18% GST to every price shown.
+  const [gst, setGst] = useState(false);
+  const withGst = cur === "INR" && gst;
+  const g = (n: number) => Math.round(n * 1.18 * 100) / 100;
+  const PLANS = plansFor({ ...market, currency: cur }).map((p) => {
+    if (!withGst) return p;
+    const l = PRICE_LIST[p.key];
+    return { ...p, price: inr0(Math.round(g(l.pricePerMonth || 0))), extra: `₹${g(l.overagePerMin || 0).toFixed(2)}`, fee: `₹${inr0(Math.round(g(l.onboardingFee || 0)))} setup` };
+  });
   const FAQ = v ? [...v.faq, ...faqFor(market).filter(([q]) => !/Which businesses/.test(q))] : faqFor(market);
   const [proof, setProof] = useState(false);
   const openProof = () => { setMenu(false); setProof(true); };
@@ -613,13 +621,22 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
           <div className="reveal text-center max-w-[640px] mx-auto">
             <div className="eyebrow">// PRICING</div>
             <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] mt-3">Plans that pay for themselves.</h2>
-            <p className="text-ink-soft text-[16px] mt-3">Start free for {TRIAL_DAYS} days with {TRIAL_MINUTES} minutes. {cur === market.currency ? market.taxNote : CUR_NOTE[cur]} Pay annually and the setup fee is waived.</p>
+            <p className="text-ink-soft text-[16px] mt-3">Start free for {TRIAL_DAYS} days with {TRIAL_MINUTES} minutes. {cur === "INR" ? (withGst ? "Prices include 18% GST." : "Prices exclude 18% GST.") : cur === market.currency ? market.taxNote : CUR_NOTE[cur]} Pay annually and the setup fee is waived.</p>
             <div className="inline-flex mt-5 rounded-full border border-white/10 bg-white/[.03] p-1" role="group" aria-label="Show prices in" data-testid="currency-switch">
               {CURRENCIES.map((c) => (
                 <button key={c} type="button" onClick={() => setCur(c)} aria-pressed={cur === c} data-testid={"cur-" + c}
                   className={"rounded-full px-3.5 py-1.5 font-mono text-[12px] transition-colors " + (cur === c ? "bg-signal text-on-accent font-semibold" : "text-ink-soft hover:text-ink")}>{SYMBOL[c]} {c}</button>
               ))}
             </div>
+            {cur === "INR" && (
+              <div className="mt-3">
+                <button type="button" onClick={() => setGst((x) => !x)} aria-pressed={gst} data-testid="gst-toggle"
+                  className={"inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12.5px] transition-colors " + (gst ? "border-signal/60 bg-signal/10 text-signal font-semibold" : "border-white/10 text-ink-soft hover:text-ink")}>
+                  <span className={"w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center text-[10px] " + (gst ? "bg-signal border-signal text-on-accent" : "border-white/30")}>{gst ? "✓" : ""}</span>
+                  18% GST
+                </button>
+              </div>
+            )}
             <p className="text-[14px] mt-3 font-medium" data-testid="engines-line">{ENGINES_LINE}</p>
           </div>
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-12">
@@ -630,6 +647,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
                   {p.hi && <span className="text-[11px] font-mono text-on-accent bg-signal rounded-full px-2.5 py-1">MOST POPULAR</span>}
                 </div>
                 <div className="mt-5 flex items-baseline gap-1"><span className="text-ink-soft text-[20px]">{p.symbol}</span><span className="font-display text-[40px] font-semibold tracking-tight">{p.price}</span><span className="text-ink-soft text-[14px]">/month</span></div>
+                {withGst && <div className="text-[12px] text-ink-soft" data-testid="gst-split">{"₹"}{inr0(PRICE_LIST[p.key].pricePerMonth || 0)} + {"₹"}{inr0(Math.round(g(PRICE_LIST[p.key].pricePerMonth || 0)) - (PRICE_LIST[p.key].pricePerMonth || 0))} GST</div>}
                 <div className="text-[13.5px] mt-1"><b>{p.min} minutes</b> <span className="text-ink-soft">· then {p.extra}/min prepaid</span></div>
                 <ul className="mt-6 flex flex-col gap-2.5 text-[14px] flex-1">
                   {p.pts.map((t) => <li key={t} className="flex gap-2.5"><span className="text-signal">✓</span>{t}</li>)}
@@ -641,7 +659,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
           </div>
           {!india && <p className="reveal text-center text-[13px] text-ink-soft mt-4" data-testid="numbers-note">Local numbers: US numbers are ready now; UK, UAE, Europe, Japan and other countries are set up on request. You can also forward your existing number.</p>}
           <div className="reveal card mt-3 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div><div className="font-display text-[20px] font-semibold">Enterprise <span className="text-ink-soft text-[14px] font-normal">· from {moneyShort(cur, book.enterpriseFrom)}/month</span></div><div className="text-ink-soft text-[14px] mt-1">{PRICE_LIST.enterprise.minutes.toLocaleString(india ? "en-IN" : "en-US")}+ minutes a month, unlimited AI employees, {PRICE_LIST.enterprise.concurrency} calls at once, both voice engines, and custom per-minute rates.</div></div>
+            <div><div className="font-display text-[20px] font-semibold">Enterprise <span className="text-ink-soft text-[14px] font-normal">· from {moneyShort(cur, withGst ? g(book.enterpriseFrom) : book.enterpriseFrom)}/month{withGst ? " incl. GST" : ""}</span></div><div className="text-ink-soft text-[14px] mt-1">{PRICE_LIST.enterprise.minutes.toLocaleString(india ? "en-IN" : "en-US")}+ minutes a month, unlimited AI employees, {PRICE_LIST.enterprise.concurrency} calls at once, both voice engines, and custom per-minute rates.</div></div>
             <button onClick={openDemo("enterprise")} className="btn-ghost rounded-full px-6 py-3 text-[14px] font-semibold whitespace-nowrap">Talk to us →</button>
           </div>
         </section>
