@@ -30,6 +30,8 @@ export async function PATCH(req: Request) {
     engine,
     voiceId: String(b.voiceId ?? prev.voiceId ?? "").slice(0, 64) || undefined,
     voiceName: String(b.voiceName ?? prev.voiceName ?? "").slice(0, 80) || undefined,
+    maleVoiceId: String(b.maleVoiceId ?? prev.maleVoiceId ?? "").slice(0, 64) || undefined,
+    maleVoiceName: String(b.maleVoiceName ?? prev.maleVoiceName ?? "").slice(0, 80) || undefined,
     model: ELEVEN_MODELS.some((m) => m.id === b.model) ? b.model : prev.model || DEFAULT_ELEVEN_MODEL,
   };
   if (engine === "elevenlabs") {
