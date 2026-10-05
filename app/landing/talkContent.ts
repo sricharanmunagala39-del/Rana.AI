@@ -4,10 +4,7 @@
 export type DemoKey = "qualify" | "sales" | "support" | "booking" | "followup";
 export type TalkLang = "en" | "hi" | "te" | "ta" | "kn" | "ml" | "mr" | "bn" | "gu" | "pa" | "or" | "es" | "fr" | "ar" | "de" | "ja";
 
-export const TALK_LANGS_OLD_UNUSED: { code: TalkLang; label: string }[] = [
-  { code: "en", label: "English" }, { code: "hi", label: "हिन्दी" }, { code: "te", label: "తెలుగు" }, { code: "ta", label: "தமிழ்" }, { code: "kn", label: "ಕನ್ನಡ" },
-];
-/** Demo scenarios are written for these languages (the talk concierge also speaks Kannada). */
+/** Languages live in talkLangs.ts. */
 export { TALK_LANGS, isTalkLang, langLabel, langName } from "./talkLangs";
 import { TALK_LANGS } from "./talkLangs";
 export const DEMO_LANGS: TalkLang[] = TALK_LANGS.map((l) => l.code);

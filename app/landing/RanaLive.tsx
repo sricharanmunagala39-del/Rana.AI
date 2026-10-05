@@ -337,14 +337,11 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
                       <div className="hud-label mt-3">Try saying</div><ul className="mt-1 flex flex-col gap-0.5">{s.tryThis.map((t) => <li key={t}>“{t}”</li>)}</ul></div>
                   </div>
                 )}
-                {true && (
-                  <div className="mt-5">
+                                  <div className="mt-5">
                     <div className="hud-label mb-2">Talk in</div>
                     <LanguagePicker value={lang} onChange={setLang} globalFirst={!india} />
                     <div className="text-[11.5px] text-ink-soft mt-2">11 Indian languages plus Arabic, Spanish, French, German and Japanese.</div>
-                    {false && <div className="text-[11.5px] text-ink-soft mt-2">Speak any of 11 Indian languages — Rana follows you if you switch.</div>}
                   </div>
-                )}
                 {step === "error" && err && <div className="mt-5 rounded-xl border border-hot/40 bg-hot/10 text-hot px-4 py-3 text-[13.5px]" data-testid="live-error">{err}</div>}
                 <div className="flex flex-wrap gap-3 mt-6">
                   <button type="button" onClick={begin} className="btn-glow rounded-full px-6 py-3 text-[14.5px] font-semibold flex items-center gap-2" data-testid="live-start"><Mic />{mode === "talk" ? "Start talking" : "Start live demo"}</button>
