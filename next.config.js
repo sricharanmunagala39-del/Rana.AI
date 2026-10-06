@@ -16,6 +16,10 @@ const nextConfig = {
       { source: "/agent", destination: "/employees", permanent: false },
     ];
   },
+  // Browsers and crawlers still ask for /favicon.ico; serve the app icon instead of a 404.
+  async rewrites() {
+    return [{ source: "/favicon.ico", destination: "/icon.svg" }];
+  },
 };
 
 module.exports = nextConfig;

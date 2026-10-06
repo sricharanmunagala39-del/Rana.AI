@@ -206,6 +206,32 @@ export function translateMessages(text: string, to: string) {
   ];
 }
 
+/**
+ * Mixed lines like "Hi, welcome to Dr. Bhatia, nenu Swathi matladutunnanu": rewrites them so a voice reads them right —
+ * words of `to` typed in English letters go into that language's own script; real English words, names and brands stay.
+ * Not a translation: the meaning and the English parts are kept exactly.
+ */
+export function nativeScriptMessages(text: string, to: string) {
+  const code = baseLang(to);
+  const name = LANG_NAMES[code] || "English";
+  return [
+    { role: "system" as const, content: `A business owner typed a line for an AI phone agent that speaks ${name}. They may have typed ${name} words in English letters (e.g. "nenu Swathi matladutunnanu"), mixed with English words. Rewrite it so a ${name} voice reads it naturally: write the ${name} words in ${SCRIPT_NOTE[code] || "the native script"}; write English words that people in India say as they are (welcome, doctor, clinic, appointment, fees) in ${SCRIPT_NOTE[code] || "the native script"} by sound too; keep the person's and business names as they sound. Do not translate, add or remove anything. Reply with only the rewritten line.` },
+    { role: "user" as const, content: text.slice(0, 1200) },
+  ];
+}
+
+/** Every line of the call plan in spoken `to`, plus a short sample of how a call would go, for owners to check before going live. */
+export function previewMessages(lines: { id: string; text: string }[], greeting: string, persona: string, to: string) {
+  const code = baseLang(to);
+  const name = LANG_NAMES[code] || "English";
+  return [
+    { role: "system" as const, content: `You show an Indian business owner how their AI phone agent will sound in ${name}. The agent writes its own words during calls from the owner's notes, so give the natural, everyday spoken ${name} a friendly phone agent would actually say for each note${SCRIPT_NOTE[code] ? `, written in ${SCRIPT_NOTE[code]}` : ""}. Keep common English words people say in English (fees, batch, appointment, doctor, online, EMI, WhatsApp) but write them by sound in that script. Keep names, brands, prices, dates and numbers exactly. Never add facts.
+Also write "sample": a realistic 8-turn phone call (agent speaks first using the greeting, then caller, alternating) in ${name}, using only facts from the notes, with "en" = a short English meaning of each turn.
+Return ONLY JSON: {"lines":[{"id":"string","text":"string"}],"sample":[{"who":"agent"|"caller","text":"string","en":"string"}]}` },
+    { role: "user" as const, content: JSON.stringify({ persona: persona.slice(0, 300), greeting: greeting.slice(0, 600), notes: lines.map((l) => ({ id: l.id, text: l.text.slice(0, 500) })) }) },
+  ];
+}
+
 /** Writes a word the way a speaker of `to` would say it, in that language's own script (not a translation). */
 export function transliterateMessages(text: string, to: string) {
   const code = baseLang(to);

@@ -48,6 +48,7 @@ function TalkInner() {
 
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [callError, setCallError] = useState("");
+  const [callNotice, setCallNotice] = useState("");
   const [callDuration, setCallDuration] = useState(0);
   const [transcript, setTranscript] = useState<{ role: "agent" | "user"; text: string }[]>([]);
   const [isMuted, setIsMuted] = useState(false);
@@ -142,8 +143,10 @@ function TalkInner() {
     setCallStatus("connecting");
 
     setLiveLanguage("");
+    setCallNotice("");
     const onEvent = (evt: any) => {
       if (evt.type === "language") { setLiveLanguage(evt.language); return; }
+      if (evt.type === "notice") { setCallNotice(evt.message); return; }
       if (evt.type === "live") {
         setCallStatus("live");
         durationRef.current = setInterval(() => setCallDuration((d) => d + 1), 1000);
@@ -315,6 +318,12 @@ function TalkInner() {
               <div className="text-[13.5px] text-white/60 mt-2 max-w-[420px] leading-relaxed">
                 A real call with your employee — same script, same voice a customer hears, right in your browser.
               </div>
+
+              {callNotice && callStatus !== "error" && (
+                <div className="mt-5 text-[12.5px] text-amber-100 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3.5 py-2.5 max-w-[420px]" data-testid="call-notice">
+                  {callNotice}
+                </div>
+              )}
 
               {callStatus === "error" && callError && (
                 <div className="mt-5 text-[12.5px] text-red-200 bg-red-500/10 border border-red-500/20 rounded-lg px-3.5 py-2.5 max-w-[420px]">
