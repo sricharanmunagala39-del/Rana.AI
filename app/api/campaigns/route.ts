@@ -8,7 +8,7 @@ import { filterOwned } from "@/lib/ownership";
 import { dncSet, rulesFromClient, insideWindow, nextWindowOpen, describeRules } from "@/lib/compliance";
 import { audit } from "@/lib/audit";
 import { listCartesiaPhoneNumbers, createCartesiaBatch } from "@/lib/cartesia";
-import { sarvamConfig, sarvamMissing, createSarvamCampaign, streamCampaignContacts, webhookUrl, withClientNumber, withVoice } from "@/lib/sarvamAgent";
+import { sarvamConfig, sarvamMissing, createSarvamCampaign, streamCampaignContacts, webhookUrl, withClientNumber, routeVoice } from "@/lib/sarvamAgent";
 import { callingBlock, limitsOf } from "@/lib/plans";
 import { createCampaignRow, updateCampaignRow, listCampaignRows, insertContacts, normalisePhone } from "@/lib/campaigns";
 import { listCallsLean } from "@/lib/calls";
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
   if (onSarvam) {
     const base = sarvamConfig();
     if (!base) return Response.json({ error: "Calling isn't switched on for your account yet — RANA support has been notified." }, { status: 500 });
-    const cfg = withVoice(withClientNumber(base, clientRow), script.voice_name);
+    const { cfg } = await routeVoice(withClientNumber(base, clientRow), script.voice_name);
     if (!cfg.connectionId) return Response.json({ error: "No calling number is connected to your account yet — RANA support has been notified." }, { status: 500 });
     const client: any = await getClientById(session.clientId);
     const campaign = await createCampaignRow({

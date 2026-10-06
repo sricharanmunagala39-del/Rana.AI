@@ -23,7 +23,9 @@ export async function GET(req: Request) {
     const say = (sp.get("say") || "").replace(/\s+/g, " ").trim().slice(0, 80);
     const custom = (sp.get("text") || "").replace(/\s+/g, " ").trim().slice(0, 240);
     const v = voiceFor(sp.get("voice"));
-    const text = say ? carrierLine(lang, say) : custom || sampleLine(lang, v.name, v.gender);
+    // Library voices preview with their base voice; a few have no text-to-speech sample at all.
+    if (!v.speaker) return Response.json({ error: "No sample for this voice yet. Pick it and press Test call to hear it.", code: "no_sample" }, { status: 404 });
+    const text = say ? carrierLine(lang, say) : custom || sampleLine(lang, v.first || v.name, v.gender);
     const pace = Number(sp.get("speed")) || 1;
     const key = r1TtsKey(v.speaker, lang, pace, text);
     try {

@@ -28,7 +28,7 @@ function withAcronyms(script: any) {
   return [...own, ...auto];
 }
 import { STRICTNESS_LABELS } from "@/lib/storage";
-import { sarvamConfig, sarvamMissing, voiceFor, withVoice } from "@/lib/sarvamAgent";
+import { sarvamConfig, sarvamMissing, routeVoice } from "@/lib/sarvamAgent";
 import { engineBlocker, isEngine, DEFAULT_ENGINE } from "@/lib/voice/engines";
 import { engineReady } from "@/lib/voice/server";
 
@@ -70,9 +70,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (blocker) return Response.json({ error: blocker, code: "engine_unavailable" }, { status: 400 });
   }
   if (wanted !== "cartesia") {
-    const voice = voiceFor(first.voice_name);
     const base = sarvamConfig();
-    const cfg = base ? withVoice(base, voice.key) : null;
+    const routed = base ? await routeVoice(base, first.voice_name) : null;
+    const voice = routed?.voice || { name: first.voice_name || "Priya" };
+    const cfg = routed?.cfg || null;
     if (!cfg) return Response.json({ error: "Calling isn't switched on for your account yet — RANA support has been notified." }, { status: 500 });
     try {
       const { instructions, keyterms } = await compile(first);
