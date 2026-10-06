@@ -6,6 +6,9 @@ import { engineRateText } from "@/lib/pricing";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import { createPortal } from "react-dom";
+import R1VoiceBrowser, { type R1Row } from "@/components/R1VoiceBrowser";
+import { findR1Voice, r1Blurb } from "@/lib/sarvamVoiceCatalog";
 import VoicePickerModal, { PickerVoice } from "@/components/VoicePickerModal";
 import ModelPickerModal, { PickerModel } from "@/components/ModelPickerModal";
 import BackgroundSoundPicker, { PickerBackgroundSound } from "@/components/BackgroundSoundPicker";
@@ -46,6 +49,17 @@ function WizardInner() {
   const [engines, setEngines] = useState<{ id: EngineId; label: string; blurb: string; callLanguages: string[] }[]>([]);
   const [sarvamStatus, setSarvamStatus] = useState<any>(null);
   const [previewing, setPreviewing] = useState<string | false>(false);
+  const [r1Open, setR1Open] = useState(false);
+  const [r1Voices, setR1Voices] = useState<R1Row[] | null>(null);
+  useEffect(() => {
+    if (r1Voices) return; // once: also tells the summary whether a picked library voice is ready
+    fetch("/api/voices/r1").then((r) => r.json()).then((d) => setR1Voices(d.voices || [])).catch(() => setR1Voices([]));
+  }, [r1Voices]);
+  useEffect(() => {
+    if (!r1Open) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setR1Open(false); };
+    document.addEventListener("keydown", esc); return () => document.removeEventListener("keydown", esc);
+  }, [r1Open]);
   const [voiceId, setVoiceId] = useState("");
   const [voiceName, setVoiceName] = useState("");
   const [modelId, setModelId] = useState("");
@@ -501,6 +515,39 @@ function WizardInner() {
                         );
                       })}
                     </div>
+                    {(() => {
+                      const lib = findR1Voice(voiceName);
+                      const builtin = (sarvamStatus?.sarvam?.voices || DEFAULT_VOICES).some((v: any) => String(v.name).toLowerCase() === String(voiceName || "priya").toLowerCase());
+                      const live = r1Voices?.find((v) => v.id === lib?.id)?.live;
+                      return lib && !builtin ? (
+                        <div className="mt-3 border border-signal ring-1 ring-signal bg-signal-tint/50 rounded-xl px-3.5 py-3" data-testid="r1-selected">
+                          <div className="text-[14px] font-semibold">{lib.first}{lib.role && <span className="font-normal text-ink-soft"> · {lib.role}</span>} <span className="text-[10.5px] text-signal">✓ selected</span></div>
+                          <div className="text-[11.5px] text-ink-soft">{r1Blurb(lib)} · best in {lib.langs.join(", ")}</div>
+                          {live === false && <div className="text-[11.5px] text-ink-soft mt-1">This voice is switched on for you by RANA within a working day. Until then calls use {lib.gender === "masculine" ? "Aditya" : "Priya"}.</div>}
+                        </div>
+                      ) : null;
+                    })()}
+                    <button type="button" onClick={() => setR1Open(true)} className="mt-3 w-full border border-dashed border-line rounded-xl px-3 py-2.5 text-[13px] font-semibold hover:border-signal" data-testid="r1-open">
+                      Browse all 200 voices (v3 + v4) — filter by language, gender and use
+                    </button>
+                    {r1Open && typeof document !== "undefined" && createPortal(
+                      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setR1Open(false); }}>
+                        <div role="dialog" aria-label="All voices" className="w-full max-w-[1100px] max-h-[88vh] overflow-y-auto overscroll-contain rounded-2xl border border-line bg-raised shadow-2xl p-5" data-testid="r1-dialog">
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <div className="text-[16px] font-semibold">All voices</div>
+                              <div className="text-[12px] text-ink-soft">Every voice speaks all 11 Indian languages; &ldquo;best in&rdquo; is where it sounds most natural. v4 voices are newer, tuned for a role.</div>
+                            </div>
+                            <button type="button" onClick={() => setR1Open(false)} aria-label="Close" className="w-8 h-8 rounded-full border border-line text-ink-soft hover:text-ink text-[18px] leading-none">&times;</button>
+                          </div>
+                          {!r1Voices ? <div className="text-[13px] text-ink-soft">Loading voices…</div> : (
+                            <R1VoiceBrowser voices={r1Voices} lang={startingLanguage} selected={findR1Voice(voiceName || "Priya")?.id || null}
+                              onSelect={(v) => { const own = (sarvamStatus?.sarvam?.voices || DEFAULT_VOICES).find((x: any) => String(x.name).toLowerCase() === v.name.toLowerCase()); setVoiceName(own ? own.name : v.name); setR1Open(false); }} />
+                          )}
+                        </div>
+                      </div>,
+                      document.body,
+                    )}
                   </div>}
 
                   {engine === "cartesia" && <>
