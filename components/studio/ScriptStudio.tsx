@@ -10,6 +10,7 @@ import AskAiBar from "./AskAiBar";
 import KnowledgePanel from "./KnowledgePanel";
 import PronunciationPanel from "./PronunciationPanel";
 import HandoffPanel from "./HandoffPanel";
+import LanguagePreview from "./LanguagePreview";
 import VoiceScriptInput from "./VoiceScriptInput";
 import { EMPTY_PLAYBOOK, LANG_NAMES, baseLang, detectScriptLanguage, sameScriptLanguage, spokenUrl } from "@/lib/playbook";
 
@@ -25,7 +26,7 @@ Close: Ask them to book a free demo class at dbmci.com/demo or pay the seat book
 
 export default function ScriptStudio({ value, set, agentName, openingLanguage, policy, voiceId, voiceName, speed, engine, scriptId, ensureSaved, strictness, setStrictness, strictnessLabels }: any) {
   const { sourceScript, playbook, greeting, links, pronunciations, keyterms } = value;
-  const [tab, setTab] = useState<"script" | "knowledge" | "links" | "say" | "handoff">("script");
+  const [tab, setTab] = useState<"script" | "hear" | "knowledge" | "links" | "say" | "handoff">("script");
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeMsg, setAnalyzeMsg] = useState<{ tone: "ok" | "warn" | "err"; text: string } | null>(null);
   const [showSource, setShowSource] = useState(!playbook);
@@ -100,6 +101,7 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
 
   const tabs = [
     ["script", "Script", null],
+    ["hear", open === "en" ? "Hear it" : `Hear in ${openName}`, null],
     ["knowledge", "Knowledge", knowledgeCount],
     ["links", "Links & payments", links.length || null],
     ["say", "Pronunciation", pronunciations.length || null],
@@ -255,6 +257,7 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
         </>
       )}
 
+      {tab === "hear" && <LanguagePreview value={value} set={set} language={open} voiceId={voiceId} voiceName={voiceName} speed={speed} engine={engine} />}
       {tab === "handoff" && <HandoffPanel value={value.handoff} onChange={(v: any) => set({ handoff: v })} />}
       {tab === "knowledge" && <KnowledgePanel scriptId={scriptId} ensureSaved={ensureSaved} onCount={setKnowledgeCount} openingLanguage={openingLanguage} onUse={addFromKnowledge} />}
 

@@ -18,6 +18,7 @@ export type SarvamCallEvent =
   | { type: "transcript"; role: "agent" | "user"; text: string }
   | { type: "language"; language: string }
   | { type: "ended" }
+  | { type: "notice"; message: string }
   | { type: "error"; message: string };
 
 const RATE = 16000;
@@ -87,6 +88,7 @@ export class SarvamVoiceCall {
     const res = await fetch("/api/sarvam/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scriptId }) });
     const session = await res.json();
     if (!res.ok) throw new Error(session.error || "Couldn't start the call");
+    if (session.voiceNote) this.onEvent({ type: "notice", message: String(session.voiceNote) });
     return this.startWith(session);
   }
 
