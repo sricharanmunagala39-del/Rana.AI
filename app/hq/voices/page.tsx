@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
+import R1VoiceBrowser, { type R1Row } from "@/components/R1VoiceBrowser";
 
 type Voice = { voiceId: string; ownerId?: string; name: string; preview: string | null; gender?: string; accent?: string; language?: string; description?: string; category?: string; uses?: number };
 
@@ -26,6 +27,20 @@ export default function HqVoicesPage() {
   const [adding, setAdding] = useState("");
   const [playing, setPlaying] = useState("");
   const audio = useRef<HTMLAudioElement | null>(null);
+  const [r1, setR1] = useState<R1Row[] | null>(null);
+  const [r1Edit, setR1Edit] = useState<Record<string, string>>({});
+  const [r1Busy, setR1Busy] = useState("");
+  const loadR1 = () => fetch("/api/hq/voices/r1").then((r) => r.json()).then((j) => setR1(j.voices || [])).catch(() => setR1([]));
+  useEffect(() => { loadR1(); }, []);
+  async function connectR1(v: R1Row, agent: string) {
+    setR1Busy(v.id); setErr(""); setMsg("");
+    try {
+      const r = await fetch("/api/hq/voices/r1", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: v.id, agent }) });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error);
+      setMsg(j.live ? `${v.name} is live on calls.` : `${v.name} disconnected.`);
+      setR1((list) => (list || []).map((x) => x.id === v.id ? { ...x, agent: j.agent, live: j.live } : x));
+    } catch (e: any) { setErr(e.message); } finally { setR1Busy(""); }
+  }
 
   const load = () => fetch("/api/hq/voices").then(async (r) => {
     const j = await r.json(); if (!r.ok) throw new Error(j.error);
@@ -198,6 +213,30 @@ export default function HqVoicesPage() {
               )}
             </div>
           )}
+
+          <div className={card} data-testid="r1-library">
+            <div className="font-semibold">R1 voice library — all {r1?.length || 200} voices (v3 + v4)</div>
+            <div className="text-[13px] text-ink-soft mt-0.5">Every voice is in RANA&apos;s employee builder. Sarvam can&apos;t change the voice per call, so a voice is <b className="text-ink">READY</b> once it has its own agent. To switch one on:</div>
+            <ol className="text-[12.5px] text-ink-soft mt-2 list-decimal pl-4 flex flex-col gap-0.5">
+              <li>In Sarvam, make a copy of <b className="text-ink">RANA Runtime - Rahul</b> (Duplicate, or a new agent with the same instructions and the <code>rana_instructions</code> variable).</li>
+              <li>In the copy: Settings → Voice → pick the voice → Save → Commit as v1. Rename it “RANA Runtime - &lt;voice&gt;”.</li>
+              <li>Copy the ID from the address bar (…/update-agent/<b className="text-ink">RANA-Runtim-xxxxxxxx-xxxx</b>), paste it below and press Connect.</li>
+            </ol>
+            <div className="text-[12px] text-ink-soft mt-2">Until a voice is connected, calls with it use Priya (female) or Aditya (male). Voices customers already picked are listed first.</div>
+            <div className="mt-4">
+              {!r1 ? <div className="text-[13px] text-ink-soft">Loading…</div> : (
+                <R1VoiceBrowser voices={r1} sortWanted extra={(v) => v.builtin ? (
+                  <div className="text-[11.5px] text-ink-soft">Built-in · {v.agent}</div>
+                ) : (
+                  <div className="flex gap-1.5">
+                    <input value={r1Edit[v.id] ?? v.agent ?? ""} onChange={(e) => setR1Edit((m) => ({ ...m, [v.id]: e.target.value }))} placeholder="RANA-Runtim-xxxxxxxx-xxxx" className="flex-1 min-w-0 rounded-lg border border-line bg-raised px-2 py-1 text-[12px] font-mono" aria-label={`Agent for ${v.name}`} />
+                    <button type="button" disabled={r1Busy === v.id} onClick={() => connectR1(v, r1Edit[v.id] ?? v.agent ?? "")} className="rounded-lg bg-ink text-paper px-2.5 py-1 text-[12px] font-semibold disabled:opacity-50">{r1Busy === v.id ? "…" : v.live && (r1Edit[v.id] ?? v.agent) === v.agent ? "Saved" : "Connect"}</button>
+                    {v.agent && <button type="button" disabled={r1Busy === v.id} onClick={() => { setR1Edit((m) => ({ ...m, [v.id]: "" })); connectR1(v, ""); }} className="rounded-lg border border-line px-2 py-1 text-[12px]" aria-label="Disconnect">✕</button>}
+                  </div>
+                )} />
+              )}
+            </div>
+          </div>
 
           {el?.ready && mine.length > 0 && (
             <div className={card}>
