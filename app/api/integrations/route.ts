@@ -3,8 +3,7 @@ import { getSession } from "@/lib/session";
 import { unauthorized, forbidUnless } from "@/lib/auth";
 import { sb } from "@/lib/db";
 import { audit } from "@/lib/audit";
-import { ALERT_FIELDS, DEFAULT_RULES, buildIntegration, publicIntegration, type Kind } from "@/lib/leadAlerts";
-import { LEAD_CHOICES } from "@/lib/reports";
+import { ALERT_FIELDS, ALERT_LEAD_CHOICES, DEFAULT_RULES, buildIntegration, publicIntegration, type Kind } from "@/lib/leadAlerts";
 
 const KINDS: Kind[] = ["slack", "whatsapp", "email", "webhook"];
 const mine = (clientId: string, id: string) => sb<any[]>(`/integrations?id=eq.${id}&client_id=eq.${clientId}&limit=1`).then((r) => r?.[0] || null).catch(() => null);
@@ -18,7 +17,7 @@ export async function GET(req: Request) {
     sb<any[]>(`/integration_log?client_id=eq.${session.clientId}&order=created_at.desc&limit=30&select=integration_id,kind,ok,error,created_at,call_id`).catch(() => []),
     sb<any[]>(`/campaigns?client_id=eq.${session.clientId}&order=created_at.desc&limit=200&select=id,name`).catch(() => []),
   ]);
-  return Response.json({ integrations: (rows || []).map(publicIntegration), log: log || [], campaigns: campaigns || [], fields: ALERT_FIELDS, leadChoices: LEAD_CHOICES, defaults: DEFAULT_RULES });
+  return Response.json({ integrations: (rows || []).map(publicIntegration), log: log || [], campaigns: campaigns || [], fields: ALERT_FIELDS, leadChoices: ALERT_LEAD_CHOICES, defaults: DEFAULT_RULES });
 }
 
 /** POST { kind, name, rules, recipients?, secret?, phoneNumberId?, template?, templateLang? } — add a channel. */
