@@ -7,25 +7,31 @@ import { seal, open, hint } from "./secretBox";
 import { sendEmail, emailHtml, APP_URL } from "./notify";
 import { isConnected } from "./metrics";
 import { LEAD_LABEL } from "./format";
-import type { LeadKey } from "./reports";
+import { LEAD_CHOICES } from "./reports";
+import { CATEGORY_LABEL, NOISE } from "./callCategory";
 
 export type Kind = "slack" | "whatsapp" | "email" | "webhook";
-export type Rules = { leads: LeadKey[]; directions: ("outbound" | "inbound")[]; campaigns: "all" | string[]; fields: string[] };
+export type Rules = { leads: string[]; directions: ("outbound" | "inbound")[]; campaigns: "all" | string[]; fields: string[] };
 export type Config = { rules: Rules; recipients?: string[]; phoneNumberId?: string; template?: string; templateLang?: string };
 
 export const ALERT_FIELDS: { key: string; label: string }[] = [
   { key: "name", label: "Name" }, { key: "phone", label: "Phone" }, { key: "lead", label: "Lead status" }, { key: "reason", label: "Why" },
   { key: "summary", label: "Call summary" }, { key: "campaign", label: "Campaign" }, { key: "direction", label: "Incoming / outgoing" },
   { key: "when", label: "Time of call" }, { key: "talk", label: "Talk time" }, { key: "needs_person", label: "Who should call back" },
+  { key: "category", label: "Type of call" }, { key: "purpose", label: "Why they called" }, { key: "wholesale", label: "Wholesale enquiry" },
+  { key: "details", label: "Details (product, size, budget, visit…)" },
   { key: "recording", label: "Recording link" }, { key: "list", label: "Columns from the uploaded list" }, { key: "transcript", label: "Last lines of the conversation" },
 ];
-export const DEFAULT_RULES: Rules = { leads: ["ready_to_close", "hot", "needs_person"], directions: ["outbound", "inbound"], campaigns: "all", fields: ["name", "phone", "lead", "reason", "summary", "campaign", "needs_person", "recording"] };
+export const DEFAULT_RULES: Rules = { leads: ["ready_to_close", "hot", "needs_person"], directions: ["outbound", "inbound"], campaigns: "all", fields: ["name", "phone", "lead", "purpose", "details", "summary", "campaign", "needs_person", "recording"] };
+/** Which calls a channel can ask for: the lead statuses, plus wholesale enquiries and "every call" (for a Google Sheet log). */
+export const ALERT_LEAD_CHOICES: { key: string; label: string }[] = [...LEAD_CHOICES, { key: "wholesale", label: "Wholesale enquiries" }, { key: "all", label: "Every call (for a sheet)" }];
+const LEAD_KEYS = ALERT_LEAD_CHOICES.map((c) => c.key);
 
 const clip = (v: any, n: number) => String(v ?? "").slice(0, n);
 const phoneDigits = (p: string) => { const d = String(p || "").replace(/\D/g, ""); return d.length === 10 ? `91${d}` : d; };
 
 export function normalizeRules(r: any): Rules {
-  const leads = (Array.isArray(r?.leads) ? r.leads : DEFAULT_RULES.leads).filter((k: any) => ["ready_to_close", "hot", "warm", "new", "cold", "not_interested", "no_answer", "follow_up", "needs_person"].includes(k));
+  const leads = (Array.isArray(r?.leads) ? r.leads : DEFAULT_RULES.leads).filter((k: any) => LEAD_KEYS.includes(k));
   const directions = (Array.isArray(r?.directions) ? r.directions : DEFAULT_RULES.directions).filter((d: any) => d === "outbound" || d === "inbound");
   const campaigns = Array.isArray(r?.campaigns) ? r.campaigns.filter((x: any) => /^[0-9a-f-]{36}$/i.test(String(x))).slice(0, 100) : "all";
   const fields = (Array.isArray(r?.fields) ? r.fields : DEFAULT_RULES.fields).filter((k: any) => ALERT_FIELDS.some((f) => f.key === k));
@@ -51,6 +57,10 @@ function wanted(call: any, rules: Rules, campaignIdOfBatch: Map<string, string>)
     const cid = call.campaign_id ? campaignIdOfBatch.get(call.campaign_id) : null;
     if (!cid || !rules.campaigns.includes(cid)) return false;
   }
+  if (rules.leads.includes("all")) return true;
+  if (rules.leads.includes("wholesale") && (call.tags || []).includes("wholesale")) return true;
+  // Sales pitches, spam, junk and wrong numbers never trigger a lead alert.
+  if (NOISE.includes(call.category)) return false;
   return rules.leads.some((k) => (k === "follow_up" ? !!call.follow_up || call.lead_status === "ready_to_close" : k === "needs_person" ? !!call.handoff : call.lead_status === k));
 }
 
@@ -69,16 +79,19 @@ function leadOf(call: any, fields: string[], extra: { campaign: string | null; c
     direction: ["Call", call.direction === "outbound" ? "Outgoing" : "Incoming"], when: ["When", when], talk: ["Talk time", `${Math.floor(talk / 60)}m ${talk % 60}s`],
     needs_person: ["Call back by", call.handoff ? `${call.handoff.to_name || "your team"} — ${String(call.handoff.label || "").toLowerCase()}` : ""],
     recording: ["Recording", call.recording_url || ""], transcript: ["Conversation", turns],
+    category: ["Type", (CATEGORY_LABEL as any)[call.category] || ""], purpose: ["Why they called", call.insight?.purpose || ""],
+    wholesale: ["Wholesale", (call.tags || []).includes("wholesale") ? "Yes" : ""],
+    details: ["Details", Object.entries(call.insight?.details || {}).filter(([k]) => k !== "name").map(([k, v]) => `${k}: ${v}`).join(" · ")],
   };
   const lines: [string, string][] = [];
-  const data: Record<string, any> = { call_id: call.id, lead_status: call.lead_status, follow_up: !!call.follow_up };
+  const data: Record<string, any> = { call_id: call.id, lead_status: call.lead_status, follow_up: !!call.follow_up, category: call.category || null, tags: call.tags || [], wholesale: (call.tags || []).includes("wholesale"), details: call.insight?.details || {} };
   for (const f of fields) {
     if (f === "list") { for (const [k, v] of Object.entries(extra.contact?.variables || {})) if (v !== "" && v != null) { lines.push([k, clip(v, 200)]); data[`list_${k}`] = v; } continue; }
     const x = all[f]; if (!x) continue;
     data[f] = x[1];
     if (x[1] !== "" && x[1] != null) lines.push([x[0], clip(x[1], f === "transcript" ? 1200 : 600)]);
   }
-  const hot = call.lead_status === "ready_to_close" ? "🔥 Ready to close" : call.lead_status === "hot" ? "🔥 Hot lead" : call.handoff ? "📞 Needs a person" : `${lead} lead`;
+  const hot = (call.tags || []).includes("wholesale") ? "🧵 Wholesale enquiry" : call.lead_status === "ready_to_close" ? "🔥 Ready to close" : call.lead_status === "hot" ? "🔥 Hot lead" : call.handoff ? "📞 Needs a person" : `${lead} lead`;
   return { title: `${hot}: ${fields.includes("name") ? name : "a caller"}${extra.client?.name ? ` · ${extra.client.name}` : ""}`, lines, link: `${APP_URL()}/${call.direction === "outbound" ? "outbound" : "inbound"}`, data };
 }
 
@@ -162,7 +175,7 @@ export async function leadAlertsAfterCall(client: any, call: any): Promise<numbe
     await Promise.all(integs.map(async (integ) => {
       const rules = normalizeRules(integ.config?.rules);
       if (!wanted(call, rules, ctx.idOfBatch)) return;
-      if (!isConnected(call) && !rules.leads.includes("no_answer")) return;
+      if (!isConnected(call) && !rules.leads.includes("no_answer") && !rules.leads.includes("all")) return;
       // Claim this (channel, call) first — the unique index makes retried webhooks a no-op.
       // (A second insert for the same pair fails on that index, so it is skipped.)
       const claimed = await sb<any[]>(`/integration_log`, { method: "POST", body: JSON.stringify({ integration_id: integ.id, client_id: client.id, call_id: call.id, kind: "lead" }) }).catch(() => null);
@@ -187,6 +200,7 @@ export async function sendTest(integ: any, client: any): Promise<{ ok: boolean; 
     lead_status: "hot", lead_reason: "Asked for fees and wants to join this week.", summary: "Sample alert from RANA AI. Real alerts look like this, with your caller's details.",
     duration_seconds: 134, follow_up: true, handoff: { label: "Ready to join or pay", to_name: "Sales team" }, recording_url: `${APP_URL()}/`, created_at: new Date().toISOString(),
     transcript: [{ role: "agent", text: "Namaskaram! RANA nundi matladutunnanu." }, { role: "user", text: "Fees enti? Ee week join avvali." }],
+    category: "lead", tags: [], insight: { purpose: "Asked for prices and wants to visit this week.", details: { product: "Sample product", budget: "₹5,000", visit: "Saturday" } },
   };
   try {
     await deliver(integ, leadOf(fake, rules.fields, { campaign: "Sample campaign", contact: { variables: { City: "Hyderabad" } }, client }));
