@@ -8,6 +8,7 @@ import { optOutPhrase, addDnc } from "./compliance";
 import { engineOfAgentRef } from "./voice/engines";
 import { handoffAfterCall } from "./handoffAlert";
 import { leadAlertsAfterCall } from "./leadAlerts";
+import { applyInsight } from "./callInsight";
 
 const FIRST_SYNC_LOOKBACK_DAYS = 14;
 const OVERLAP_MS = 30 * 60 * 1000; // re-read the last 30 min so calls that were still in progress get their final state
@@ -71,6 +72,7 @@ export async function syncClientCalls(clientId: string): Promise<SyncResult> {
         // Same after-call steps as Sarvam's webhook: tell a person when the caller needs one, then the client's lead
         // alerts. Only the first time a call is stored as finished, so re-syncs never alert twice.
         if (client && saved && row.source !== "manual" && (row.duration_seconds ?? 0) > 0) {
+          saved = await applyInsight(client, saved);
           const handoff = await handoffAfterCall(client, saved, { rana_script_id: scriptOf[agentId] }).catch(() => null);
           if (handoff) saved.follow_up = true;
           await leadAlertsAfterCall(client, { ...saved, handoff: handoff || saved.handoff || null, follow_up: saved.follow_up || !!handoff })

@@ -31,6 +31,9 @@ export type CallRow = {
   lead_reason?: string | null;
   follow_up?: boolean;
   caller_turns?: number;
+  category?: string | null;
+  tags?: string[];
+  insight?: { category?: string; purpose?: string; reason?: string; wholesale?: boolean; details?: Record<string, string>; at?: string } | null;
   handoff?: { rule: string; label: string; to_name: string | null; to_team: string | null; to_phone: string | null; quote: string; emailed: boolean; at: string } | null;
   agent_variables: Record<string, unknown>;
   started_at: string | null;
@@ -76,7 +79,7 @@ export async function upsertCall(row: Partial<CallRow>): Promise<CallRow> {
 
 /** The stored row for an interaction id (any client) — used to keep webhook retries from overwriting other data. */
 export async function existingCall(interactionId: string): Promise<any | null> {
-  const r = await sb(`/calls?interaction_id=eq.${encodeURIComponent(interactionId)}&select=client_id,lead_status,lead_reason,recording_url,handoff&limit=1`).catch(() => null);
+  const r = await sb(`/calls?interaction_id=eq.${encodeURIComponent(interactionId)}&select=client_id,lead_status,lead_reason,recording_url,handoff,insight&limit=1`).catch(() => null);
   return r?.[0] ?? null;
 }
 

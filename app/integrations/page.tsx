@@ -14,10 +14,15 @@ const field = "w-full border border-line rounded-lg px-3 py-2 text-[13px] bg-sun
 const SHEETS_SCRIPT = `function doPost(e) {
   var d = JSON.parse(e.postData.contents), l = d.lead || {};
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName("RANA leads") || ss.insertSheet("RANA leads");
-  var cols = ["name", "phone", "lead", "reason", "summary", "campaign", "direction", "when", "talk", "needs_person", "recording"];
-  if (sh.getLastRow() === 0) sh.appendRow(["Received"].concat(cols));
-  sh.appendRow([new Date()].concat(cols.map(function (c) { return l[c] || ""; })));
+  var cols = ["name", "phone", "lead", "category", "purpose", "details", "wholesale", "reason", "summary", "campaign", "direction", "when", "talk", "needs_person", "recording"];
+  var row = [new Date()].concat(cols.map(function (c) { return l[c] || ""; }));
+  function add(name) {
+    var sh = ss.getSheetByName(name) || ss.insertSheet(name);
+    if (sh.getLastRow() === 0) sh.appendRow(["Received"].concat(cols));
+    sh.appendRow(row);
+  }
+  add("RANA leads");
+  if (l.wholesale === "Yes" || l.wholesale === true) add("Wholesale");
   return ContentService.createTextOutput("ok");
 }`;
 const when = (d: string | null) => (d ? fmtDateTime(d) : "never");
@@ -172,6 +177,7 @@ export default function IntegrationsPage() {
                   <li>Delete what&apos;s there, paste the script below, press <b>Save</b>.</li>
                   <li><b>Deploy → New deployment</b> → type <b>Web app</b> → Execute as <b>Me</b>, Who has access <b>Anyone</b> → <b>Deploy</b> → allow access.</li>
                   <li>Copy the <b>Web app URL</b> (https://script.google.com/macros/s/…/exec), paste it above, add the alert, press <b>Send test</b>. A row appears in the “RANA leads” tab.</li>
+                  <li>To log <b>every</b> call, tick <b>Every call (for a sheet)</b> below. Wholesale enquiries are also copied to a <b>“Wholesale”</b> tab.</li>
                 </ol>
                 <pre className="mt-2 text-[11px] font-mono bg-raised border border-line rounded-md p-2 overflow-x-auto whitespace-pre">{SHEETS_SCRIPT}</pre>
                 <button type="button" onClick={() => navigator.clipboard?.writeText(SHEETS_SCRIPT)} className="mt-1.5 text-[12px] font-semibold text-signal">Copy script</button>

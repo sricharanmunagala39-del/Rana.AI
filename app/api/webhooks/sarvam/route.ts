@@ -6,9 +6,11 @@
  * Client resolution: ?key= (preferred, per-client secret) -> app_id match on clients.sarvam_app_id.
  */
 export const runtime = "nodejs";
+export const maxDuration = 60;
 import { getClientByWebhookSecret, getClientByAppId, upsertCall, payloadToCall, existingCall } from "@/lib/calls";
 import { handoffAfterCall } from "@/lib/handoffAlert";
 import { leadAlertsAfterCall } from "@/lib/leadAlerts";
+import { applyInsight } from "@/lib/callInsight";
 import crypto from "crypto";
 import { sarvamConfig, recordingUrl, SARVAM_VOICES } from "@/lib/sarvamAgent";
 import { optOutPhrase, addDnc } from "@/lib/compliance";
@@ -66,6 +68,8 @@ export async function POST(req: Request) {
     const prev = await existingCall(row.interaction_id);
     if (prev && prev.client_id !== client.id) return Response.json({ error: "That call belongs to another workspace." }, { status: 409 });
     if (prev?.lead_reason === "Set manually by your team.") { delete row.lead_status; delete row.lead_reason; }
+    // Already read by the AI on an earlier delivery: keep its verdict instead of the quick keyword guess.
+    if (prev?.insight) { delete row.lead_status; delete row.lead_reason; delete (row as any).summary; }
 
     // Recordings only ever exist for calls that actually connected — skip the extra
     // network round-trip otherwise.
@@ -77,7 +81,9 @@ export async function POST(req: Request) {
     if (prev?.handoff) (row as any).follow_up = true; // a handoff stays a follow-up on retried webhooks
 
     (row as any).engine = "sarvam";
-    const saved = await upsertCall(row);
+    let saved: any = await upsertCall(row);
+    // AI read of the call: lead / customer / junk / spam / sales pitch, why they called, wholesale, details.
+    if (row.source !== "manual") saved = await applyInsight(client, { ...saved, insight: prev?.insight || saved.insight || null }, { keepLead: prev?.lead_reason === "Set manually by your team." });
 
     // "Don't call me again" goes straight onto the do-not-call list so no future campaign dials them.
     const phone = normalisePhone(String(row.caller_phone || ""));

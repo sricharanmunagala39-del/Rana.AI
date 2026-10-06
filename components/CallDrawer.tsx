@@ -1,4 +1,5 @@
 "use client";
+import { CATEGORY_LABEL } from "@/lib/callCategory";
 import { useEffect, useState } from "react";
 import StatusPill from "@/components/StatusPill";
 import type { CallRow, LeadStatus } from "@/lib/calls";
@@ -80,6 +81,21 @@ export default function CallDrawer({ call, onClose, onUpdated }: { call: CallRow
             <div className="border border-line rounded-lg px-3 py-2.5 bg-paper">
               <div className="text-[11.5px] font-semibold text-ink-soft uppercase tracking-wide">Why RANA labelled it {LEAD_LABEL[call.lead_status]}</div>
               <div className="text-[13px] mt-1 leading-relaxed">{call.lead_reason}</div>
+            </div>
+          )}
+
+          {call.insight && call.category && (
+            <div className="border border-line rounded-lg px-3 py-2.5 bg-paper" data-testid="call-insight">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className={`text-[11.5px] font-semibold rounded-full px-2 py-0.5 border ${["marketing", "spam", "junk", "wrong_number"].includes(call.category) ? "border-line text-ink-soft" : "border-signal/50 text-signal"}`}>{CATEGORY_LABEL[call.category as keyof typeof CATEGORY_LABEL] || call.category}</span>
+                {(call.tags || []).includes("wholesale") && <span className="text-[11.5px] font-semibold rounded-full px-2 py-0.5 border border-warm/50 text-warm">Wholesale</span>}
+              </div>
+              {call.insight.purpose && <div className="text-[13px] mt-1.5 leading-relaxed"><b>Why they called:</b> {call.insight.purpose}</div>}
+              {Object.keys(call.insight.details || {}).length > 0 && (
+                <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mt-1.5 text-[12.5px]">
+                  {Object.entries(call.insight.details || {}).map(([k, v]: any) => <div key={k}><span className="text-ink-soft capitalize">{k}:</span> {String(v)}</div>)}
+                </div>
+              )}
             </div>
           )}
 
