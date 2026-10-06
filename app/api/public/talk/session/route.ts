@@ -51,7 +51,9 @@ export async function POST(req: Request) {
   const s0 = { ...base, greeting: (base as any).translateGreeting ? await translateLine(base.greeting, lang) : base.greeting };
   // Visitors choose a female (default) or male voice. A male voice also speaks with masculine grammar.
   const male = b.voice === "male";
-  const s = male ? { ...s0, voice: "aditya", greeting: masculine(s0.greeting), instructions: `${s0.instructions}\n\n# Your voice\nYou speak with a man's voice. Your name is still Rana. In languages where verbs or adjectives change with gender (Hindi, Marathi, Gujarati, Punjabi, Bengali, Odia, Arabic, Spanish, French and others), always use the masculine first-person forms for yourself.` } : s0;
+  const s1 = male ? { ...s0, greeting: masculine(s0.greeting), instructions: `${s0.instructions}\n\n# Your voice\nYou speak with a man's voice. Your name is still Rana. In languages where verbs or adjectives change with gender (Hindi, Marathi, Gujarati, Punjabi, Bengali, Odia, Arabic, Spanish, French and others), always use the masculine first-person forms for yourself.` } : s0;
+  // Website demos sound soft, polite and gentle on R1: Kavya (calm, caring) or Aditya (clear, professional).
+  const s = { ...s1, voice: male ? "aditya" : "kavya", greeting: softLine(s1.greeting), instructions: `${s1.instructions}\n\n${SOFT_VOICE}` };
   const secret = crypto.randomBytes(18).toString("base64url");
   const record = () => startWebTalk({ kind, scenario: kind === "usecase" ? `${ind!.slug}:${uc!.key}` : scenario, language: lang, market, ip, max_seconds: s.maxSeconds, secret,
     ...(kind === "usecase" ? { context: { industry: ind!.slug, useCase: uc!.key, title: uc!.title, company: profile?.company || null, url: profile?.url || null } } : {}) });
@@ -100,4 +102,12 @@ export async function POST(req: Request) {
 /** Hindi / Marathi first-person forms in the written opening lines are feminine; flip them for the male voice. */
 function masculine(t: string): string {
   return t.replace(/रही हूँ/g, "रहा हूँ").replace(/सकती हूँ/g, "सकता हूँ").replace(/सकती/g, "सकता").replace(/बोलतेय/g, "बोलतोय");
+}
+
+const SOFT_VOICE = `# How you sound
+Soft, polite, gentle and professional, like a calm front-desk professional on an ordinary working day. Speak at an easy, unhurried pace in plain everyday words, the way people really talk. No excitement, no exclamations, no sales energy, no dramatic emphasis. Short, natural sentences. (If the caller is upset or in a hurry, the tone rules above still apply: stay calm, firm and brief.)`;
+
+/** Exclamation marks make the voice sound over-excited; read the opening line calmly. */
+function softLine(t: string): string {
+  return t.replace(/¡/g, "").replace(/！/g, "。").replace(/\s*!+/g, ".").replace(/\.\s*\./g, ".").trim();
 }
