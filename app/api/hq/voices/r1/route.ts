@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   return Response.json({
     voices: R1_CATALOG.map((v) => {
       const b = builtin.get(v.id);
-      return { ...v, sample: !!r1PreviewSpeaker(v), builtin: !!b, agent: b ? `${b.appId || "RANA Runtime (main)"}${b.appId ? `@${b.appVersion}` : ""}` : agents[v.id] || "", live: !!b || !!parseAgentRef(agents[v.id]), wanted: wanted[v.id] || 0 };
+      return { ...v, sample: !!r1PreviewSpeaker(v), builtin: !!b, agent: agents[v.id] || (b ? `${b.appId || "RANA Runtime (main)"}${b.appId ? `@${b.appVersion}` : ""}` : ""), live: !!b || !!parseAgentRef(agents[v.id]), wanted: wanted[v.id] || 0 };
     }),
   });
 }
@@ -30,7 +30,6 @@ export async function PATCH(req: Request) {
   const b = await req.json().catch(() => ({} as any));
   const v = findR1Voice(String(b.id || ""));
   if (!v) return Response.json({ error: "Unknown voice." }, { status: 400 });
-  if (SARVAM_VOICES.some((x) => x.catalogId === v.id)) return Response.json({ error: `${v.name} is a built-in voice and is always connected.` }, { status: 400 });
   const raw = String(b.agent || "").trim().replace(/^sarvam:/, "");
   const ref = raw ? parseAgentRef(raw) : null;
   if (raw && !ref) return Response.json({ error: "That doesn't look like an agent ID. Copy it from the agent's address: …/update-agent/RANA-Runtim-xxxxxxxx-xxxx" }, { status: 400 });

@@ -530,7 +530,7 @@ function WizardInner() {
                         <div className="mt-3 border border-signal ring-1 ring-signal bg-signal-tint/50 rounded-xl px-3.5 py-3" data-testid="r1-selected">
                           <div className="text-[14px] font-semibold">{lib.first}{lib.role && <span className="font-normal text-ink-soft"> · {lib.role}</span>} <span className="text-[10.5px] text-signal">✓ selected</span></div>
                           <div className="text-[11.5px] text-ink-soft">{r1Blurb(lib)} · best in {lib.langs.join(", ")}</div>
-                          {live === false && <div className="text-[11.5px] text-ink-soft mt-1">This voice is switched on for you by RANA within a working day. Until then calls use {lib.gender === "masculine" ? "Aditya" : "Priya"}.</div>}
+                          {live === false && <div className="text-[12px] text-warm mt-1 font-semibold" data-testid="voice-not-ready">⚠ This voice isn't switched on yet, so calls will use {lib.gender === "masculine" ? "Aditya" : "Priya"} instead. Pick a voice marked READY to hear it on calls today.</div>}
                         </div>
                       ) : null;
                     })()}
@@ -548,7 +548,7 @@ function WizardInner() {
                             <button type="button" onClick={() => setR1Open(false)} aria-label="Close" className="w-8 h-8 rounded-full border border-line text-ink-soft hover:text-ink text-[18px] leading-none">&times;</button>
                           </div>
                           {!r1Voices ? <div className="text-[13px] text-ink-soft">Loading voices…</div> : (
-                            <R1VoiceBrowser voices={r1Voices} lang={startingLanguage} selected={findR1Voice(voiceName || "Priya")?.id || null}
+                            <R1VoiceBrowser voices={r1Voices} readyFirst lang={startingLanguage} selected={findR1Voice(voiceName || "Priya")?.id || null}
                               onSelect={(v) => { const own = (sarvamStatus?.sarvam?.voices || DEFAULT_VOICES).find((x: any) => String(x.name).toLowerCase() === v.name.toLowerCase()); setVoiceName(own ? own.name : v.name); setR1Open(false); }} />
                           )}
                         </div>
@@ -686,7 +686,8 @@ function WizardInner() {
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
-                      <div><Label>Voice</Label><div className="text-[13.5px] mt-0.5">{engine === "sarvam" ? `${voiceName || "Priya"} · Indian voice` : `${selectedVoice?.name || voiceName || "Auto"} · ${speechRate.toFixed(1)}x`}</div></div>
+                      <div><Label>Voice</Label><div className="text-[13.5px] mt-0.5">{engine === "sarvam" ? `${voiceName || "Priya"} · Indian voice` : `${selectedVoice?.name || voiceName || "Auto"} · ${speechRate.toFixed(1)}x`}</div>
+                        {engine === "sarvam" && (() => { const lib = findR1Voice(voiceName); const row = r1Voices?.find((v) => v.id === lib?.id); return row && !row.live ? <div className="text-[11.5px] text-warm mt-0.5" data-testid="review-voice-not-ready">Not switched on yet — calls use {lib!.gender === "masculine" ? "Aditya" : "Priya"}</div> : null; })()}</div>
                       <div><Label>Calls from</Label><div className="text-[13.5px] mt-0.5">{sarvamStatus?.sarvam?.ownNumber ? `Your number ${sarvamStatus.sarvam.number}` : `RANA's shared Indian number${sarvamStatus?.sarvam?.number ? ` ${sarvamStatus.sarvam.number}` : ""}`}</div></div>
                       <div><Label>Sticks to script</Label><div className="text-[13.5px] mt-0.5">{STRICTNESS_LABELS.find((t) => t.value === strictness)?.label}</div></div>
                     </div>

@@ -10,9 +10,9 @@ const chip = (on: boolean) => `rounded-full border px-3 py-1 text-[12.5px] white
  * Every R1 voice (v3 + v4) with search and filters: gender, version, language, use case.
  * Used by the employee builder (pick a voice) and RANA HQ (connect voices to agents, via `extra`).
  */
-export default function R1VoiceBrowser({ voices, selected, onSelect, lang = "en", extra, sortWanted = false }: {
+export default function R1VoiceBrowser({ voices, selected, onSelect, lang = "en", extra, sortWanted = false, readyFirst = false }: {
   voices: R1Row[]; selected?: string | null; onSelect?: (v: R1Row) => void; lang?: string;
-  extra?: (v: R1Row) => ReactNode; sortWanted?: boolean;
+  extra?: (v: R1Row) => ReactNode; sortWanted?: boolean; readyFirst?: boolean;
 }) {
   const [q, setQ] = useState("");
   const [gender, setGender] = useState<"" | "feminine" | "masculine">("");
@@ -39,8 +39,9 @@ export default function R1VoiceBrowser({ voices, selected, onSelect, lang = "en"
       return words.every((w) => hay.includes(w));
     });
     if (sortWanted) out.sort((a, b) => (b.wanted || 0) - (a.wanted || 0) || Number(a.live) - Number(b.live));
+    else if (readyFirst) out.sort((a, b) => Number(b.live) - Number(a.live));
     return out;
-  }, [voices, q, gender, model, language, usecase, liveOnly, sortWanted]);
+  }, [voices, q, gender, model, language, usecase, liveOnly, sortWanted, readyFirst]);
 
   async function play(v: R1Row) {
     if (playing === v.id) { audio.current?.pause(); setPlaying(""); return; }
