@@ -29,13 +29,7 @@ export async function PATCH(req: Request) {
   const denied = requireHq(session, "clients"); if (denied) return denied;
   const b = await req.json().catch(() => ({} as any));
   const v = findR1Voice(String(b.id || ""));
-          // An employee with an inbound script is tested as an incoming call by default (that is what the business number gets).
-          setHasInbound(inb); setHasOutbound(outb); setTestDir(inb ? "inbound" : "outbound");
-  const raw = String(b.agent || "").trim().replace(/^sarvam:/, "");@@WITH
   if (!v) return Response.json({ error: "Unknown voice." }, { status: 400 });
-  const raw = String(b.agent || "").trim().replace(/^sarvam:/, "");@@WITH
-          // An employee with an inbound script is tested as an incoming call by default (that is what the business number gets).
-          setHasInbound(inb); setHasOutbound(outb); setTestDir(inb ? "inbound" : "outbound");
   const raw = String(b.agent || "").trim().replace(/^sarvam:/, "");
   const ref = raw ? parseAgentRef(raw) : null;
   if (raw && !ref) return Response.json({ error: "That doesn't look like an agent ID. Copy it from the agent's address: …/update-agent/RANA-Runtim-xxxxxxxx-xxxx" }, { status: 400 });
