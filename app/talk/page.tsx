@@ -413,6 +413,14 @@ function TalkInner() {
                 <div className="mt-7 w-full max-w-[420px] rounded-2xl bg-white/5 border border-white/10 p-4 text-left" data-testid="call-my-phone">
                   <div className="text-[12.5px] font-semibold">Or take a real phone call</div>
                   <div className="text-[11.5px] text-white/50 mt-0.5">{agentName} calls your mobile from your Indian business number — the real caller experience.</div>
+                  {hasInbound && (
+                    <div className="flex gap-1.5 mt-2.5" data-testid="phone-direction">
+                      {([["inbound", "📥 Answer like an incoming call"], ["outbound", "📤 Call like an outgoing call"]] as const).map(([k, l]) => (
+                        <button key={k} type="button" onClick={() => setTestDir(k)} aria-pressed={testDir === k}
+                          className={`rounded-full border px-3 py-1 text-[11.5px] ${testDir === k ? "bg-white text-black border-white font-semibold" : "border-white/20 text-white/70"}`}>{l}</button>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex gap-2 mt-3">
                     <input value={phoneTo} onChange={(e) => setPhoneTo(e.target.value)} placeholder="98765 43210" inputMode="tel"
                       className="flex-1 bg-white/10 border border-white/15 rounded-lg px-3 py-2 text-[13px] outline-none focus:border-white/40 placeholder:text-white/30" />

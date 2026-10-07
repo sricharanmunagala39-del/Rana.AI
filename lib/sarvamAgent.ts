@@ -54,17 +54,18 @@ export const SARVAM_AGENT_VOICE = { name: "Priya", speaker: "priya", gender: "fe
 /**
  * Voices a customer can pick. Sarvam sets the voice on the agent, not per call, so each voice is a copy of the
  * RANA Runtime agent (same instructions variable) with a different voice, committed as v1 in RANA's Sarvam workspace.
- * appId null = the main RANA Runtime agent (RANA_SARVAM_APP_ID). Override ids with RANA_SARVAM_VOICE_APPS
+ * appId null = the main RANA Runtime agent (RANA_SARVAM_APP_ID). Version 2 of each copy has the Greeting set to the {{rana_greeting}}
+ * variable (phone calls ignore initial_bot_message). Priya and Kabir are routed by HQ to "RV" copies (platform setting r1_voice_agents). Override ids with RANA_SARVAM_VOICE_APPS
  * (JSON: {"kavya":"RANA-Runtim-…@1", …}) if an agent is re-created.
  */
 export type SarvamVoice = { key: string; name: string; speaker: string; gender: "feminine" | "masculine"; tone: string; appId: string | null; appVersion: number;
   /** The voice's id in the full R1 library (lib/sarvamVoiceCatalog). */ catalogId?: string; first?: string; model?: 3 | 4 };
 export const SARVAM_VOICES: SarvamVoice[] = [
   { key: "priya", name: "Priya", speaker: "priya", gender: "feminine", tone: "Warm and friendly", appId: null, appVersion: 0, catalogId: "01a0cf16-5959-79cb-9949-247c5a33bd48", model: 3 },
-  { key: "kavya", name: "Kavya", speaker: "kavya", gender: "feminine", tone: "Calm and caring", appId: "RANA-Runtim-f3aaa318-c225", appVersion: 1, catalogId: "01a0cf16-5f09-7c65-b9e6-9fe94b0e9441", model: 3 },
-  { key: "shreya", name: "Shreya", speaker: "shreya", gender: "feminine", tone: "Bright and confident", appId: "RANA-Runtim-5c226d02-a4b2", appVersion: 1, catalogId: "01a0cf16-67bf-76f0-8420-2ce24e69cffb", model: 3 },
-  { key: "aditya", name: "Aditya", speaker: "aditya", gender: "masculine", tone: "Clear and professional", appId: "RANA-Runtim-61c17dd3-0e02", appVersion: 1, catalogId: "01a0cf16-5726-7055-8622-322e53f6bc77", model: 3 },
-  { key: "rahul", name: "Rahul", speaker: "rahul", gender: "masculine", tone: "Friendly and upbeat", appId: "RANA-Runtim-aaae2662-4769", appVersion: 1, catalogId: "01a0cf16-5a52-747d-8900-0a77b9f5402c", model: 3 },
+  { key: "kavya", name: "Kavya", speaker: "kavya", gender: "feminine", tone: "Calm and caring", appId: "RANA-Runtim-f3aaa318-c225", appVersion: 2, catalogId: "01a0cf16-5f09-7c65-b9e6-9fe94b0e9441", model: 3 },
+  { key: "shreya", name: "Shreya", speaker: "shreya", gender: "feminine", tone: "Bright and confident", appId: "RANA-Runtim-5c226d02-a4b2", appVersion: 2, catalogId: "01a0cf16-67bf-76f0-8420-2ce24e69cffb", model: 3 },
+  { key: "aditya", name: "Aditya", speaker: "aditya", gender: "masculine", tone: "Clear and professional", appId: "RANA-Runtim-61c17dd3-0e02", appVersion: 2, catalogId: "01a0cf16-5726-7055-8622-322e53f6bc77", model: 3 },
+  { key: "rahul", name: "Rahul", speaker: "rahul", gender: "masculine", tone: "Friendly and upbeat", appId: "RANA-Runtim-aaae2662-4769", appVersion: 2, catalogId: "01a0cf16-5a52-747d-8900-0a77b9f5402c", model: 3 },
   { key: "kabir", name: "Kabir", speaker: "kabir", gender: "masculine", tone: "Deep and assured", appId: "RANA-Runtim-1b592e11-7534", appVersion: 1, catalogId: "01a0cf16-6ecd-7a97-b86b-f91eeadd5bd7", model: 3 },
 ];
 
@@ -96,8 +97,9 @@ export function parseAgentRef(ref: string | null | undefined): { appId: string; 
  */
 export async function routeVoice(cfg: SarvamConfig, nameOrKey: string | null | undefined): Promise<{ cfg: SarvamConfig; voice: SarvamVoice; live: boolean; via: SarvamVoice }> {
   const v = voiceFor(nameOrKey);
-  if (SARVAM_VOICES.includes(v)) return { cfg: withVoice(cfg, v.key), voice: v, live: true, via: v };
+  // HQ can connect an agent for any voice, built-in ones too (e.g. a copy whose greeting is the {{rana_greeting}} variable).
   const ref = parseAgentRef((await voiceAgents().catch(() => ({} as Record<string, string>)))[v.catalogId || ""]);
+  if (SARVAM_VOICES.includes(v) && !ref) return { cfg: withVoice(cfg, v.key), voice: v, live: true, via: v };
   if (ref) return { cfg: { ...cfg, ...ref }, voice: v, live: true, via: v };
   const fb = voiceFor(v.gender === "masculine" ? "aditya" : "priya");
   return { cfg: withVoice(cfg, fb.key), voice: v, live: false, via: fb };
@@ -145,9 +147,13 @@ export function sessionPayload(script: any, caller?: { name?: string | null; var
   const rana_instructions = ((details.length ? `${base}\n\n# About this caller\n${details.join("\n")}` : base).slice(0, 29900) + ref);
   // Live transfer target (only once the Sarvam agents have call forwarding bound to `transfer_to`).
   const transfer_to = liveTransferOn() ? transferNumber(normalizeHandoff(script.handoff)) : null;
+  const greeting = speakableGreeting(String((useIn && script.inbound?.greeting) || script.greeting || "").trim(), normalizePronunciations(script.pronunciations), script.starting_language || "en") || "";
+  // Phone calls and campaigns ignore initial_bot_message and speak the agent's own Greeting, so every RANA agent's
+  // Greeting is the variable {{rana_greeting}} — the employee's greeting travels as an agent variable on every call.
+  const vars: Record<string, string> = { rana_instructions, ...(greeting ? { rana_greeting: greeting } : {}), ...(transfer_to ? { transfer_to } : {}) };
   return {
-    agent_variables: transfer_to ? { rana_instructions, transfer_to } : { rana_instructions },
-    initial_bot_message: speakableGreeting(String((useIn && script.inbound?.greeting) || script.greeting || "").trim(), normalizePronunciations(script.pronunciations), script.starting_language || "en") || undefined,
+    agent_variables: vars,
+    initial_bot_message: greeting || undefined,
     initial_language_name: sarvamLanguageName(script.starting_language),
   };
 }
