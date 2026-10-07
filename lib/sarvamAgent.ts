@@ -132,8 +132,10 @@ export function sarvamLanguageName(code: string | null | undefined): string {
 /** What every call of this employee sends to Sarvam. Caller details are appended to the instructions so they work without extra agent variables. */
 export function sessionPayload(script: any, caller?: { name?: string | null; variables?: Record<string, string> }, direction?: CallDirection) {
   // Inbound and outbound must sound different: name the direction when we know it (older employees get both rules).
-  const raw = String(script.instructions || "").trim();
-  const styled = direction ? `${raw}\n\n${directionStyle(direction)}` : raw.includes(STYLE_MARKER) ? raw : `${raw}\n\n${BOTH_STYLES}`;
+  // Incoming calls use the inbound script when the employee has one ("they call us"); everything else the outbound one.
+  const useIn = direction === "inbound" && String(script.instructions_inbound || "").trim();
+  const raw = String(useIn ? script.instructions_inbound : script.instructions || "").trim();
+  const styled = direction ? (raw.includes(directionStyle(direction)) ? raw : `${raw}\n\n${directionStyle(direction)}`) : raw.includes(STYLE_MARKER) ? raw : `${raw}\n\n${BOTH_STYLES}`;
   const base = styled.includes(TONE_MARKER) ? styled : `${styled}\n\n${TONE_STYLE}`;
   const details = [
     caller?.name ? `- Name: ${caller.name}` : "",
@@ -145,7 +147,7 @@ export function sessionPayload(script: any, caller?: { name?: string | null; var
   const transfer_to = liveTransferOn() ? transferNumber(normalizeHandoff(script.handoff)) : null;
   return {
     agent_variables: transfer_to ? { rana_instructions, transfer_to } : { rana_instructions },
-    initial_bot_message: speakableGreeting(String(script.greeting || "").trim(), normalizePronunciations(script.pronunciations), script.starting_language || "en") || undefined,
+    initial_bot_message: speakableGreeting(String((useIn && script.inbound?.greeting) || script.greeting || "").trim(), normalizePronunciations(script.pronunciations), script.starting_language || "en") || undefined,
     initial_language_name: sarvamLanguageName(script.starting_language),
   };
 }
@@ -218,9 +220,9 @@ export function webhookUrl(clientSecret: string): string {
 }
 
 /** One outbound phone call right now. */
-export async function placeOutboundCall(cfg: SarvamConfig, input: { phone: string; script: any; caller?: { name?: string | null; variables?: Record<string, string> }; webhook?: string | null; metadata?: Record<string, string> }) {
+export async function placeOutboundCall(cfg: SarvamConfig, input: { phone: string; script: any; caller?: { name?: string | null; variables?: Record<string, string> }; webhook?: string | null; metadata?: Record<string, string>; direction?: CallDirection }) {
   if (!cfg.connectionId) throw new Error("No Sarvam phone connection is set (RANA_SARVAM_CONNECTION_ID).");
-  const p = sessionPayload(input.script, input.caller, "outbound");
+  const p = sessionPayload(input.script, input.caller, input.direction || "outbound");
   const body = {
     app_config: {
       app_id: cfg.appId, app_version: cfg.appVersion, app_type: "agent",

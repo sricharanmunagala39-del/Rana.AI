@@ -32,6 +32,8 @@ export async function POST(req: Request) {
       phone, script, caller: { name: String(b.name || "").trim() || null },
       webhook: client?.webhook_secret ? webhookUrl(client.webhook_secret) : null,
       metadata: { rana_script_id: script.id, rana_source: "test_call" },
+      // "Test my inbound script": we ring you, and the employee answers as if you had called the business.
+      direction: b.direction === "inbound" ? "inbound" : "outbound",
     });
     await audit(session, "number_test_call", { req, targetType: "employee", targetId: script.id, detail: { phone, engine: "sarvam", attemptId: r.attempt_id } }).catch(() => {});
     return Response.json({ ok: true, attemptId: r.attempt_id, from: cfg.agentNumber });

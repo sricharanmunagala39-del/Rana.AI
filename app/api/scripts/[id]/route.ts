@@ -7,7 +7,7 @@ import { forbidUnless } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { claimResource } from "@/lib/ownership";
 import { isForeignVoice } from "@/lib/voiceClone";
-import { normalizePlaybook, normalizeLinks, normalizePronunciations, normalizePolicy } from "@/lib/playbook";
+import { normalizePlaybook, normalizeLinks, normalizePronunciations, normalizePolicy, normalizeInbound } from "@/lib/playbook";
 import { normalizeHandoff } from "@/lib/handoff";
 import { getClientById } from "@/lib/supabase";
 import { clientEngines, isEngine } from "@/lib/voice/engines";
@@ -26,11 +26,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!existing || existing.client_id !== session.clientId) return Response.json({ error: "Not found" }, { status: 404 });
   const patch = await req.json();
   // Fields only the server sets. cartesia_agent_id especially: pointing it at someone else's agent would pull their calls.
-  for (const k of ["id", "client_id", "status", "cartesia_agent_id", "published_at", "created_at"]) delete patch[k];
+  for (const k of ["id", "client_id", "status", "cartesia_agent_id", "published_at", "created_at", "instructions_inbound"]) delete patch[k];
   if (await isForeignVoice(session.clientId, patch.speaker)) return Response.json({ error: "That voice isn't available to your account." }, { status: 403 });
   // Studio fields: always stored in their clean shape.
   if ("playbook" in patch) patch.playbook = patch.playbook ? normalizePlaybook(patch.playbook) : null;
   if ("links" in patch) patch.links = normalizeLinks(patch.links);
+  if ("inbound" in patch) patch.inbound = normalizeInbound(patch.inbound);
   if ("pronunciations" in patch) patch.pronunciations = normalizePronunciations(patch.pronunciations);
   if ("language_policy" in patch) patch.language_policy = normalizePolicy(patch.language_policy, patch.starting_language || existing.starting_language);
   if ("handoff" in patch) patch.handoff = normalizeHandoff(patch.handoff);

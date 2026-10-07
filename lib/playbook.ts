@@ -3,7 +3,7 @@
 // pronunciation. The AI builds it from whatever the client pastes; the client can edit any card
 // or ask the AI to change it; and at publish time it is compiled into the agent's instructions.
 import { handoffPrompt, type Handoff } from "./handoff";
-import { BOTH_STYLES } from "./callStyle";
+import { BOTH_STYLES, directionStyle } from "./callStyle";
 
 export type Objection = { objection: string; response: string };
 export type Faq = { question: string; answer: string };
@@ -21,6 +21,13 @@ export type Playbook = {
   facts: string[];
   missing?: string[];
 };
+/** The inbound script ("they call us"), kept beside the outbound one. Same playbook shape; cards mean slightly different things. */
+export type CallDirectionScript = { sourceScript: string; playbook: Playbook | null; greeting: string };
+export function normalizeInbound(v: any): CallDirectionScript | null {
+  if (!v || typeof v !== "object") return null;
+  const out = { sourceScript: str(v.sourceScript, 60000), playbook: v.playbook ? normalizePlaybook(v.playbook) : null, greeting: str(v.greeting, 1000) };
+  return out.sourceScript || out.playbook || out.greeting ? out : null;
+}
 export type AgentLink = { label: string; url: string; purpose: "payment" | "website" | "booking" | "brochure" | "other"; say?: string };
 export type Pronunciation = { word: string; sayAs: string; note?: string };
 export type WordSwap = { avoid: string; say: string };
@@ -162,7 +169,17 @@ const PLAYBOOK_SHAPE = `{
   "missing": ["important gaps in the script the business should fill, e.g. 'No answer for: is there EMI?'"]
 }`;
 
-export function analyzeMessages(input: { script: string; agentName: string; openingLanguage: string; businessNotes?: string; part?: number; parts?: number }) {
+const INBOUND_NOTE = `- THIS IS AN INBOUND SCRIPT: customers call the business (a shop, clinic, office). The agent answers, helps and never cold-pitches. Fill the fields like this:
+  greeting = welcome them to the business and ask how you can help (e.g. "Welcome to The Fashion House, how can I help you today?");
+  opening = how to respond once the caller says why they called (acknowledge and help);
+  discovery = details to collect only when useful (name, what they are looking for, size/budget, when they plan to visit);
+  pitch = products, prices, offers and services to share when the caller asks or it clearly helps;
+  objections = common requests and situations → what to do (e.g. "store location" → "we will send the location on WhatsApp", "is it open on Sunday" → the timings);
+  closing = how to end: ask "is there anything else?", invite them to visit, mention timings;
+  followUp = when you can't help: take their name and number, the team calls back.
+`;
+
+export function analyzeMessages(input: { script: string; agentName: string; openingLanguage: string; businessNotes?: string; part?: number; parts?: number; direction?: "inbound" | "outbound" }) {
   const lang = LANG_NAMES[baseLang(input.openingLanguage)] || "English";
   const partNote = input.parts && input.parts > 1
     ? `\nThis is PART ${input.part} of ${input.parts} of a long script. Extract only what is in this part; leave fields empty ("" or []) when this part has nothing for them.${(input.part || 1) > 1 ? " Leave \"greeting\", \"goal\", \"persona\" and \"opening\" empty unless this part clearly contains them." : ""}`
@@ -176,7 +193,7 @@ Rules:
 - Find every URL or website mentioned and return it in "links" with a purpose (payment, website, booking, brochure, other).
 ${baseLang(input.openingLanguage) !== "en" ? `- Write every ${lang} item the way people really speak on the phone — everyday ${lang}, not formal or bookish — keeping common English words (fees, batch, class, course, demo, online, payment, EMI, discount) as English words spelled in the native script.\n` : ""}- Suggest a greeting in ${lang}: the first sentence the agent says when the call connects (say who is calling and from where, in ${lang}${baseLang(input.openingLanguage) !== "en" ? `, written in ${SCRIPT_NOTE[baseLang(input.openingLanguage)] || "its native script"}` : ""}).
 - List brand names, course names, place names and acronyms the speech system might mishear in "keyterms", and ones a voice might mispronounce in "pronunciations" with a sounds-like spelling${baseLang(input.openingLanguage) !== "en" ? ` written in ${SCRIPT_NOTE[baseLang(input.openingLanguage)] || "the native script"} so a ${lang} voice says it the local way (e.g. {"word":"DBMCI","sayAs":"${baseLang(input.openingLanguage) === "te" ? "డి బి ఎం సి ఐ" : baseLang(input.openingLanguage) === "hi" ? "डी बी एम सी आई" : "D B M C I"}"})` : ` (e.g. {"word":"DBMCI","sayAs":"D B M C I"})`}.
-Return ONLY JSON of this shape:
+${input.direction === "inbound" ? INBOUND_NOTE : ""}Return ONLY JSON of this shape:
 {"playbook": ${PLAYBOOK_SHAPE},
  "greeting": "string",
  "links": [{"label": "string", "url": "string", "purpose": "payment|website|booking|brochure|other"}],
@@ -369,7 +386,7 @@ export function playbookToSteps(p: Playbook) {
 /* ── Compiling everything into the agent's instructions ── */
 
 export function buildAgentPrompt(s: {
-  name: string; greeting: string; startingLanguage: string; strictnessText: string;
+  name: string; greeting: string; startingLanguage: string; strictnessText: string; direction?: "inbound" | "outbound";
   playbook: Playbook | null; steps?: { title: string; body: string }[]; facts?: string[];
   policy: LanguagePolicy; links: AgentLink[]; pronunciations: Pronunciation[]; knowledge: KnowledgeItem[];
   handoff?: Handoff | null;
@@ -400,7 +417,21 @@ Speak only ${openName}${SCRIPT_NOTE[open] ? `, written in ${SCRIPT_NOTE[open]}` 
   const style = speakingStyleRules(s.policy.mode === "fixed" ? { ...s.policy, allowed: [open] } : s.policy, open);
   if (style) parts.push(style);
 
-  if (p) {
+  const inbound = s.direction === "inbound";
+  if (p && inbound) {
+    // They called us: listen first, help, answer from the plan, never cold-pitch.
+    const flow: string[] = [];
+    if (s.greeting) flow.push(`1. Greeting (already spoken when the call connects): "${s.greeting}"`);
+    flow.push(`2. Listen to why they are calling. ${p.opening || "Acknowledge it and help."}`);
+    if (p.discovery.length) flow.push(`3. Find out only what you need to help (one question at a time, skip what they already told you):\n${p.discovery.map((q) => `   - ${q}`).join("\n")}`);
+    if (p.pitch.length) flow.push(`4. Products, prices and offers — share only what matches what they asked about; don't push:\n${p.pitch.map((q) => `   - ${q}`).join("\n")}`);
+    flow.push(`5. Before ending: ${p.closing || "ask if there is anything else you can help with."} Always ask if there is anything else before you say goodbye.`);
+    if (p.followUp) flow.push(`6. If you can't help with something: ${p.followUp}`);
+    parts.push(`# This is an incoming call\nThe caller called the business. You answer, help and guide them. Don't sell to them unless they ask about products or prices.\n\n# Call flow\n${flow.join("\n")}`);
+    if (p.objections.length) parts.push(`# Common requests\nWhen the caller asks or says something like the left side, do the right side (in the caller's language, in your own words):\n${p.objections.map((o) => `- "${o.objection}" → ${o.response}`).join("\n")}`);
+    if (p.faqs.length) parts.push(`# Questions callers ask\n${p.faqs.map((f) => `- Q: ${f.question}\n  A: ${f.answer}`).join("\n")}`);
+    if (p.doNot.length) parts.push(`# Never\n${p.doNot.map((d) => `- ${d}`).join("\n")}`);
+  } else if (p) {
     const flow: string[] = [];
     if (s.greeting) flow.push(`1. Greeting (already spoken when the call connects): "${s.greeting}"`);
     if (p.opening) flow.push(`2. Opening — say why you are calling: ${p.opening}`);
@@ -447,9 +478,13 @@ ${s.pronunciations.map((x) => `- ${x.word} → ${x.sayAs}`).join("\n")}`);
   const handoff = s.handoff ? handoffPrompt(s.handoff) : "";
   if (handoff) parts.push(handoff);
 
-  parts.push(BOTH_STYLES);
+  parts.push(inbound ? directionStyle("inbound") : BOTH_STYLES);
 
-  parts.push(`# Always
+  if (inbound) parts.push(`# Always
+- Be honest. If asked whether you are an AI or a real person, say you are an AI assistant answering calls for the team.
+- If they want to speak to a person, take their name and number and say the team will call them back${s.handoff?.enabled ? ", or transfer the call as described above" : ""}.
+- Never promise anything that is not written above.`);
+  else parts.push(`# Always
 - Be honest. If asked whether you are an AI or a real person, say you are an AI assistant calling on behalf of the team.
 - If the caller asks not to be called again, apologise, confirm they will not be called again, and end the call politely.
 - If they are busy, ask for a good time to call back, confirm it, and end the call.
