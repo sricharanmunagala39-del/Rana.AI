@@ -49,6 +49,10 @@ function TalkInner() {
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [callError, setCallError] = useState("");
   const [callNotice, setCallNotice] = useState("");
+  // Employees with both scripts: test as an incoming call (they call the business) or an outgoing one.
+  const [hasInbound, setHasInbound] = useState(false);
+  const [hasOutbound, setHasOutbound] = useState(true);
+  const [testDir, setTestDir] = useState<"inbound" | "outbound">("outbound");
   const [callDuration, setCallDuration] = useState(0);
   const [transcript, setTranscript] = useState<{ role: "agent" | "user"; text: string }[]>([]);
   const [isMuted, setIsMuted] = useState(false);
@@ -89,6 +93,9 @@ function TalkInner() {
           setTestedAt(s.tested_at || null);
           setTestNotes(s.test_notes || "");
           setChecks(s.test_checklist || {});
+          const inb = !!String(s.instructions_inbound || "").trim();
+          const outb = !!s.playbook || !inb;
+          setHasInbound(inb); setHasOutbound(outb); setTestDir(inb && !outb ? "inbound" : "outbound");
         } catch { setNotFound(true); }
         finally { setStatusLoading(false); }
       })();
@@ -172,20 +179,20 @@ function TalkInner() {
 
     cartesiaCallRef.current = call;
     try {
-      await call.start(engine === "sarvam" && scriptId ? scriptId : publishInfo.agentId);
+      await (call as any).start(engine === "sarvam" && scriptId ? scriptId : publishInfo.agentId, hasInbound ? { direction: testDir } : undefined);
     } catch (err: any) {
       setCallStatus("error");
       setCallError(err?.message || "Failed to start call");
       cartesiaCallRef.current = null;
     }
-  }, [callStatus, publishInfo, engine, scriptId]);
+  }, [callStatus, publishInfo, engine, scriptId, hasInbound, testDir]);
 
   // Real phone test (Sarvam): the employee calls this number from the Sarvam Indian number.
   async function callMyPhone() {
     if (!scriptId) return;
     setPhoneBusy(true); setPhoneMsg(null);
     try {
-      const res = await fetch("/api/sarvam/call", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scriptId, phone: phoneTo }) });
+      const res = await fetch("/api/sarvam/call", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scriptId, phone: phoneTo, direction: hasInbound ? testDir : "outbound" }) });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Couldn't place the call.");
       setPhoneMsg({ ok: true, text: `Calling ${phoneTo} now${d.from ? ` from ${d.from}` : ""}. Pick up to talk to ${agentName}. The call appears in Inbound/Outbound results a minute after it ends.` });
@@ -328,6 +335,15 @@ function TalkInner() {
               {callStatus === "error" && callError && (
                 <div className="mt-5 text-[12.5px] text-red-200 bg-red-500/10 border border-red-500/20 rounded-lg px-3.5 py-2.5 max-w-[420px]">
                   {callError}
+                </div>
+              )}
+
+              {isIdleOrError && hasInbound && engine === "sarvam" && (
+                <div className="mt-6 flex gap-1.5 rounded-full border border-white/15 p-1" data-testid="test-direction">
+                  {([["inbound", "📥 As an incoming call"], ["outbound", "📤 As an outgoing call"]] as const).map(([k, l]) => (
+                    <button key={k} type="button" onClick={() => setTestDir(k)} aria-pressed={testDir === k}
+                      className={`rounded-full px-3.5 py-1.5 text-[12.5px] ${testDir === k ? "bg-white text-black font-semibold" : "text-white/70 hover:text-white"}`} data-testid={`test-dir-${k}`}>{l}</button>
+                  ))}
                 </div>
               )}
 

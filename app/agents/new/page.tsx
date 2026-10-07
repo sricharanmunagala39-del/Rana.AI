@@ -69,7 +69,7 @@ function WizardInner() {
   const [noiseSuppression, setNoiseSuppression] = useState<"off" | "auto" | "max">("auto");
   const [strictness, setStrictness] = useState(3);
   // Script Studio
-  const [studio, setStudio] = useState<any>({ sourceScript: "", playbook: null, greeting: "", links: [], pronunciations: [], keyterms: [], handoff: null });
+  const [studio, setStudio] = useState<any>({ sourceScript: "", playbook: null, greeting: "", inbound: null, links: [], pronunciations: [], keyterms: [], handoff: null });
   const setStudioPart = (patch: any) => setStudio((s: any) => ({ ...s, ...patch }));
 
   // ── Cartesia catalog ──
@@ -174,6 +174,7 @@ function WizardInner() {
           sourceScript: s.source_script || "",
           playbook,
           greeting: s.greeting || "",
+          inbound: s.inbound || null,
           links: s.links || [],
           pronunciations: s.pronunciations || [],
           keyterms: s.keyterms || [],
@@ -199,12 +200,17 @@ function WizardInner() {
   const selectedModel = models.find((m) => m.id === modelId);
   const selectedSound = backgroundSounds.find((s) => s.id === backgroundSoundId) || null;
   const pb = studio.playbook;
-  const planReady = !!pb && !!(pb.opening?.trim() || pb.discovery?.some((x: string) => x.trim()) || pb.pitch?.some((x: string) => x.trim()) || pb.closing?.trim());
+  const isReady = (p: any) => !!p && !!(p.opening?.trim() || p.discovery?.some((x: string) => x.trim()) || p.pitch?.some((x: string) => x.trim()) || p.closing?.trim());
+  // Either script is enough to publish: outbound ("we call them") or inbound ("they call us").
+  const outReady = isReady(pb) && !!studio.greeting?.trim();
+  const inReady = isReady(studio.inbound?.playbook) && !!(studio.inbound?.greeting || studio.greeting || "").trim();
+  const planReady = isReady(pb) || isReady(studio.inbound?.playbook);
+  const greetingReady = outReady || inReady;
 
   function canAdvance() {
     if (stepIdx === 0) return name.trim().length > 0;
     if (stepIdx === 1) return true; // voice/model auto-resolve server-side if left blank
-    if (stepIdx === 2) return studio.greeting.trim().length > 0 && planReady;
+    if (stepIdx === 2) return greetingReady;
     return true;
   }
 
@@ -244,6 +250,7 @@ function WizardInner() {
         pronunciations: (studio.pronunciations || []).filter((p: any) => p.word?.trim() && p.sayAs?.trim()),
         keyterms: studio.keyterms || [],
         handoff: studio.handoff || null,
+        inbound: studio.inbound ? { sourceScript: studio.inbound.sourceScript || "", playbook: cleanPlaybook(studio.inbound.playbook), greeting: studio.inbound.greeting || "" } : null,
         language_policy: policy,
         engine,
       };
@@ -683,9 +690,13 @@ function WizardInner() {
                       <div><Label>Calls from</Label><div className="text-[13.5px] mt-0.5">{sarvamStatus?.sarvam?.ownNumber ? `Your number ${sarvamStatus.sarvam.number}` : `RANA's shared Indian number${sarvamStatus?.sarvam?.number ? ` ${sarvamStatus.sarvam.number}` : ""}`}</div></div>
                       <div><Label>Sticks to script</Label><div className="text-[13.5px] mt-0.5">{STRICTNESS_LABELS.find((t) => t.value === strictness)?.label}</div></div>
                     </div>
+                    <div className="grid grid-cols-2 gap-3" data-testid="review-directions">
+                      <div><Label>📤 Outbound script</Label><div className="text-[13px] mt-0.5">{outReady ? "Ready — used when we call people" : inReady ? "Not set — calls we make use the inbound script" : "Not set"}</div></div>
+                      <div><Label>📥 Inbound script</Label><div className="text-[13px] mt-0.5">{inReady ? `Ready — answers with “${(studio.inbound?.greeting || studio.greeting || "").slice(0, 80)}”` : outReady ? "Not set — incoming calls use the outbound script" : "Not set"}</div></div>
+                    </div>
                     <div>
-                      <Label>Greeting</Label>
-                      <div className="text-[13.5px] mt-0.5 leading-relaxed">{studio.greeting || <span className="text-miss">No greeting yet</span>}</div>
+                      <Label>Greeting{inReady ? " (outbound)" : ""}</Label>
+                      <div className="text-[13.5px] mt-0.5 leading-relaxed">{studio.greeting || <span className={outReady || !inReady ? "text-miss" : "text-ink-soft"}>{inReady ? "Uses the inbound greeting" : "No greeting yet"}</span>}</div>
                       {studio.greeting && detectScriptLanguage(studio.greeting) && !sameScriptLanguage(detectScriptLanguage(studio.greeting), openBase) && (
                         <div className="text-[12px] text-warm mt-1">⚠ The greeting isn't in {openName}. Fix it in the Studio (there's a Translate button).</div>
                       )}
@@ -737,7 +748,7 @@ function WizardInner() {
                       className="border border-line bg-raised rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-50">
                       {saving && !publishing ? "Saving…" : "Save as draft"}
                     </button>
-                    <button onClick={handlePublish} disabled={saving || publishing || !studio.greeting.trim() || !planReady} data-testid="publish"
+                    <button onClick={handlePublish} disabled={saving || publishing || !greetingReady} data-testid="publish"
                       className="bg-signal text-on-accent rounded-lg px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-50">
                       {publishing ? "Publishing…" : cartesiaAgentId ? "Save & republish" : "Save & publish"}
                     </button>
@@ -760,7 +771,7 @@ function WizardInner() {
                     Continue
                   </button>
                   {stepIdx === 2 && !canAdvance() && (
-                    <span className="text-[12px] text-ink-soft">{!pb ? "Paste a script and build the call plan (or write it card by card)." : !studio.greeting.trim() ? "Add a greeting." : "Fill in at least the opening, a question, a pitch point or the closing."}</span>
+                    <span className="text-[12px] text-ink-soft">{!planReady ? "Paste a script (inbound or outbound) and build the call plan, or write it card by card." : !greetingReady ? "Add a greeting." : "Fill in at least the opening, a question, a pitch point or the closing."}</span>
                   )}
                 </div>
               )}

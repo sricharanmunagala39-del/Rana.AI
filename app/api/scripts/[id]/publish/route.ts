@@ -14,7 +14,7 @@ import { getSession } from "@/lib/session";
 import { forbidUnless } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { claimResource } from "@/lib/ownership";
-import { buildAgentPrompt, normalizePlaybook, normalizePolicy, normalizeLinks, normalizePronunciations } from "@/lib/playbook";
+import { buildAgentPrompt, normalizePlaybook, normalizePolicy, normalizeLinks, normalizePronunciations, normalizeInbound } from "@/lib/playbook";
 import { listKnowledge } from "@/lib/knowledge";
 import { normalizeHandoff } from "@/lib/handoff";
 import { autoAcronymRules } from "@/lib/acronym";
@@ -36,6 +36,21 @@ import { engineReady } from "@/lib/voice/server";
 async function compile(script: any) {
   const knowledge = await listKnowledge(script.id).catch(() => []);
   const tier = STRICTNESS_LABELS.find((t) => t.value === script.strictness) ?? STRICTNESS_LABELS[2];
+  // Two scripts: outbound ("we call them") and inbound ("they call us"). If only one is filled, it serves both.
+  const inbound = normalizeInbound(script.inbound);
+  const hasOut = !!script.playbook || (script.steps || []).some((x: any) => x?.title?.trim() || x?.body?.trim());
+  const shared = {
+    name: script.name, startingLanguage: script.starting_language || "en-IN", strictnessText: tier.description,
+    policy: normalizePolicy(script.language_policy, script.starting_language || "en-IN"),
+    links: normalizeLinks(script.links), pronunciations: withAcronyms(script),
+    knowledge: knowledge.map((k: any) => ({ title: k.title, kind: k.kind, summary: k.summary, content: k.content })),
+    handoff: normalizeHandoff(script.handoff),
+  };
+  const instructionsInbound = inbound?.playbook ? buildAgentPrompt({ ...shared, direction: "inbound", greeting: inbound.greeting || script.greeting || "", playbook: inbound.playbook, facts: script.facts || [] }) : null;
+  if (!hasOut && instructionsInbound) {
+    const keyterms = Array.from(new Set([...(script.keyterms || []), ...normalizePronunciations(script.pronunciations).map((p) => p.word)])).slice(0, 100);
+    return { instructions: instructionsInbound, instructionsInbound, keyterms };
+  }
   const instructions = buildAgentPrompt({
     name: script.name, greeting: script.greeting || "", startingLanguage: script.starting_language || "en-IN",
     strictnessText: tier.description,
@@ -47,7 +62,7 @@ async function compile(script: any) {
     handoff: normalizeHandoff(script.handoff),
   });
   const keyterms = Array.from(new Set([...(script.keyterms || []), ...normalizePronunciations(script.pronunciations).map((p) => p.word)])).slice(0, 100);
-  return { instructions, keyterms };
+  return { instructions, instructionsInbound, keyterms };
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -76,11 +91,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const cfg = routed?.cfg || null;
     if (!cfg) return Response.json({ error: "Calling isn't switched on for your account yet — RANA support has been notified." }, { status: 500 });
     try {
-      const { instructions, keyterms } = await compile(first);
+      const { instructions, instructionsInbound, keyterms } = await compile(first);
       const agentRef = `sarvam:${cfg.appId}`;
       await audit(session, "employee_published", { req, targetType: "employee", targetId: first.id, detail: { name: first.name, engine: "sarvam", agentId: cfg.appId } });
       const updated = await updateScript(params.id, {
-        cartesia_agent_id: agentRef, engine: "sarvam", voice_name: voice.name, published_at: new Date().toISOString(), instructions, keyterms,
+        cartesia_agent_id: agentRef, engine: "sarvam", voice_name: voice.name, published_at: new Date().toISOString(), instructions, instructions_inbound: instructionsInbound, keyterms,
       } as any);
       return Response.json({ ok: true, script: updated, agentId: agentRef, engine: "sarvam", voice: voice.name, chars: instructions.length });
     } catch (err: any) {

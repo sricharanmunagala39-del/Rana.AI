@@ -6,7 +6,7 @@ import { analyzeMessages, heuristicPlaybook, normalizePlaybook, normalizeLinks, 
 import { listKnowledge } from "@/lib/knowledge";
 
 /**
- * POST { script, agentName, openingLanguage, scriptId? } → playbook + greeting + links + keyterms + pronunciations.
+ * POST { script, agentName, openingLanguage, scriptId?, direction? ("inbound" = they call us) } → playbook + greeting + links + keyterms + pronunciations.
  * Long scripts are read in parts (in parallel) and merged, so a 5,000-word script doesn't overflow one AI reply.
  */
 export async function POST(req: Request) {
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   const agentName = String(b.agentName || "");
   const openingLanguage = String(b.openingLanguage || "en");
   const results = await Promise.allSettled(parts.map((part, i) =>
-    chatJson(analyzeMessages({ script: part, agentName, openingLanguage, businessNotes: i === 0 ? notes : "", part: i + 1, parts: parts.length }),
+    chatJson(analyzeMessages({ script: part, agentName, openingLanguage, businessNotes: i === 0 ? notes : "", part: i + 1, parts: parts.length, direction: b.direction === "inbound" ? "inbound" : "outbound" }),
       { maxTokens: 6000, temperature: 0.2, timeoutMs: 170000 })));
   const ok = results.filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled").map((r) => r.value);
   const failed = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");

@@ -26,7 +26,9 @@ export async function POST(req: Request) {
   try {
     const rv = await routeVoice(cfg, script.voice_name);
     const signed = await signedSessionUrl(rv.cfg, `rana-test-${session.clientId.slice(0, 8)}-${Date.now()}`);
-    const p = sessionPayload(script);
+    // Test as an incoming or outgoing call; without a choice the employee answers as before (both styles).
+    const direction = b.direction === "inbound" || b.direction === "outbound" ? b.direction : undefined;
+    const p = sessionPayload(script, undefined, direction);
     // Metered: Sarvam bills browser sessions like calls, so every practice session is recorded.
     const practiceId = await startPractice(session.clientId, script.id, (session as any).email || null);
     const hotwords = (Array.isArray(script.keyterms) ? script.keyterms : []).map((k: any) => String(k)).filter(Boolean).slice(0, 50);
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
         // Best effort: asks for the chosen library voice (the engine currently keeps the agent's own voice).
         ...(!rv.live && rv.voice.catalogId ? { text_to_speech_config: { speaker_id: rv.voice.catalogId } } : {}),
       },
-      voice: rv.live ? rv.voice.name : rv.via.name, voiceNote: rv.live ? null : `${rv.voice.name} is being set up — this test uses ${rv.via.name} until it is ready.`, language: p.initial_language_name,
+      direction: direction || null, hasInbound: !!String(script.instructions_inbound || "").trim(), voice: rv.live ? rv.voice.name : rv.via.name, voiceNote: rv.live ? null : `${rv.voice.name} is being set up — this test uses ${rv.via.name} until it is ready.`, language: p.initial_language_name,
       practiceId, maxSeconds: MAX_PRACTICE_S,
     });
   } catch (e: any) {

@@ -84,8 +84,8 @@ export class SarvamVoiceCall {
   constructor(onEvent: (e: SarvamCallEvent) => void) { this.onEvent = onEvent; }
 
   /** scriptId: the RANA employee to talk to. */
-  async start(scriptId: string) {
-    const res = await fetch("/api/sarvam/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scriptId }) });
+  async start(scriptId: string, opts: { direction?: "inbound" | "outbound" } = {}) {
+    const res = await fetch("/api/sarvam/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scriptId, ...(opts.direction ? { direction: opts.direction } : {}) }) });
     const session = await res.json();
     if (!res.ok) throw new Error(session.error || "Couldn't start the call");
     if (session.voiceNote) this.onEvent({ type: "notice", message: String(session.voiceNote) });
