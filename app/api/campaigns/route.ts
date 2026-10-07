@@ -104,7 +104,7 @@ export async function POST(req: Request) {
   if (onSarvam) {
     const base = sarvamConfig();
     if (!base) return Response.json({ error: "Calling isn't switched on for your account yet — RANA support has been notified." }, { status: 500 });
-    const { cfg } = await routeVoice(withClientNumber(base, clientRow), script.voice_name);
+    const { cfg } = await routeVoice(withClientNumber(base, clientRow), (script as any).voice_name, (script as any).engine_agent);
     if (!cfg.connectionId) return Response.json({ error: "No calling number is connected to your account yet — RANA support has been notified." }, { status: 500 });
     const client: any = await getClientById(session.clientId);
     const campaign = await createCampaignRow({

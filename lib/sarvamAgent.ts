@@ -95,8 +95,11 @@ export function parseAgentRef(ref: string | null | undefined): { appId: string; 
  * agent: the 6 built-in voices always; a library voice once HQ connects one. Until then the call uses the
  * built-in voice of the same gender (`live: false`, `via` = the voice actually heard).
  */
-export async function routeVoice(cfg: SarvamConfig, nameOrKey: string | null | undefined): Promise<{ cfg: SarvamConfig; voice: SarvamVoice; live: boolean; via: SarvamVoice }> {
+export async function routeVoice(cfg: SarvamConfig, nameOrKey: string | null | undefined, own?: string | null): Promise<{ cfg: SarvamConfig; voice: SarvamVoice; live: boolean; via: SarvamVoice }> {
   const v = voiceFor(nameOrKey);
+  // An employee connected to a ready-made agent (HQ) always calls through it.
+  const mine = own ? parseAgentRef(own) : null;
+  if (mine) return { cfg: { ...cfg, ...mine }, voice: v, live: true, via: v };
   // HQ can connect an agent for any voice, built-in ones too (e.g. a copy whose greeting is the {{rana_greeting}} variable).
   const ref = parseAgentRef((await voiceAgents().catch(() => ({} as Record<string, string>)))[v.catalogId || ""]);
   if (SARVAM_VOICES.includes(v) && !ref) return { cfg: withVoice(cfg, v.key), voice: v, live: true, via: v };
@@ -133,6 +136,8 @@ export function sarvamLanguageName(code: string | null | undefined): string {
 
 /** What every call of this employee sends to Sarvam. Caller details are appended to the instructions so they work without extra agent variables. */
 export function sessionPayload(script: any, caller?: { name?: string | null; variables?: Record<string, string> }, direction?: CallDirection) {
+  // A ready-made agent has its own script and greeting: send nothing that would override them.
+  if (parseAgentRef(script?.engine_agent)) return { agent_variables: {} as Record<string, string>, initial_bot_message: undefined as string | undefined, initial_language_name: sarvamLanguageName(script.starting_language) };
   // Inbound and outbound must sound different: name the direction when we know it (older employees get both rules).
   // Incoming calls use the inbound script when the employee has one ("they call us"); everything else the outbound one.
   const useIn = direction === "inbound" && String(script.instructions_inbound || "").trim();
