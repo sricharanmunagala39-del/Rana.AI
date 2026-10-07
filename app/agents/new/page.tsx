@@ -15,6 +15,7 @@ import BackgroundSoundPicker, { PickerBackgroundSound } from "@/components/Backg
 import ScriptStudio from "@/components/studio/ScriptStudio";
 import AskAiBar from "@/components/studio/AskAiBar";
 import ReviewCoach from "@/components/studio/ReviewCoach";
+import OwnAgentPanel from "@/components/OwnAgentPanel";
 import { LANGUAGES, STRICTNESS_LABELS, stepsToInstructions } from "@/lib/storage";
 import { baseLang, LANG_NAMES, playbookFromSteps, playbookToSteps, detectScriptLanguage, sameScriptLanguage } from "@/lib/playbook";
 
@@ -537,6 +538,7 @@ function WizardInner() {
                     <button type="button" onClick={() => setR1Open(true)} className="mt-3 w-full border border-dashed border-line rounded-xl px-3 py-2.5 text-[13px] font-semibold hover:border-signal" data-testid="r1-open">
                       Browse all 200 voices (v3 + v4) — filter by language, gender and use
                     </button>
+                    <OwnAgentPanel scriptId={savedId} />
                     {r1Open && typeof document !== "undefined" && createPortal(
                       <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setR1Open(false); }}>
                         <div role="dialog" aria-label="All voices" className="w-full max-w-[1100px] max-h-[88vh] overflow-y-auto overscroll-contain rounded-2xl border border-line bg-raised shadow-2xl p-5" data-testid="r1-dialog">

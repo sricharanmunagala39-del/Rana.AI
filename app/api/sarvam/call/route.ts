@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   const client: any = await getClientById(session.clientId);
   const planBlock = await callingBlock(client);
   if (planBlock) return Response.json({ error: planBlock, code: "plan_limit" }, { status: 402 });
-  const { cfg } = await routeVoice(withClientNumber(base, client), script.voice_name);
+  const { cfg } = await routeVoice(withClientNumber(base, client), script.voice_name, script.engine_agent);
   try {
     const r = await placeOutboundCall(cfg, {
       phone, script, caller: { name: String(b.name || "").trim() || null },

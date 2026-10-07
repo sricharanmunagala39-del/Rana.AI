@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   const planBlock = await callingBlock(await getClientById(session.clientId), { practice: true }); // own free allowance, not plan minutes
   if (planBlock) return Response.json({ error: planBlock, code: "plan_limit" }, { status: 402 });
   try {
-    const rv = await routeVoice(cfg, script.voice_name);
+    const rv = await routeVoice(cfg, script.voice_name, script.engine_agent);
     const signed = await signedSessionUrl(rv.cfg, `rana-test-${session.clientId.slice(0, 8)}-${Date.now()}`);
     // Test as an incoming or outgoing call; without a choice the employee answers as before (both styles).
     const direction = b.direction === "inbound" || b.direction === "outbound" ? b.direction : undefined;
