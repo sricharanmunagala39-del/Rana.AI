@@ -24,7 +24,7 @@ export const ALERT_FIELDS: { key: string; label: string }[] = [
 ];
 export const DEFAULT_RULES: Rules = { leads: ["ready_to_close", "hot", "needs_person"], directions: ["outbound", "inbound"], campaigns: "all", fields: ["name", "phone", "lead", "purpose", "details", "summary", "campaign", "needs_person", "recording"] };
 /** Which calls a channel can ask for: the lead statuses, plus wholesale enquiries and "every call" (for a Google Sheet log). */
-export const ALERT_LEAD_CHOICES: { key: string; label: string }[] = [...LEAD_CHOICES, { key: "wholesale", label: "Wholesale enquiries" }, { key: "all", label: "Every call (for a sheet)" }];
+export const ALERT_LEAD_CHOICES: { key: string; label: string }[] = [...LEAD_CHOICES.filter((c) => c.key !== "wholesale"), { key: "wholesale", label: "Wholesale enquiries" }, { key: "all", label: "Every call (for a sheet)" }];
 const LEAD_KEYS = ALERT_LEAD_CHOICES.map((c) => c.key);
 
 const clip = (v: any, n: number) => String(v ?? "").slice(0, n);

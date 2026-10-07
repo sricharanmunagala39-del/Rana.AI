@@ -36,10 +36,11 @@ export async function analyzeCall(client: any, call: any): Promise<Insight | nul
  "lead_status": one of ${JSON.stringify(LEADS)},
  "purpose": "why they called, one short sentence in English",
  "reason": "one short sentence: why this lead_status",
- "wholesale": true if the caller asks about wholesale, bulk, dealer/reseller prices or large quantities for resale, else false,
+ "wholesale": true only if the CALLER wants to buy wholesale / in bulk / for resale (dealer prices, large quantities); false if they said retail or only the agent mentioned wholesale,
  "details": {"name","product","size","quantity","budget","visit","location","language"} — only what the caller actually said, in English, omit unknown keys}
 Rules: category "lead" = a possible new customer asking about products/services/prices/stock/visiting; "customer" = existing customer (order, exchange, return, follow-up); "support" = complaint or problem; "marketing" = someone selling something TO the business (ads, loans, software, SEO, vendors); "spam" = scam, robocall, abusive or prank; "junk" = no real conversation (silence, hung up, only hello); "wrong_number" = meant someone else.
 lead_status: "ready_to_close" = will buy/pay/visit now or booked a visit; "hot" = clear buying intent (price, size, stock, location, timings) and engaged; "warm" = some interest or asked to call later; "cold" = little interest, or any non-lead category; "not_interested" = declined.
+details.location = where the CALLER is or lives, only if they said it — never the business's own address or anything the agent said.
 Never invent details.` },
     { role: "user", content: `Call (${call.direction === "outbound" ? "we called them" : "they called us"}, ${Math.round(Number(call.duration_seconds) || 0)}s):\n${text}` },
   ], { maxTokens: 500, temperature: 0, timeoutMs: 12000 });
@@ -49,7 +50,9 @@ Never invent details.` },
   const d = j?.details && typeof j.details === "object" ? j.details : {};
   const details: Insight["details"] = {};
   for (const k of ["name", "product", "size", "quantity", "budget", "visit", "location", "language"] as const) { const v = clip(d[k], 120); if (v && !/^(unknown|n\/a|none|null|-)$/i.test(v)) details[k] = v; }
-  const wholesale = j?.wholesale === true || WHOLESALE_RX.test(text);
+  // Only the caller's own words count: the agent asking "retail or wholesale?" is not a wholesale enquiry.
+  const said = (call.transcript || []).filter((t: any) => t.role === "user").map((t: any) => `${t.text || ""} ${t.indic_text || ""}`).join(" ");
+  const wholesale = j?.wholesale === true || WHOLESALE_RX.test(said.replace(/\bretail\b/gi, ""));
   return { category, lead_status: lead, purpose: clip(j?.purpose, 240), reason: clip(j?.reason, 240), wholesale, details };
 }
 
