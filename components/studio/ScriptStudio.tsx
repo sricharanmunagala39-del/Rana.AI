@@ -24,7 +24,30 @@ Objection: Fees are too high → We have EMI from ₹10,000 per month and a 10% 
 Objection: I'll think about it → Sure, can I send the brochure on WhatsApp? Seats in the regular batch are limited.
 Close: Ask them to book a free demo class at dbmci.com/demo or pay the seat booking amount at https://rzp.io/l/dbmci-neetpg`;
 
-export default function ScriptStudio({ value, set, agentName, openingLanguage, policy, voiceId, voiceName, speed, engine, scriptId, ensureSaved, strictness, setStrictness, strictnessLabels }: any) {
+const SAMPLE_IN = `Greeting: Welcome to The Fashion House, how can I help you today?
+If they ask for the store location: We'll send the location on WhatsApp right after this call. It's opposite City Centre Mall, Banjara Hills.
+Timings: Open 10 am to 10 pm, all 7 days.
+Shirts: Formal and casual shirts from ₹799. Linen shirts ₹1,499. Sizes S to XXL.
+Ethnic wear: Kurtas from ₹1,299, sherwanis from ₹8,999 — best to visit and try.
+Before ending: Is there anything else you are looking for? Do visit us, we're open till 10 pm.
+If we can't answer: Take their name and number — the store team will call back.`;
+
+const EMPTY_SCRIPT = { sourceScript: "", playbook: null, greeting: "" };
+
+export default function ScriptStudio({ value: rawValue, set: rawSet, agentName, openingLanguage, policy, voiceId, voiceName, speed, engine, scriptId, ensureSaved, strictness, setStrictness, strictnessLabels }: any) {
+  // Two scripts: outbound ("we call them": campaigns, call-backs) and inbound ("they call us": the business number).
+  // Links, pronunciation, knowledge and call transfer are shared; the script, greeting and call plan are per direction.
+  const [dir, setDir] = useState<"outbound" | "inbound">(() => (!rawValue.playbook && rawValue.inbound?.playbook ? "inbound" : "outbound"));
+  const inb = { ...EMPTY_SCRIPT, ...(rawValue.inbound || {}) };
+  const value = dir === "inbound" ? { ...rawValue, sourceScript: inb.sourceScript, playbook: inb.playbook, greeting: inb.greeting } : rawValue;
+  const set = (patch: any) => {
+    if (dir === "outbound") return rawSet(patch);
+    const own: any = {}, rest: any = {};
+    for (const [k, v] of Object.entries(patch)) (k in EMPTY_SCRIPT ? own : rest)[k] = v;
+    rawSet({ ...rest, ...(Object.keys(own).length ? { inbound: { ...inb, ...own } } : {}) });
+  };
+  const IN = dir === "inbound";
+  const ready = (x: any) => !!x?.playbook && !!(x.playbook.opening?.trim() || x.playbook.discovery?.some((q: string) => q?.trim()) || x.playbook.pitch?.some((q: string) => q?.trim()) || x.playbook.closing?.trim());
   const { sourceScript, playbook, greeting, links, pronunciations, keyterms } = value;
   const [tab, setTab] = useState<"script" | "hear" | "knowledge" | "links" | "say" | "handoff">("script");
   const [analyzing, setAnalyzing] = useState(false);
@@ -47,7 +70,7 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
     try {
       const res = await fetch("/api/studio/analyze", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ script: sourceScript, agentName, openingLanguage, scriptId }),
+        body: JSON.stringify({ script: sourceScript, agentName, openingLanguage, scriptId, direction: dir }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Couldn't read the script.");
@@ -121,11 +144,28 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
         ))}
       </div>
 
+      {(tab === "script" || tab === "hear") && (
+        <div className="grid grid-cols-2 gap-2" data-testid="direction-switch">
+          {([["outbound", "📤 Outbound script", "We call them — campaigns, follow-ups, call-backs", rawValue], ["inbound", "📥 Inbound script", "They call us — your business number", inb]] as const).map(([k, title, sub, src]) => (
+            <button key={k} type="button" onClick={() => { setDir(k as any); setShowSource(!(src as any).playbook); setAnalyzeMsg(null); }} aria-pressed={dir === k} data-testid={`dir-${k}`}
+              className={`text-left rounded-xl border px-3.5 py-2.5 ${dir === k ? "border-signal ring-1 ring-signal bg-signal-tint/40" : "border-line bg-raised hover:border-signal/50"}`}>
+              <div className="text-[13.5px] font-semibold flex items-center gap-2">{title}
+                <span className={`text-[10.5px] font-mono rounded-full px-1.5 py-0.5 border ${ready(src) ? "text-signal border-signal/50" : "text-ink-soft border-line"}`}>{ready(src) ? "READY" : "NOT SET"}</span>
+              </div>
+              <div className="text-[11.5px] text-ink-soft">{sub}</div>
+            </button>
+          ))}
+          <div className="col-span-2 text-[11.5px] text-ink-soft">
+            {ready(rawValue) && ready(inb) ? "Incoming calls use the inbound script; campaigns and calls we make use the outbound one." : ready(rawValue) || ready(inb) ? `Only the ${ready(inb) ? "inbound" : "outbound"} script is set, so it is used for every call. Add the ${ready(inb) ? "outbound" : "inbound"} one to make ${ready(inb) ? "calls you make" : "incoming calls"} sound right.` : "Fill the inbound script for calls to your number, the outbound one for calls you make — or both."}
+          </div>
+        </div>
+      )}
+
       {tab === "script" && (
         <>
           {/* 1. The raw script */}
           {showSource ? (
-            <Card title="Your call script" hint="Type or paste it, say it out loud, or upload a recording of a good call. Any format — headings, bullet points, a paragraph. English, Telugu, Hindi or mixed." testId="source-card">
+            <Card title={IN ? "Your inbound script — when customers call you" : "Your outbound script — when you call customers"} hint="Type or paste it, say it out loud, or upload a recording of a good call. Any format — headings, bullet points, a paragraph. English, Telugu, Hindi or mixed." testId="source-card">
               <div className="flex gap-1.5 mb-3" data-testid="input-modes">
                 {[["type", "⌨ Type script"], ["record", "🎙 Record voice"], ["upload", "⬆ Upload audio"]].map(([k, l]) => (
                   <button key={k} type="button" onClick={() => setInputMode(k as any)} data-testid={`mode-${k}`}
@@ -140,7 +180,7 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
               )}
               {heard && inputMode === "type" && <div className="text-[12px] text-signal mb-2" data-testid="heard">✓ Written down from your audio. Fix any words it misheard, then build the call plan.</div>}
               <textarea value={sourceScript} onChange={(e) => set({ sourceScript: e.target.value })} rows={10} data-testid="source-script"
-                placeholder={"Intro: …\nQuestions to ask: …\nOffer / fees: …\nIf they say it's expensive: …\nClosing: …"}
+                placeholder={IN ? "Greeting: Welcome to …, how can I help you today?\nIf they ask for location: …\nTimings: …\nProducts and prices: …\nBefore ending: Is there anything else?" : "Intro: …\nQuestions to ask: …\nOffer / fees: …\nIf they say it's expensive: …\nClosing: …"}
                 className="w-full border border-line rounded-lg px-3 py-2.5 text-[13.5px] bg-raised outline-none focus:border-signal resize-y leading-relaxed" />
               <div className="flex flex-wrap items-center gap-2 mt-3">
                 <button type="button" onClick={analyze} disabled={analyzing || sourceScript.trim().length < 40} data-testid="analyze"
@@ -148,7 +188,7 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
                   {analyzing ? <><Spinner /> Reading your script…</> : <>✦ {playbook ? "Read it again" : "Build the call plan with AI"}</>}
                 </button>
                 {!playbook && !sourceScript && (
-                  <button type="button" onClick={() => set({ sourceScript: SAMPLE })} className="text-[12.5px] font-semibold text-ink-soft underline">Try a sample script</button>
+                  <button type="button" onClick={() => set({ sourceScript: IN ? SAMPLE_IN : SAMPLE })} className="text-[12.5px] font-semibold text-ink-soft underline">Try a sample script</button>
                 )}
                 {!playbook && (
                   <button type="button" onClick={() => { set({ playbook: { ...EMPTY_PLAYBOOK } }); setShowSource(false); }} className="text-[12.5px] font-semibold text-ink-soft ml-auto">
@@ -188,10 +228,10 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
                 </Card>
               )}
 
-              <Card title="Greeting" hint={`Said word-for-word the moment the call connects, in ${openName}.`} testId="greeting-card"
+              <Card title={IN ? "Greeting — when you pick up" : "Greeting"} hint={IN ? `Said word-for-word when the employee answers, in ${openName}. Welcome them and ask how you can help.` : `Said word-for-word the moment the call connects, in ${openName}.`} testId="greeting-card"
                 right={greetMismatch ? null : greeting.trim() ? <span className="text-[11px] text-signal font-semibold">✓ {openName}</span> : null}>
                 <AutoText value={greeting} onChange={(v: string) => set({ greeting: v })} rows={2} data-testid="greeting"
-                  placeholder={open === "te" ? "నమస్కారం, నేను DBMCI నుండి మాట్లాడుతున్నాను…" : open === "hi" ? "नमस्ते, मैं DBMCI से बात कर रही हूँ…" : "Hello, this is Priya calling from DBMCI…"}
+                  placeholder={IN ? (open === "te" ? "నమస్కారం, ఫ్యాషన్ హౌస్‌కి స్వాగతం. ఎలా సహాయం చేయగలను?" : open === "hi" ? "नमस्ते, फ़ैशन हाउस में आपका स्वागत है। मैं आपकी कैसे मदद कर सकती हूँ?" : "Welcome to The Fashion House, how can I help you today?") : open === "te" ? "నమస్కారం, నేను DBMCI నుండి మాట్లాడుతున్నాను…" : open === "hi" ? "नमस्ते, मैं DBMCI से बात कर रही हूँ…" : "Hello, this is Priya calling from DBMCI…"}
                   className="text-[14px] border border-line rounded-lg px-3 py-2 bg-raised focus:border-signal" />
                 {greetMismatch && (
                   <div className="mt-2 flex items-center justify-between gap-3 text-[12.5px] bg-hot-tint border border-hot/30 rounded-lg px-3 py-2" data-testid="greeting-mismatch">
@@ -206,31 +246,31 @@ export default function ScriptStudio({ value, set, agentName, openingLanguage, p
 
               <div className="grid grid-cols-2 gap-4">
                 <Card title="Goal of the call" hint="What a successful call ends with.">
-                  <AutoText value={pb.goal} onChange={(v: string) => setPb({ goal: v })} placeholder="Book a free demo class or collect the seat booking amount" className="text-[13.5px]" />
+                  <AutoText value={pb.goal} onChange={(v: string) => setPb({ goal: v })} placeholder={IN ? "Answer every question and get them to visit the store" : "Book a free demo class or collect the seat booking amount"} className="text-[13.5px]" />
                 </Card>
                 <Card title="Who the employee is" hint="Name, role, tone.">
                   <AutoText value={pb.persona} onChange={(v: string) => setPb({ persona: v })} placeholder="Priya, a friendly senior counsellor at DBMCI Hyderabad" className="text-[13.5px]" />
                 </Card>
               </div>
 
-              <Card title="① Opening" hint="Right after the greeting — why you're calling." testId="card-opening">
-                <AutoText value={pb.opening} onChange={(v: string) => setPb({ opening: v })} placeholder="I'm calling about our NEET PG batch starting next month…" className="text-[13.5px]" />
+              <Card title={IN ? "① First reply" : "① Opening"} hint={IN ? "After the caller says why they called — how to respond." : "Right after the greeting — why you're calling."} testId="card-opening">
+                <AutoText value={pb.opening} onChange={(v: string) => setPb({ opening: v })} placeholder={IN ? "Sure, I can help with that." : "I'm calling about our NEET PG batch starting next month…"} className="text-[13.5px]" />
               </Card>
-              <Card title="② Questions to ask" hint="Asked one at a time, in this order." badge={pb.discovery.length} testId="card-discovery">
-                <ListEditor items={pb.discovery} onChange={(v: any) => setPb({ discovery: v })} numbered placeholder="Which year are you preparing for?" addLabel="+ Add a question" />
+              <Card title={IN ? "② Details to find out" : "② Questions to ask"} hint={IN ? "Asked only when useful, one at a time." : "Asked one at a time, in this order."} badge={pb.discovery.length} testId="card-discovery">
+                <ListEditor items={pb.discovery} onChange={(v: any) => setPb({ discovery: v })} numbered placeholder={IN ? "What are you looking for — shirts, trousers or ethnic wear?" : "Which year are you preparing for?"} addLabel={IN ? "+ Add a detail" : "+ Add a question"} />
               </Card>
-              <Card title="③ Pitch" hint="Key points, most important first. The employee picks the ones that match the caller." badge={pb.pitch.length} testId="card-pitch">
-                <ListEditor items={pb.pitch} onChange={(v: any) => setPb({ pitch: v })} numbered placeholder="Recorded videos you can watch anytime" addLabel="+ Add a point" />
+              <Card title={IN ? "③ Products, prices & offers" : "③ Pitch"} hint={IN ? "Shared when the caller asks — never pushed." : "Key points, most important first. The employee picks the ones that match the caller."} badge={pb.pitch.length} testId="card-pitch">
+                <ListEditor items={pb.pitch} onChange={(v: any) => setPb({ pitch: v })} numbered placeholder={IN ? "Formal shirts from ₹799, sizes S to XXL" : "Recorded videos you can watch anytime"} addLabel={IN ? "+ Add a product or offer" : "+ Add a point"} />
               </Card>
-              <Card title="④ Objection handling" hint="When the caller pushes back." badge={pb.objections.length} testId="card-objections">
-                <PairEditor items={pb.objections} onChange={(v: any) => setPb({ objections: v })} left="If the caller says" right="Respond with" leftKey="objection" rightKey="response"
-                  leftPh="Fees are too high" rightPh="We have EMI from ₹10,000 a month…" addLabel="+ Add an objection" />
+              <Card title={IN ? "④ Common requests" : "④ Objection handling"} hint={IN ? "What callers ask for, and what the employee does." : "When the caller pushes back."} badge={pb.objections.length} testId="card-objections">
+                <PairEditor items={pb.objections} onChange={(v: any) => setPb({ objections: v })} left={IN ? "If the caller asks" : "If the caller says"} right={IN ? "Do / say" : "Respond with"} leftKey="objection" rightKey="response"
+                  leftPh={IN ? "Store location" : "Fees are too high"} rightPh={IN ? "We'll send the location on WhatsApp right after this call." : "We have EMI from ₹10,000 a month…"} addLabel={IN ? "+ Add a request" : "+ Add an objection"} />
               </Card>
-              <Card title="⑤ Closing" hint="The exact ask / next step." testId="card-closing">
-                <AutoText value={pb.closing} onChange={(v: string) => setPb({ closing: v })} placeholder="Shall I book your free demo class for this Saturday?" className="text-[13.5px]" />
+              <Card title={IN ? "⑤ Before ending" : "⑤ Closing"} hint={IN ? "Always asks if there's anything else before goodbye." : "The exact ask / next step."} testId="card-closing">
+                <AutoText value={pb.closing} onChange={(v: string) => setPb({ closing: v })} placeholder={IN ? "Is there anything else you are looking for? Do visit us — we're open till 10 pm." : "Shall I book your free demo class for this Saturday?"} className="text-[13.5px]" />
               </Card>
-              <Card title="If they're not ready" hint="Callback, send details on WhatsApp, etc.">
-                <AutoText value={pb.followUp} onChange={(v: string) => setPb({ followUp: v })} placeholder="Offer to send the brochure on WhatsApp and ask for a good time to call back." className="text-[13.5px]" />
+              <Card title={IN ? "If we can't help" : "If they're not ready"} hint={IN ? "Take a message — the team calls back." : "Callback, send details on WhatsApp, etc."}>
+                <AutoText value={pb.followUp} onChange={(v: string) => setPb({ followUp: v })} placeholder={IN ? "Take their name and number; the store team will call back today." : "Offer to send the brochure on WhatsApp and ask for a good time to call back."} className="text-[13.5px]" />
               </Card>
               <Card title="Questions callers ask" hint="The employee answers these from here — word it the way you'd say it." badge={pb.faqs.length} testId="card-faqs">
                 <PairEditor items={pb.faqs} onChange={(v: any) => setPb({ faqs: v })} left="Question" right="Answer" leftKey="question" rightKey="answer"
