@@ -16,6 +16,8 @@ const field = "border border-line rounded-lg px-2.5 py-1.5 text-[13px] bg-sunken
 
 type F = { from: string; to: string; direction: string; campaign: string; leads: string[]; connected: string; columns: string[] };
 
+// Same keys as WHOLESALE_COLUMNS in lib/reports.ts (kept here so the page doesn't import server code).
+const WHOLESALE_COLS = ["when", "name", "phone", "purpose", "product", "quantity", "budget", "visit", "caller_location", "said", "summary", "lead", "follow_up", "notes", "recording"];
 /** Reports: pick the calls, the leads and the columns; see the numbers; download Excel. */
 export default function ReportsPage() {
   const [range, setRange] = useState("7d");
@@ -77,6 +79,10 @@ export default function ReportsPage() {
           <div>
             <div className="text-[20px] font-display font-semibold">Leads &amp; reports</div>
             <div className="text-[13px] text-ink-soft mt-0.5">Choose which calls and which columns you want. The numbers update as you choose; download it as an Excel file.</div>
+            <div className="flex flex-wrap items-center gap-2 mt-2.5" data-testid="wholesale-list">
+              <button type="button" onClick={() => set({ leads: ["wholesale"], columns: WHOLESALE_COLS })} className="rounded-lg border border-signal/60 text-signal px-3 py-1.5 text-[12.5px] font-semibold hover:bg-signal/10">🧵 Wholesale list</button>
+              <span className="text-[12px] text-ink-soft">Every wholesale enquiry with name, number and what they discussed — for your staff to call back. Pick the dates, then Download Excel.</span>
+            </div>
           </div>
 
           <div className="border border-line rounded-xl bg-raised p-4 flex flex-col gap-3.5" data-testid="report-filters">

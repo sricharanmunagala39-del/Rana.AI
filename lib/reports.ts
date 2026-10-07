@@ -7,11 +7,12 @@ import { buildXlsx, type Cell, type Sheet } from "./xlsx";
 const DAY = 86400e3;
 import { DEFAULT_ZONE, dayStart, localDate, offsetMs, zoneLabel } from "./tz";
 
-export type LeadKey = "ready_to_close" | "hot" | "warm" | "new" | "cold" | "not_interested" | "no_answer" | "follow_up" | "needs_person";
+export type LeadKey = "ready_to_close" | "hot" | "warm" | "new" | "cold" | "not_interested" | "no_answer" | "follow_up" | "needs_person" | "wholesale";
 export const LEAD_CHOICES: { key: LeadKey; label: string }[] = [
   { key: "ready_to_close", label: "Ready to close" }, { key: "hot", label: "Hot" }, { key: "warm", label: "Warm" },
   { key: "new", label: "New / unclear" }, { key: "cold", label: "Cold" }, { key: "not_interested", label: "Not interested" },
   { key: "no_answer", label: "No answer" }, { key: "follow_up", label: "Follow-up needed" }, { key: "needs_person", label: "Needs a person" },
+  { key: "wholesale", label: "Wholesale enquiries" },
 ];
 
 export type ReportFilter = {
@@ -33,6 +34,9 @@ const result = (c: any) => {
   return /busy/.test(raw) ? "Busy" : /no_answer|no answer|timeout/.test(raw) ? "No answer" : /voicemail/.test(raw) ? "Voicemail" : /reject/.test(raw) ? "Rejected" : /dial_failed|failed|unreachable/.test(raw) ? "Dial failed" : "Not connected";
 };
 const contactOf = (c: any, x: Ctx) => x.contact.get(`${c.campaign_id}|${c.caller_phone}`) || null;
+const callerText = (t: any) => (Array.isArray(t) ? t : []).filter((x: any) => x.role === "user").map((x: any) => String(x.text || "").trim()).filter((l: string) => l.length > 2).join(" / ");
+const detail = (c: any, k: string) => String(c.insight?.details?.[k] || "");
+const isWholesale = (c: any) => (c.tags || []).includes("wholesale");
 const transcriptText = (t: any) => (Array.isArray(t) ? t : []).map((x: any) => `${x.role === "user" ? "Customer" : "RANA"}: ${String(x.text || "").trim()}`).filter((l: string) => l.length > 8).join("\n");
 
 export const COLUMNS: Col[] = [
@@ -53,7 +57,17 @@ export const COLUMNS: Col[] = [
   { key: "notes", label: "Team notes", width: 30, wrap: true, get: (c) => c.notes || "" },
   { key: "recording", label: "Recording", width: 12, get: (c) => (c.recording_url ? { link: c.recording_url, text: "Listen" } : "") },
   { key: "transcript", label: "Transcript", width: 80, wrap: true, get: (c) => transcriptText(c.transcript) },
+  { key: "wholesale", label: "Wholesale", width: 10, get: (c) => (isWholesale(c) ? "Yes" : "") },
+  { key: "purpose", label: "What they asked for", width: 40, wrap: true, get: (c) => c.insight?.purpose || "" },
+  { key: "product", label: "Product", width: 22, wrap: true, get: (c) => detail(c, "product") },
+  { key: "quantity", label: "Quantity", width: 14, get: (c) => detail(c, "quantity") },
+  { key: "budget", label: "Budget", width: 14, get: (c) => detail(c, "budget") },
+  { key: "visit", label: "Visit / when", width: 18, get: (c) => detail(c, "visit") },
+  { key: "caller_location", label: "Caller's area", width: 18, get: (c) => detail(c, "location") },
+  { key: "said", label: "What the customer said", width: 70, wrap: true, get: (c) => callerText(c.transcript) },
 ];
+/** The wholesale list for the shop's staff: who called, their number and what they discussed. */
+export const WHOLESALE_COLUMNS = ["when", "name", "phone", "purpose", "product", "quantity", "budget", "visit", "caller_location", "said", "summary", "lead", "follow_up", "notes", "recording"];
 export const DEFAULT_COLUMNS = ["when", "direction", "campaign", "name", "phone", "connected", "talk", "lead", "why", "summary", "follow_up", "needs_person", "recording"];
 
 export function normalizeFilter(q: any, tz: string = DEFAULT_ZONE): ReportFilter {
@@ -77,7 +91,7 @@ export function normalizeFilter(q: any, tz: string = DEFAULT_ZONE): ReportFilter
 
 function leadMatch(c: any, leads: LeadKey[]): boolean {
   if (!leads.length) return true;
-  return leads.some((k) => (k === "follow_up" ? !!c.follow_up || !!c.handoff || c.lead_status === "ready_to_close" : k === "needs_person" ? !!c.handoff : c.lead_status === k));
+  return leads.some((k) => (k === "follow_up" ? !!c.follow_up || !!c.handoff || c.lead_status === "ready_to_close" : k === "needs_person" ? !!c.handoff : k === "wholesale" ? isWholesale(c) : c.lead_status === k));
 }
 
 /** Everything the Reports page shows, plus what the Excel needs. */
@@ -88,7 +102,7 @@ export async function runReport(clientId: string, f: ReportFilter, tz: string = 
   const batch = f.campaign !== "all" ? campaigns.find((c) => c.id === f.campaign)?.cartesia_batch_id || "__none__" : null;
   const dir = f.direction !== "all" ? `&direction=eq.${f.direction}` : "";
   const camp = batch ? `&campaign_id=eq.${encodeURIComponent(batch)}` : "";
-  const cols = "id,direction,source,campaign_id,caller_name,caller_phone,duration_seconds,connectivity_status,completion_status,failure_reason,lead_status,lead_reason,follow_up,summary,notes,handoff,recording_url,started_at,created_at,transcript";
+  const cols = "id,direction,source,campaign_id,caller_name,caller_phone,duration_seconds,connectivity_status,completion_status,failure_reason,lead_status,lead_reason,follow_up,summary,notes,handoff,recording_url,started_at,created_at,transcript,tags,insight";
   // Practice sessions on the Talk page (source "manual") are not customer calls.
   const all = await sbAll<any>(`/calls?client_id=eq.${clientId}&created_at=gte.${encodeURIComponent(start)}&created_at=lt.${encodeURIComponent(end)}&or=(source.is.null,source.neq.manual)${dir}${camp}&select=${cols}&order=created_at.desc,id.desc`, 50000);
   const rows = all.filter((c) => leadMatch(c, f.leads) && (f.connected === "all" || (f.connected === "connected") === isConnected(c)));
