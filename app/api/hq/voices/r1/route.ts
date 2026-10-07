@@ -29,10 +29,11 @@ export async function PATCH(req: Request) {
   const denied = requireHq(session, "clients"); if (denied) return denied;
   const b = await req.json().catch(() => ({} as any));
   const v = findR1Voice(String(b.id || ""));
+          // An employee with an inbound script is tested as an incoming call by default (that is what the business number gets).
+          setHasInbound(inb); setHasOutbound(outb); setTestDir(inb ? "inbound" : "outbound");
+  const raw = String(b.agent || "").trim().replace(/^sarvam:/, "");@@WITH
   if (!v) return Response.json({ error: "Unknown voice." }, { status: 400 });
-@@ENDEDIT
-@@EDIT app/talk/page.tsx
-          setHasInbound(inb); setHasOutbound(outb); setTestDir(inb && !outb ? "inbound" : "outbound");@@WITH
+  const raw = String(b.agent || "").trim().replace(/^sarvam:/, "");@@WITH
           // An employee with an inbound script is tested as an incoming call by default (that is what the business number gets).
           setHasInbound(inb); setHasOutbound(outb); setTestDir(inb ? "inbound" : "outbound");
   const raw = String(b.agent || "").trim().replace(/^sarvam:/, "");

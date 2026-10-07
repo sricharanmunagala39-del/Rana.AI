@@ -95,7 +95,8 @@ function TalkInner() {
           setChecks(s.test_checklist || {});
           const inb = !!String(s.instructions_inbound || "").trim();
           const outb = !!s.playbook || !inb;
-          setHasInbound(inb); setHasOutbound(outb); setTestDir(inb && !outb ? "inbound" : "outbound");
+          // An employee with an inbound script is tested as an incoming call by default (that is what the business number gets).
+          setHasInbound(inb); setHasOutbound(outb); setTestDir(inb ? "inbound" : "outbound");
         } catch { setNotFound(true); }
         finally { setStatusLoading(false); }
       })();
