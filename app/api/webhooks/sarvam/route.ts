@@ -15,6 +15,8 @@ import crypto from "crypto";
 import { sarvamConfig, recordingUrl, SARVAM_VOICES } from "@/lib/sarvamAgent";
 import { optOutPhrase, addDnc } from "@/lib/compliance";
 import { normalisePhone } from "@/lib/campaigns";
+import { sb } from "@/lib/db";
+import { getClientById } from "@/lib/supabase";
 
 /**
  * Best-effort fetch of the call recording from Sarvam's analytics API.
@@ -59,10 +61,20 @@ export async function POST(req: Request) {
   // whose ids are shared by every client — those webhooks must carry ?key=.
   const shared = new Set([sarvamConfig()?.appId, ...SARVAM_VOICES.map((v) => v.appId)].filter(Boolean) as string[]);
   if (!client && payload?.app_id && !shared.has(String(payload.app_id))) client = await getClientByAppId(payload.app_id);
+  // A ready-made agent connected to one employee (HQ): its calls (inbound too) belong to that employee and its workspace.
+  let own: any = null;
+  if (payload?.app_id && !shared.has(String(payload.app_id))) {
+    const id = String(payload.app_id).replace(/[^A-Za-z0-9_-]/g, "");
+    [own] = id ? (await sb<any[]>(`/scripts?engine_agent=like.${encodeURIComponent(id + "@")}*&select=id,name,client_id&limit=1`).catch(() => [])) || [] : [];
+    if (own && client && own.client_id !== client.id) own = null;
+    if (!client && own?.client_id) client = await getClientById(own.client_id);
+  }
+  if (own && !payload.rana_script_id) payload.rana_script_id = own.id;
   if (!client) return Response.json({ error: "Unknown client" }, { status: 404 });
 
   try {
     const row = payloadToCall(payload, client.id);
+    if (own) (row as any).agent_variables = { ...((row as any).agent_variables || {}), employee_name: own.name };
     // No id from Sarvam: derive a stable one, so a retried webhook updates the same row instead of adding another.
     if (!row.interaction_id) row.interaction_id = `sarvam-${crypto.createHash("sha256").update(JSON.stringify([client.id, payload.user_identifier, payload.start_datetime ?? payload.created_at, payload.user_phone_number, payload.app_id])).digest("hex").slice(0, 32)}`;
     const prev = await existingCall(row.interaction_id);
