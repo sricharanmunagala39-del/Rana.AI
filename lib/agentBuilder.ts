@@ -62,3 +62,35 @@ Section keys: ${SECTION_KEYS.join(", ")}.` },
     { role: "user", content: `Current greeting: ${o.greeting || "(none)"}\n\nCurrent script:\n${current}\n\nChange requested by the owner:\n${clip(o.request, 3000)}` },
   ];
 }
+
+export type ChatTurn = { role: "owner" | "ai"; text: string };
+
+/**
+ * The co-writer conversation (like a script assistant): the owner pastes a website link, a script, notes, answers,
+ * or asks for a change. The AI writes or edits the script and asks short questions that would make the pitch better.
+ */
+export function chatMessages(o: { sections: Sections; greeting: string; history: ChatTurn[]; message: string; sources: { url: string; title: string; text: string }[]; sourceErrors: string[]; business: string }): ChatMessage[] {
+  const empty = !Object.values(o.sections).some((v) => v.trim());
+  const current = SECTIONS.map((s) => `## ${s.key} (${s.title})\n${o.sections[s.key] || "(empty)"}`).join("\n\n");
+  const history = o.history.slice(-10).map((t) => `${t.role === "owner" ? "Owner" : "You"}: ${clip(t.text, 1500)}`).join("\n");
+  const sources = o.sources.map((s) => `Website ${s.url} (${s.title}):\n"""\n${clip(s.text, 14000)}\n"""`).join("\n\n");
+  return [
+    { role: "system", content: `You are the co-writer of the phone agent script for ${o.business || "a business"}. The owner talks to you in plain words: they may paste a website link (its text is given to you), a full script, notes, answers to your questions, or ask for a change.
+How you work:
+- If the script is empty, or the owner gives a website or a new script, write the COMPLETE script into every section and write the greeting. The "flow" section must be a numbered call flow with these parts in order: 1. Opening (greet, introduce, ask how to help or say why you are calling), 2. Understanding the need (2–4 short questions, one at a time), 3. Pitch (match what they need to the facts — benefits, prices, offers that are given), 4. Questions and objections (short answers from the facts), 5. Closing (one clear next step: visit, booking, site visit, callback, WhatsApp details), 6. Ending the call politely.
+- Put every useful fact from the website or script into "facts": what they sell, prices, locations, timings, contact, offers, USPs. Only facts that are actually given — never invent prices, offers, timings or claims.
+- For a change request, change only what is needed; every other sentence stays word for word, and fix anything elsewhere that would contradict the change.
+- Then ask up to 4 short questions about missing details that would make the pitch and closing stronger (for example: the main goal of the call, best offer, price range, who usually calls, timings, location, what to do with interested callers). Never ask something already answered in the script, the website or the conversation. If nothing important is missing, ask nothing.
+${RULES}
+Reply with JSON only: {"reply": "one or two short sentences to the owner about what you did", "questions": ["short question", ...], "greeting": "new greeting, or null if unchanged", "changes": {"<section key>": "the FULL new text of that section", ...only sections that change}}
+Section keys: ${SECTION_KEYS.join(", ")}.` },
+    { role: "user", content: [
+      `Current greeting: ${o.greeting || "(none)"}`,
+      `Current script${empty ? " (EMPTY — write all of it)" : ""}:\n${current}`,
+      history ? `Conversation so far:\n${history}` : "",
+      sources ? `Websites the owner gave (read):\n${sources}` : "",
+      o.sourceErrors.length ? `Could not read: ${o.sourceErrors.join("; ")}` : "",
+      `Owner's new message:\n${clip(o.message, 30000)}`,
+    ].filter(Boolean).join("\n\n") },
+  ];
+}
