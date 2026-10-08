@@ -38,6 +38,7 @@ const GROUPS: { label: string; items: { key: string; label: string; href: string
       { key: "live", label: "Mission control", href: "/live", icon: "pulse" },
       { key: "employees", label: "My Employees", href: "/employees", icon: "people" },
       { key: "create-agent", label: "Create Your Own Agent", href: "/agents/new", icon: "plusCircle" },
+      { key: "builder", label: "Agent Builder", href: "/builder", icon: "plusCircle" },
       { key: "talk", label: "Talk to an employee", href: "/talk", icon: "mic" },
     ],
   },

@@ -201,6 +201,7 @@ export default function EmployeesPage() {
               <div className="text-[22px] font-display font-semibold">My Employees</div>
               <div className="text-[13px] text-ink-soft mt-0.5">Build an employee, talk to it until it answers right, then deploy it on inbound calls, outbound campaigns, or both.</div>
             </div>
+            <Link href="/builder" className="border border-signal/60 text-signal rounded-lg px-4 py-2 text-[12.5px] font-semibold shrink-0" data-testid="open-builder">✨ Agent Builder</Link>
             <Link href="/agents/new" className="bg-signal text-on-accent rounded-lg px-4 py-2 text-[12.5px] font-semibold shrink-0">+ New employee</Link>
           </div>
 
