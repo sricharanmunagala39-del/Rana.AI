@@ -29,6 +29,7 @@ function withAcronyms(script: any) {
 }
 import { STRICTNESS_LABELS } from "@/lib/storage";
 import { sarvamConfig, sarvamMissing, routeVoice } from "@/lib/sarvamAgent";
+import { compileSections, normalizeSections } from "@/lib/agentBuilder";
 import { engineBlocker, isEngine, DEFAULT_ENGINE } from "@/lib/voice/engines";
 import { engineReady } from "@/lib/voice/server";
 
@@ -92,7 +93,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (!cfg) return Response.json({ error: "Calling isn't switched on for your account yet — RANA support has been notified." }, { status: 500 });
     try {
       // A ready-made agent (HQ) carries its own script, so there is nothing to compile.
-      const { instructions, instructionsInbound, keyterms } = (first as any).engine_agent
+      const { instructions, instructionsInbound, keyterms } = (first as any).prompt_mode === "exact"
+        ? { instructions: compileSections(normalizeSections((first as any).prompt_sections)), instructionsInbound: null, keyterms: (first as any).keyterms || [] }
+        : (first as any).engine_agent
         ? { instructions: String(first.instructions || "").trim() || "(This employee uses a ready-made agent with its own script.)", instructionsInbound: (first as any).instructions_inbound || null, keyterms: (first as any).keyterms || [] }
         : await compile(first);
       const agentRef = `sarvam:${cfg.appId}`;

@@ -138,6 +138,17 @@ export function sarvamLanguageName(code: string | null | undefined): string {
 export function sessionPayload(script: any, caller?: { name?: string | null; variables?: Record<string, string> }, direction?: CallDirection) {
   // A ready-made agent has its own script, greeting and opening language: send nothing that would override them.
   if (parseAgentRef(script?.engine_agent)) return { agent_variables: {} as Record<string, string>, initial_bot_message: undefined as string | undefined, initial_language_name: undefined as string | undefined };
+  // Agent Builder: the client's script is sent exactly as written (no RANA style blocks), plus caller details and the reference line.
+  if (script?.prompt_mode === "exact") {
+    const extra = [
+      caller?.name ? `- Name: ${caller.name}` : "",
+      ...Object.entries(caller?.variables || {}).filter(([, v]) => String(v || "").trim()).map(([k, v]) => `- ${k.replace(/_/g, " ")}: ${v}`),
+    ].filter(Boolean);
+    const body = String(script.instructions || "").trim();
+    const rana_instructions = `${extra.length ? `${body}\n\n# About this caller\n${extra.join("\n")}` : body}`.slice(0, 29900) + (script.id ? `\n\n${scriptRefLine(String(script.id))}` : "");
+    const g = speakableGreeting(String(script.greeting || "").trim(), normalizePronunciations(script.pronunciations), script.starting_language || "en") || "";
+    return { agent_variables: { rana_instructions, ...(g ? { rana_greeting: g } : {}) } as Record<string, string>, initial_bot_message: g || undefined, initial_language_name: sarvamLanguageName(script.starting_language) as string | undefined };
+  }
   // Inbound and outbound must sound different: name the direction when we know it (older employees get both rules).
   // Incoming calls use the inbound script when the employee has one ("they call us"); everything else the outbound one.
   const useIn = direction === "inbound" && String(script.instructions_inbound || "").trim();
