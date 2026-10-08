@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 import { getSession } from "@/lib/session";
 import { forbidUnless } from "@/lib/auth";
 import { getScriptById, getClientById } from "@/lib/supabase";
-import { sarvamConfig, sarvamMissing, placeOutboundCall, webhookUrl, withClientNumber, routeVoice } from "@/lib/sarvamAgent";
+import { sarvamConfig, sarvamMissing, placeOutboundCall, webhookUrl, withClientNumber, routeVoice, syncAgentVersion } from "@/lib/sarvamAgent";
 import { callingBlock } from "@/lib/plans";
 import { normalisePhone } from "@/lib/campaigns";
 import { dncSet } from "@/lib/compliance";
@@ -26,6 +26,7 @@ export async function POST(req: Request) {
   const client: any = await getClientById(session.clientId);
   const planBlock = await callingBlock(client);
   if (planBlock) return Response.json({ error: planBlock, code: "plan_limit" }, { status: 402 });
+  await syncAgentVersion(base, script); // a ready-made agent always calls with its newest version
   const { cfg } = await routeVoice(withClientNumber(base, client), script.voice_name, script.engine_agent);
   try {
     const r = await placeOutboundCall(cfg, {

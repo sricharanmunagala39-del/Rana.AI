@@ -219,6 +219,32 @@ async function postWithConnection<T>(url: string, cfg: SarvamConfig, build: (con
 }
 
 /** A single-use WebSocket URL for one browser voice session (the API key never reaches the browser). */
+/**
+ * Ready-made agent: the newest version the engine will serve. Checks version+1, +2… with a signed-URL request
+ * (nothing is started or billed) and stops at the first one that doesn't exist. Never throws.
+ */
+export async function latestAgentRef(cfg: SarvamConfig, ref: string): Promise<string> {
+  const p = parseAgentRef(ref);
+  if (!p) return ref;
+  let v = p.appVersion;
+  for (let i = 0; i < 15; i++) {
+    try { await signedSessionUrl({ ...cfg, appId: p.appId, appVersion: v + 1 }, `rana-version-check-${Date.now()}`); v++; } catch { break; }
+  }
+  return `${p.appId}@${v}`;
+}
+
+/** Moves an employee's ready-made agent to its newest version (so edits made in the engine reach RANA without copying numbers). */
+export async function syncAgentVersion(cfg: SarvamConfig | null, script: any): Promise<string | null> {
+  if (!cfg || !script?.engine_agent || !parseAgentRef(script.engine_agent)) return script?.engine_agent || null;
+  const latest = await latestAgentRef(cfg, script.engine_agent).catch(() => script.engine_agent);
+  if (latest !== script.engine_agent) {
+    const { updateScript } = await import("./supabase");
+    await updateScript(script.id, { engine_agent: latest } as any).catch(() => {});
+    script.engine_agent = latest;
+  }
+  return latest;
+}
+
 export async function signedSessionUrl(cfg: SarvamConfig, userId: string): Promise<{ url: string; referenceId: string; expiresAt: number | null }> {
   const q = new URLSearchParams({ interaction_type: "call", version: String(cfg.appVersion) });
   const d = await call<any>(`${APPS}/app-runtime/orgs/${cfg.orgId}/workspaces/${cfg.workspaceId}/apps/${cfg.appId}/url?${q}`, { method: "GET", key: cfg.apiKey });
