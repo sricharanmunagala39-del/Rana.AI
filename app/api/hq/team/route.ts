@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   if (!validEmail(email)) return Response.json({ error: "Enter their email address." }, { status: 400 });
   if (await getUserByEmail(email)) return Response.json({ error: "That email already has a RANA login." }, { status: 409 });
   const password = tempPassword();
-  const u = await createUser({ clientId: session!.clientId, email, name: String(b.name || "").trim() || email.split("@")[0], designation: cleanDesignation(b.designation), password, role: "admin", invitedBy: session!.email, mustChange: true });
+  const u = await createUser({ clientId: session!.clientId, email, name: String(b.name || "").trim() || email.split("@")[0], designation: cleanDesignation(b.designation), password, role: "admin", invitedBy: session!.userId ?? null, mustChange: true });
   await sb(`/users?id=eq.${u.id}`, { method: "PATCH", prefer: "return=minimal", body: JSON.stringify({ hq_role: role }) });
   await audit(session!, "user_invited", { req, targetType: "user", targetId: u.id, detail: { email, hqRole: role } });
   const mail = await sendEmail({ to: email, kind: "hq_invite", subject: "You've been added to RANA HQ", html: emailHtml({ title: "Welcome to RANA HQ", lines: [`You've been added as <b>${HQ_ROLES[role].label}</b> (${HQ_ROLES[role].can.toLowerCase()}).`, `Sign in with <b>${email}</b> and this one-time password: <b style="font-family:monospace">${password}</b>`, "Then turn on two-step login under HQ → Team & security."], button: { label: "Sign in", url: `${APP_URL()}/login` } }) });
