@@ -9,6 +9,7 @@ type Client = {
   id: string; name: string; industry: string; sarvam_app_id: string | null;
   hq?: boolean; actingAsHq?: boolean; pending?: boolean; hqSession?: { readOnly: boolean; expiresAt: number | null; reason: string | null } | null;
   plan?: { key: string; name: string; status: string; trialDaysLeft: number | null; minutesUsed: number; minutesIncluded: number } | null;
+  user?: { name: string | null; email: string; designation?: string | null; roleLabel?: string; personal?: boolean } | null;
 } | null;
 
 const ICONS = {
@@ -171,6 +172,12 @@ export default function Sidebar({ active, client: clientProp }: { active: string
               {client?.industry && <div className="text-[11px] text-ink-soft capitalize truncate">{client.industry}</div>}
             </div>
           </div>
+          {client?.user?.personal && (
+            <div className="mt-1 text-[11.5px] leading-snug truncate" data-testid="signed-in-as" title={client.user.email}>
+              <span className="font-semibold text-ink">{client.user.name || client.user.email.split("@")[0]}</span>
+              <span className="text-ink-soft">{client.user.designation ? ` · ${client.user.designation}` : client.user.roleLabel ? ` · ${client.user.roleLabel}` : ""}</span>
+            </div>
+          )}
           {p && (
             <Link href="/billing" data-testid="plan-chip" className={`mt-1.5 rounded-lg px-2.5 py-2 text-[11px] leading-snug border ${low ? "border-miss/30 bg-miss-tint text-miss" : "border-line bg-sunken text-ink-soft"}`}>
               <div className="flex justify-between"><span className="font-semibold text-ink">{p.status === "suspended" ? "Paused" : p.name}</span>

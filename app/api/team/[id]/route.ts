@@ -2,11 +2,11 @@ export const runtime = "nodejs";
 import { isHqClient } from "@/lib/session";
 import { getSession, forgetUser } from "@/lib/session";
 import { unauthorized, forbidUnless, roleOf, outranks, ROLES, type Role } from "@/lib/auth";
-import { getUser, updateUser, countActiveOwners, tempPassword, publicUser } from "@/lib/users";
+import { getUser, updateUser, countActiveOwners, tempPassword, publicUser, cleanDesignation } from "@/lib/users";
 import { hashPassword } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
-/** PATCH { role?, active?, resetPassword? } — admins manage teammates; nobody can outrank themselves or lock the team out. */
+/** PATCH { role?, active?, resetPassword?, designation? } — admins manage teammates; nobody can outrank themselves or lock the team out. */
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await getSession(req);
   if (!session) return unauthorized();
@@ -32,6 +32,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (!body.active && target.role === "owner" && (await countActiveOwners(session.clientId)) <= 1) return Response.json({ error: "You can't remove the last owner." }, { status: 400 });
     patch.is_active = body.active;
   }
+  if (body.designation !== undefined) patch.designation = cleanDesignation(body.designation);
   let temp: string | null = null;
   if (body.resetPassword) {
     if (isSelf) return Response.json({ error: "Change your own password under My account." }, { status: 400 });
@@ -46,6 +47,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (patch.role) await audit(session, "user_role_changed", { req, targetType: "user", targetId: target.id, detail: { email: target.email, from: target.role, to: patch.role } });
   if (patch.is_active === false) await audit(session, "user_deactivated", { req, targetType: "user", targetId: target.id, detail: { email: target.email } });
   if (patch.is_active === true) await audit(session, "user_reactivated", { req, targetType: "user", targetId: target.id, detail: { email: target.email } });
+  if ("designation" in patch) await audit(session, "user_designation_changed", { req, targetType: "user", targetId: target.id, detail: { email: target.email, from: target.designation ?? null, to: patch.designation } });
   if (temp) await audit(session, "user_password_reset", { req, targetType: "user", targetId: target.id, detail: { email: target.email } });
   return Response.json({ ok: true, user: updated ? publicUser(updated) : null, tempPassword: temp });
 }

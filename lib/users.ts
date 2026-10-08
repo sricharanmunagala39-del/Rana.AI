@@ -4,7 +4,7 @@ import { sb } from "./db";
 import { hashPassword, type Role } from "./auth";
 
 export type UserRow = {
-  id: string; client_id: string; email: string; name: string | null; password_hash: string; role: Role;
+  id: string; client_id: string; email: string; name: string | null; designation?: string | null; password_hash: string; role: Role;
   is_active: boolean; must_change_password: boolean; invited_by: string | null; last_login_at: string | null; created_at: string;
 };
 export type PublicUser = Omit<UserRow, "password_hash">;
@@ -14,6 +14,9 @@ export function publicUser(u: UserRow): PublicUser {
   const { password_hash: _drop, totp_secret: _t, ...rest } = u as any;
   return rest;
 }
+
+/** Job title shown next to a person's name (e.g. Store Manager, Sales Executive). */
+export function cleanDesignation(v: any): string | null { const t = String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 60); return t || null; }
 
 export function normaliseEmail(e: string): string { return String(e || "").trim().toLowerCase(); }
 export function validEmail(e: string): boolean { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e); }
@@ -50,11 +53,11 @@ export async function countActiveOwners(clientId: string): Promise<number> {
   const r = await sb<any[]>(`/users?client_id=eq.${clientId}&role=eq.owner&is_active=eq.true&select=id`);
   return r?.length ?? 0;
 }
-export async function createUser(data: { clientId: string; email: string; name?: string | null; password: string; role: Role; invitedBy?: string | null; mustChange?: boolean }): Promise<UserRow> {
+export async function createUser(data: { clientId: string; email: string; name?: string | null; designation?: string | null; password: string; role: Role; invitedBy?: string | null; mustChange?: boolean }): Promise<UserRow> {
   const r = await sb<UserRow[]>(`/users`, {
     method: "POST",
     body: JSON.stringify({
-      client_id: data.clientId, email: normaliseEmail(data.email), name: data.name?.trim() || null,
+      client_id: data.clientId, email: normaliseEmail(data.email), name: data.name?.trim() || null, designation: cleanDesignation(data.designation),
       password_hash: hashPassword(data.password), role: data.role, invited_by: data.invitedBy ?? null,
       must_change_password: data.mustChange ?? true,
     }),

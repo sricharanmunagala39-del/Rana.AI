@@ -5,6 +5,7 @@ import { getSession } from "@/lib/session";
 import { HQ_ROLES } from "@/lib/hq";
 import { usageOf, employeeBlock } from "@/lib/plans";
 import { zoneOf, localeOf } from "@/lib/tz";
+import { sb } from "@/lib/db";
 
 export async function GET(req: Request) {
   const session = await getSession(req);
@@ -13,6 +14,7 @@ export async function GET(req: Request) {
   if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
   const role = roleOf(session);
   const c: any = client;
+  const [meRow] = session.userId ? ((await sb<any[]>(`/users?id=eq.${session.userId}&select=designation&limit=1`).catch(() => null)) || []) : [];
   const u = c.is_hq ? null : await usageOf(c).catch(() => null);
   return Response.json({
     id: client.id, name: client.name, industry: client.industry, sarvam_app_id: client.sarvam_app_id,
@@ -25,7 +27,7 @@ export async function GET(req: Request) {
     // Why a new employee can't be added right now (plan limit), so the builder can say so before any work is done.
     employeeBlock: c.is_hq ? null : await employeeBlock(c).catch(() => null),
     plan: u ? { key: u.plan.key, name: u.plan.name, status: u.status, trialDaysLeft: u.trialDaysLeft, minutesUsed: u.minutesUsed, minutesIncluded: u.minutesIncluded } : null,
-    user: { id: session.userId ?? null, email: session.email, name: session.name ?? null, role, roleLabel: ROLE_INFO[role].label, personal: !!session.userId },
+    user: { id: session.userId ?? null, email: session.email, name: session.name ?? null, designation: meRow?.designation ?? null, role, roleLabel: ROLE_INFO[role].label, personal: !!session.userId },
   });
 }
 

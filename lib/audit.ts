@@ -4,7 +4,7 @@ import { sb } from "./db";
 
 export type AuditAction =
   | "login" | "login_failed" | "password_changed" | "password_reset_requested" | "password_reset_done"
-  | "user_invited" | "user_role_changed" | "user_deactivated" | "user_reactivated" | "user_password_reset"
+  | "user_invited" | "user_role_changed" | "user_designation_changed" | "user_deactivated" | "user_reactivated" | "user_password_reset"
   | "number_provisioned" | "number_imported" | "number_released" | "number_assigned" | "number_test_call"
   | "employee_published" | "employee_deleted"
   | "campaign_launched" | "campaign_cancelled" | "campaign_retried" | "campaign_exported"
@@ -16,7 +16,7 @@ export type AuditAction =
 export const AUDIT_LABEL: Record<AuditAction, string> = {
   login: "Signed in", login_failed: "Failed sign-in", password_changed: "Changed their password",
   password_reset_requested: "Asked for a password reset link", password_reset_done: "Reset their password with an email link",
-  user_invited: "Invited a teammate", user_role_changed: "Changed a teammate's role",
+  user_invited: "Invited a teammate", user_role_changed: "Changed a teammate's role", user_designation_changed: "Changed a designation",
   user_deactivated: "Removed a teammate's access", user_reactivated: "Restored a teammate's access",
   user_password_reset: "Reset a teammate's password",
   number_provisioned: "Added a phone number", number_imported: "Imported a Twilio number",
