@@ -3,7 +3,7 @@ import { getSession } from "@/lib/session";
 import { hqCan } from "@/lib/hq";
 import { audit } from "@/lib/audit";
 import { getScriptById, updateScript } from "@/lib/supabase";
-import { parseAgentRef } from "@/lib/sarvamAgent";
+import { parseAgentRef, sarvamConfig, syncAgentVersion } from "@/lib/sarvamAgent";
 
 /**
  * A ready-made R1 agent for one employee (HQ only). When set, every call for this employee — web tests, test calls,
@@ -25,6 +25,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const script: any = await getScriptById(params.id);
   if (!script || script.client_id !== session.clientId) return Response.json({ error: "Not found" }, { status: 404 });
   const b = await req.json().catch(() => ({} as any));
+  if (b.action === "latest") {
+    if (!script.engine_agent) return Response.json({ error: "Connect an agent first." }, { status: 400 });
+    const before = script.engine_agent;
+    const agent = await syncAgentVersion(sarvamConfig(), script);
+    return Response.json({ ok: true, agent, changed: agent !== before });
+  }
   const raw = String(b.agent || "").trim().replace(/^sarvam:/, "").replace(/^.*\/update-agent\//, "").replace(/\/.*$/, "");
   const ref = raw ? parseAgentRef(raw) : null;
   if (raw && !ref) return Response.json({ error: "That doesn't look like an agent ID, e.g. RV-Kabir-fe3a0273-0904@3" }, { status: 400 });

@@ -5,7 +5,7 @@ import { getScriptById, getClientById } from "@/lib/supabase";
 import { callingBlock } from "@/lib/plans";
 import { startPractice, MAX_PRACTICE_S } from "@/lib/practice";
 import { friendly } from "@/lib/sarvamHealth";
-import { sarvamConfig, sarvamMissing, signedSessionUrl, sessionPayload, routeVoice } from "@/lib/sarvamAgent";
+import { sarvamConfig, sarvamMissing, signedSessionUrl, sessionPayload, routeVoice, syncAgentVersion } from "@/lib/sarvamAgent";
 
 /**
  * POST { scriptId } → a single-use Sarvam WebSocket URL for a browser test call, plus the start message
@@ -24,6 +24,7 @@ export async function POST(req: Request) {
   const planBlock = await callingBlock(await getClientById(session.clientId), { practice: true }); // own free allowance, not plan minutes
   if (planBlock) return Response.json({ error: planBlock, code: "plan_limit" }, { status: 402 });
   try {
+    await syncAgentVersion(cfg, script); // a ready-made agent always tests its newest version
     const rv = await routeVoice(cfg, script.voice_name, script.engine_agent);
     const signed = await signedSessionUrl(rv.cfg, `rana-test-${session.clientId.slice(0, 8)}-${Date.now()}`);
     // Test as an incoming or outgoing call; without a choice the employee answers as before (both styles).
