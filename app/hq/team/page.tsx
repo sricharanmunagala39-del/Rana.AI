@@ -90,14 +90,20 @@ export default function HqTeamPage() {
             <div className="border border-line rounded-xl bg-raised overflow-x-auto" data-testid="hq-staff">
               <div className="px-5 pt-4 pb-2 flex items-center justify-between">
                 <div className="text-[15px] font-semibold">HQ staff</div>
-                <button onClick={() => setForm({ email: "", name: "", role: "ops" })} className="bg-ink text-paper rounded-lg px-3 py-1.5 text-[12.5px] font-semibold" data-testid="staff-add">+ Add person</button>
+                <button onClick={() => setForm({ email: "", name: "", designation: "", role: "ops" })} className="bg-ink text-paper rounded-lg px-3 py-1.5 text-[12.5px] font-semibold" data-testid="staff-add">+ Add person</button>
               </div>
-              <table className="w-full text-[13px] min-w-[720px]">
-                <thead><tr className="text-left text-[11px] uppercase tracking-wide text-ink-soft border-b border-line"><th className="px-5 py-2">Person</th><th className="px-3 py-2">Role</th><th className="px-3 py-2">Two-step</th><th className="px-3 py-2">Last sign-in</th><th className="px-5 py-2"></th></tr></thead>
+              <table className="w-full text-[13px] min-w-[880px]">
+                <thead><tr className="text-left text-[11px] uppercase tracking-wide text-ink-soft border-b border-line"><th className="px-5 py-2">Person</th><th className="px-3 py-2">Designation</th><th className="px-3 py-2">Access</th><th className="px-3 py-2">Two-step</th><th className="px-3 py-2">Last sign-in</th><th className="px-5 py-2"></th></tr></thead>
                 <tbody>
                   {d.staff.map((u: any) => (
                     <tr key={u.id} className={`border-b border-line last:border-0 ${u.is_active ? "" : "opacity-50"}`}>
                       <td className="px-5 py-2.5"><div className="font-semibold">{u.name || u.email}{u.me ? " (you)" : ""}</div><div className="text-[11.5px] text-ink-soft">{u.email}</div></td>
+                      <td className="px-3 py-2.5">
+                        <input key={`${u.id}:${u.designation || ""}`} defaultValue={u.designation || ""} placeholder="Add designation" maxLength={60} disabled={!u.is_active} data-testid="hq-designation"
+                          className="border border-line rounded-lg px-2 py-1 text-[12.5px] w-full min-w-[150px] bg-paper"
+                          onBlur={(e) => { const v = e.target.value.trim(); if (v !== (u.designation || "")) patch(u.id, { designation: v }); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+                      </td>
                       <td className="px-3 py-2.5">
                         {u.founderByEnv || !u.is_active ? <span className="font-semibold">{d.roles[u.hq_role || "support"]?.label}</span> : (
                           <select value={u.hq_role || "support"} onChange={(e) => patch(u.id, { role: e.target.value })} className="border border-line rounded-lg px-2 py-1 text-[12.5px]">
@@ -125,7 +131,8 @@ export default function HqTeamPage() {
             <div className="text-[18px] font-display font-semibold">Add someone to RANA HQ</div>
             <label className="text-[12px] font-semibold">Email<input id="staff-email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={field} /></label>
             <label className="text-[12px] font-semibold">Name<input id="staff-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={field} /></label>
-            <label className="text-[12px] font-semibold">Role<select id="staff-role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={field}>
+            <label className="text-[12px] font-semibold">Designation<input id="staff-designation" value={form.designation} maxLength={60} placeholder="e.g. Sales Executive, Operations Manager" onChange={(e) => setForm({ ...form, designation: e.target.value })} className={field} /></label>
+            <label className="text-[12px] font-semibold">Access<select id="staff-role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={field}>
               {d && Object.entries(d.roles).filter(([k]) => k !== "founder").map(([k, r]: any) => <option key={k} value={k}>{r.label} — {r.can}</option>)}
             </select></label>
             <div className="flex justify-end gap-2 mt-1">

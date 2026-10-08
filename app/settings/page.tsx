@@ -7,7 +7,7 @@ import StatusPill, { type PillTone } from "@/components/StatusPill";
 
 type Role = "owner" | "admin" | "manager" | "agent" | "viewer";
 type RoleInfo = { key: Role; label: string; can: string };
-type User = { id: string; email: string; name: string | null; role: Role; is_active: boolean; must_change_password: boolean; last_login_at: string | null; created_at: string };
+type User = { id: string; email: string; name: string | null; designation?: string | null; role: Role; is_active: boolean; must_change_password: boolean; last_login_at: string | null; created_at: string };
 type Me = { id: string | null; role: Role; personal: boolean };
 type Rules = { timezone: string; windowStart: number; windowEnd: number; days: number[]; enforce: boolean };
 type Calling = { rules: Rules; summary: string; openNow: boolean; nextOpen: string | null; dncCount: number; india?: boolean; zoneName?: string; law?: string };
@@ -69,7 +69,7 @@ function TeamTab({ me }: { me: Me }) {
   const [roles, setRoles] = useState<RoleInfo[]>([]);
   const [err, setErr] = useState("");
   const [secret, setSecret] = useState<{ email: string; password: string; kind: "invite" | "reset" } | null>(null);
-  const [form, setForm] = useState({ email: "", name: "", role: "manager" as Role });
+  const [form, setForm] = useState({ email: "", name: "", designation: "", role: "manager" as Role });
   const [busy, setBusy] = useState<string | null>(null);
   const canManage = RANK[me.role] >= RANK.admin;
 
@@ -83,7 +83,7 @@ function TeamTab({ me }: { me: Me }) {
     try {
       const d = await api("/api/team", { method: "POST", body: JSON.stringify(form) });
       setSecret({ email: d.user.email, password: d.tempPassword, kind: "invite" });
-      setForm({ email: "", name: "", role: form.role }); load();
+      setForm({ email: "", name: "", designation: "", role: form.role }); load();
     } catch (e: any) { setErr(e.message); } finally { setBusy(null); }
   }
   async function change(u: User, body: any) {
@@ -118,15 +118,16 @@ function TeamTab({ me }: { me: Me }) {
       {canManage && me.personal && (
         <form onSubmit={invite} className={`${card} p-4 flex flex-col gap-3`}>
           <div className="text-[14px] font-semibold">Invite a teammate</div>
-          <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr_1fr_auto] gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr_1fr_1fr_auto] gap-2">
             <input className={input} type="email" required placeholder="name@company.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             <input className={input} placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input className={input} placeholder="Designation (e.g. Store Manager)" maxLength={60} value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} data-testid="invite-designation" />
             <select className={input} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
               {assignable.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
             </select>
             <button className={`${btn} bg-signal text-on-accent`} disabled={busy === "invite"}>{busy === "invite" ? "Inviting…" : "Invite"}</button>
           </div>
-          <div className="text-[12px] text-ink-soft">{roles.find((r) => r.key === form.role)?.can}</div>
+          <div className="text-[12px] text-ink-soft">Access: {roles.find((r) => r.key === form.role)?.can}. The designation is just their job title — what they can open is set by the access level.</div>
         </form>
       )}
 
@@ -135,22 +136,32 @@ function TeamTab({ me }: { me: Me }) {
           <thead>
             <tr className="text-left text-[11.5px] text-ink-soft border-b border-line">
               <th className="px-4 py-2.5 font-semibold">Person</th>
-              <th className="px-4 py-2.5 font-semibold">Role</th>
+              <th className="px-4 py-2.5 font-semibold">Designation</th>
+              <th className="px-4 py-2.5 font-semibold">Access</th>
               <th className="px-4 py-2.5 font-semibold hidden md:table-cell">Last sign-in</th>
               <th className="px-4 py-2.5" />
             </tr>
           </thead>
           <tbody>
-            {users === null && <tr><td colSpan={4} className="px-4 py-6 text-ink-soft">Loading…</td></tr>}
-            {users?.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-ink-soft">No personal logins yet.</td></tr>}
+            {users === null && <tr><td colSpan={5} className="px-4 py-6 text-ink-soft">Loading…</td></tr>}
+            {users?.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-ink-soft">No personal logins yet.</td></tr>}
             {users?.map((u) => {
               const self = u.id === me.id;
               const editable = canManage && me.personal && !self && RANK[me.role] >= RANK[u.role];
+              const titleEditable = canManage && me.personal && (self || RANK[me.role] >= RANK[u.role]);
               return (
                 <tr key={u.id} className={`border-b border-line last:border-0 ${u.is_active ? "" : "opacity-55"}`}>
                   <td className="px-4 py-3">
                     <div className="font-semibold">{u.name || u.email.split("@")[0]}{self && <span className="text-ink-soft font-normal"> (you)</span>}</div>
                     <div className="text-[12px] text-ink-soft">{u.email}{u.must_change_password && u.is_active ? " · hasn't set a password yet" : ""}{!u.is_active ? " · access removed" : ""}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {titleEditable ? (
+                      <input key={`${u.id}:${u.designation || ""}`} className={`${input} py-1.5 w-full min-w-[150px]`} placeholder="Add designation" maxLength={60} defaultValue={u.designation || ""} disabled={busy === u.id}
+                        data-testid="designation-input"
+                        onBlur={(e) => { const v = e.target.value.trim(); if (v !== (u.designation || "")) change(u, { designation: v }); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+                    ) : <span className={u.designation ? "" : "text-ink-soft"}>{u.designation || "—"}</span>}
                   </td>
                   <td className="px-4 py-3">
                     {editable ? (
@@ -325,6 +336,7 @@ function describe(e: Event): string {
   switch (e.action) {
     case "user_invited": return `${d.email} as ${ROLE_LABEL[d.role] || d.role}`;
     case "user_role_changed": return `${d.email}: ${ROLE_LABEL[d.from] || d.from} → ${ROLE_LABEL[d.to] || d.to}`;
+    case "user_designation_changed": return `${d.email}: ${d.from || "no designation"} → ${d.to || "no designation"}`;
     case "user_deactivated": case "user_reactivated": case "user_password_reset": return d.email || "";
     case "number_provisioned": case "number_imported": return d.number || d.label || "";
     case "number_assigned": return d.scriptId ? "Employee assigned" : "Stopped answering";
@@ -355,7 +367,7 @@ function ActivityTab({ me }: { me: Me }) {
   useEffect(() => { if (RANK[me.role] >= RANK.admin) load(); }, [me.role]);
   if (RANK[me.role] < RANK.admin) return <Banner tone="err">Only admins and owners can see the activity log.</Banner>;
   const groups: Record<string, string[]> = {
-    all: [], access: ["login", "login_failed", "password_changed", "user_invited", "user_role_changed", "user_deactivated", "user_reactivated", "user_password_reset"],
+    all: [], access: ["login", "login_failed", "password_changed", "user_invited", "user_role_changed", "user_designation_changed", "user_deactivated", "user_reactivated", "user_password_reset"],
     calling: ["campaign_launched", "campaign_cancelled", "campaign_retried", "number_test_call", "calling_rules_changed", "dnc_added", "dnc_removed"],
     setup: ["number_provisioned", "number_imported", "number_released", "number_assigned", "employee_published", "employee_deleted"],
     data: ["campaign_exported", "lead_updated"],
@@ -425,7 +437,7 @@ export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("team");
   const [first, setFirst] = useState(false);
   const [me, setMe] = useState<Me | null>(null);
-  const [who, setWho] = useState<{ name: string | null; email: string; roleLabel: string; company: string } | null>(null);
+  const [who, setWho] = useState<{ name: string | null; email: string; roleLabel: string; designation?: string | null; company: string } | null>(null);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -435,7 +447,7 @@ export default function SettingsPage() {
     fetch("/api/auth/me", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => {
       if (!d) return;
       setMe({ id: d.user?.id ?? null, role: d.user?.role ?? "owner", personal: !!d.user?.personal });
-      setWho({ name: d.user?.name ?? null, email: d.user?.email ?? "", roleLabel: d.user?.roleLabel ?? "Owner", company: d.name });
+      setWho({ name: d.user?.name ?? null, email: d.user?.email ?? "", roleLabel: d.user?.roleLabel ?? "Owner", designation: d.user?.designation ?? null, company: d.name });
     });
   }, []);
   function go(t: Tab) { setTab(t); const u = new URL(window.location.href); u.searchParams.set("tab", t); u.searchParams.delete("first"); window.history.replaceState(null, "", u); }
@@ -449,7 +461,7 @@ export default function SettingsPage() {
             <h1 className="font-display text-[26px] font-semibold m-0">Settings</h1>
             <div className="text-[13px] text-ink-soft mt-1">Who can use RANA for {who?.company || "your company"}, when your employees may call, and a record of every important change.</div>
           </div>
-          {who && <div className="text-right text-[12.5px]"><div className="font-semibold">{who.name || who.email}</div><div className="text-ink-soft">{who.roleLabel}</div></div>}
+          {who && <div className="text-right text-[12.5px]"><div className="font-semibold">{who.name || who.email}</div><div className="text-ink-soft">{who.designation ? `${who.designation} · ` : ""}{who.roleLabel}</div></div>}
         </div>
         <div className="flex gap-1 bg-raised border border-line rounded-[9px] p-1 w-fit" role="tablist">
           {TABS.map((t) => (
