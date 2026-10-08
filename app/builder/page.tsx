@@ -248,11 +248,6 @@ function Builder() {
             <button onClick={publish} disabled={!!busy || filled === 0} className={`${btn} bg-ink text-paper mt-2`} data-testid="builder-publish-go">{busy === "publish" ? "Publishing…" : `Publish version ${(versions[0]?.version || 0) + 1}`}</button>
           </div>
 
-@@ENDEDIT
-@@EDIT lib/agentBuilder.ts
-  { key: "flow", title: "Conversation flow", hint: "Step by step: opening, questions to ask, what to say for each topic, closing." },@@WITH
-  { key: "flow", title: "Conversation flow", hint: "Step by step: opening, understanding the need, pitch, questions and objections, closing, ending." },
-
           <div className="border border-line rounded-xl bg-raised p-4" data-testid="builder-versions">
             <div className="text-[13.5px] font-semibold mb-1.5">Versions</div>
             {!versions.length && <div className="text-[12.5px] text-ink-soft">No versions yet — publish to save the first one.</div>}

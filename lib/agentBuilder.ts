@@ -9,7 +9,7 @@ export const SECTIONS = [
   { key: "objective", title: "Objective", hint: "What a good call achieves. E.g. answer quickly, invite them to visit, note wholesale needs." },
   { key: "style", title: "Speaking style", hint: "How it talks: short replies, natural words, prices in English, how to say brand words like WhatsApp…" },
   { key: "facts", title: "Facts", hint: "Everything it may say: address, timings, prices, sizes, offers. It never invents anything outside this." },
-  { key: "flow", title: "Conversation flow", hint: "Step by step: opening, questions to ask, what to say for each topic, closing." },
+  { key: "flow", title: "Conversation flow", hint: "Step by step: opening, understanding the need, pitch, questions and objections, closing, ending." },
   { key: "guardrails", title: "Guardrails", hint: "What it must never do or say." },
 ] as const;
 export type SectionKey = (typeof SECTIONS)[number]["key"];
