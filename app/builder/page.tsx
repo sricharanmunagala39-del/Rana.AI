@@ -7,7 +7,8 @@ import { SECTIONS, type Sections } from "@/lib/agentBuilder";
 
 type Agent = { id: string; name: string; greeting: string; language: string; voice: string; sections: Sections; exact: boolean; publishedAt: string | null; readyMade: boolean; hasOldScript: boolean };
 type Version = { version: number; note: string | null; greeting: string; sections: Sections; starting_language: string | null; voice_name: string | null; created_by: string | null; created_at: string };
-type Proposal = { kind: "change" | "import" | "restore"; title: string; summary: string; changes: Partial<Sections>; greeting: string | null; language?: string | null; voice?: string | null };
+type Turn = { role: "owner" | "ai"; text: string; questions?: string[] };
+type Proposal = { before?: { sections: Sections; greeting: string }; kind: "change" | "import" | "restore" | "applied"; title: string; summary: string; changes: Partial<Sections>; greeting: string | null; language?: string | null; voice?: string | null };
 
 const box = "w-full rounded-lg border border-line bg-paper px-3 py-2 text-[13.5px] leading-relaxed outline-none focus:border-signal";
 const btn = "rounded-lg px-3.5 py-2 text-[13px] font-semibold disabled:opacity-40";
@@ -26,7 +27,7 @@ function Builder() {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState("");
   const [ask, setAsk] = useState("");
-  const [paste, setPaste] = useState("");
+  const [chat, setChat] = useState<Turn[]>([]);
   const [note, setNote] = useState("");
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [list, setList] = useState<any[]>([]);
@@ -61,10 +62,23 @@ function Builder() {
     } catch (e: any) { setErr(e.message); return null; } finally { setBusy(""); }
   }
 
-  async function askChange() {
-    if (!agent || !ask.trim()) return;
-    const d = await call(`/api/builder/${agent.id}/ai`, { mode: "change", request: ask, sections: agent.sections, greeting: agent.greeting }, "ask");
-    if (d) setProposal({ kind: "change", title: ask.trim(), summary: d.summary, changes: d.changes || {}, greeting: d.greeting });
+  // The co-writer: a website link, a script, notes, answers or a change — it writes the script and asks what's missing.
+  async function send(text?: string) {
+    const message = (text ?? ask).trim();
+    if (!agent || !message) return;
+    const history = chat.map((t) => ({ role: t.role, text: t.questions?.length ? `${t.text}\nQuestions: ${t.questions.join(" | ")}` : t.text }));
+    setChat((c) => [...c, { role: "owner", text: message.length > 600 ? `${message.slice(0, 600)}…` : message }]); setAsk("");
+    const d = await call(`/api/builder/${agent.id}/ai`, { mode: "chat", message, history, sections: agent.sections, greeting: agent.greeting }, "ask");
+    if (!d) { setChat((c) => c.slice(0, -1)); setAsk(message); return; }
+    const note = [d.read?.length ? `Read: ${d.read.join(", ")}.` : "", d.unread?.length ? `Couldn't read: ${d.unread.join("; ")}.` : ""].filter(Boolean).join(" ");
+    setChat((c) => [...c, { role: "ai", text: [d.reply, note].filter(Boolean).join(" "), questions: d.questions || [] }]);
+    const changed = Object.keys(d.changes || {}).length || d.greeting != null;
+    // Applied straight away (like a co-writer); the panel shows what changed with an Undo.
+    if (changed) {
+      const before = { sections: agent.sections, greeting: agent.greeting };
+      setAgent((a) => (a ? { ...a, sections: { ...a.sections, ...(d.changes || {}) } as Sections, ...(d.greeting != null ? { greeting: d.greeting } : {}) } : a));
+      setProposal({ kind: "applied", before, title: "Changes made", summary: "Already applied to the script below. Publish to use them on calls.", changes: d.changes || {}, greeting: d.greeting });
+    } else setProposal(null);
   }
   async function importScript(text: string) {
     if (!agent || text.trim().length < 20) return;
@@ -83,8 +97,6 @@ function Builder() {
   function accept() {
     if (!agent || !proposal) return;
     set({ sections: { ...agent.sections, ...proposal.changes } as Sections, ...(proposal.greeting != null ? { greeting: proposal.greeting } : {}), ...(proposal.language ? { language: proposal.language } : {}), ...(proposal.voice ? { voice: proposal.voice } : {}) });
-    if (proposal.kind === "change") setAsk("");
-    if (proposal.kind === "import") setPaste("");
     setProposal(null); setMsg("Accepted — press Publish to use it on calls.");
   }
   async function saveDraft() {
@@ -184,11 +196,26 @@ function Builder() {
 
         <div className="flex flex-col gap-3 lg:sticky lg:top-4">
           <div className="border border-signal/50 rounded-xl bg-raised p-4" data-testid="builder-ask">
-            <div className="text-[13.5px] font-semibold">✨ Ask for a change</div>
-            <div className="text-[11.5px] text-ink-soft mb-1.5">Say it in plain words. The AI edits only what's needed and keeps the rest of the script the same.</div>
-            <textarea value={ask} onChange={(e) => setAsk(e.target.value)} rows={4} className={box} placeholder="e.g. Say all prices in English. If they ask about sizes, say all sizes are available and invite them to visit." data-testid="builder-ask-input" />
-            <button onClick={askChange} disabled={!!busy || !ask.trim() || filled === 0} className={`${btn} bg-signal text-on-accent mt-2`} data-testid="builder-ask-go">{busy === "ask" ? "Working on it…" : "Make the change"}</button>
-            {filled === 0 && <div className="text-[11.5px] text-ink-soft mt-1.5">Add the script first (paste it below).</div>}
+            <div className="text-[13.5px] font-semibold">✨ Co-writer</div>
+            <div className="text-[11.5px] text-ink-soft mb-2">Paste a website link or a script, or say what to change. It writes the opening, pitch and closing for you and asks what's missing.</div>
+            {chat.length > 0 && (
+              <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto mb-2" data-testid="builder-chat">
+                {chat.map((t, i) => (
+                  <div key={i} className={`rounded-lg px-2.5 py-2 text-[12.5px] whitespace-pre-wrap ${t.role === "owner" ? "bg-sunken self-end max-w-[90%]" : "bg-signal/10 max-w-[95%]"}`}>
+                    {t.text}
+                    {!!t.questions?.length && (
+                      <ol className="mt-1.5 pl-4 list-decimal flex flex-col gap-0.5">{t.questions.map((q, j) => <li key={j}>{q}</li>)}</ol>
+                    )}
+                  </div>
+                ))}
+                {busy === "ask" && <div className="text-[12px] text-ink-soft">Writing…</div>}
+              </div>
+            )}
+            <textarea value={ask} onChange={(e) => setAsk(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send(); }} rows={4} className={box} placeholder={filled ? "e.g. Say all prices in English. Or answer the questions above." : "Paste the website link (e.g. www.honerhomes.com) or the full script…"} data-testid="builder-ask-input" />
+            <div className="flex flex-wrap gap-2 mt-2">
+              <button onClick={() => send()} disabled={!!busy || !ask.trim()} className={`${btn} bg-signal text-on-accent`} data-testid="builder-ask-go">{busy === "ask" ? "Working on it…" : filled ? "Send" : "Write the script"}</button>
+              {oldScript && !filled && <button onClick={() => importScript(oldScript)} disabled={!!busy} className={`${btn} border border-line`} data-testid="builder-import-old">Use this employee&apos;s current script</button>}
+            </div>
           </div>
 
           {proposal && (
@@ -196,14 +223,21 @@ function Builder() {
               <div className="text-[13.5px] font-semibold">{proposal.title}</div>
               <div className="text-[12.5px] text-ink-soft mt-0.5">{proposal.summary}</div>
               <div className="flex flex-col gap-2 mt-2.5 max-h-[50vh] overflow-y-auto">
-                {proposal.greeting != null && <Diff title="Greeting" before={agent.greeting} after={proposal.greeting} />}
-                {SECTIONS.filter((s) => s.key in proposal.changes).map((s) => <Diff key={s.key} title={s.title} before={agent.sections[s.key]} after={proposal.changes[s.key] || ""} />)}
+                {proposal.greeting != null && <Diff title="Greeting" before={(proposal.before || agent).greeting} after={proposal.greeting} />}
+                {SECTIONS.filter((s) => s.key in proposal.changes).map((s) => <Diff key={s.key} title={s.title} before={(proposal.before || agent).sections[s.key]} after={proposal.changes[s.key] || ""} />)}
                 {!changedKeys.length && proposal.greeting == null && <div className="text-[12.5px]">Nothing needs to change.</div>}
               </div>
+              {proposal.kind === "applied" ? (
+                <div className="flex gap-2 mt-3">
+                  <button onClick={() => setProposal(null)} className={`${btn} bg-signal text-on-accent`} data-testid="builder-ok">OK</button>
+                  <button onClick={() => { const b4 = proposal.before; if (b4) set({ sections: b4.sections, greeting: b4.greeting }); setProposal(null); setMsg("Undone."); }} className={`${btn} border border-line`} data-testid="builder-undo">Undo</button>
+                </div>
+              ) : (
               <div className="flex gap-2 mt-3">
                 <button onClick={accept} disabled={!changedKeys.length && proposal.greeting == null && !proposal.language} className={`${btn} bg-signal text-on-accent`} data-testid="builder-accept">Accept</button>
                 <button onClick={() => setProposal(null)} className={`${btn} border border-line`}>Discard</button>
               </div>
+              )}
             </div>
           )}
 
@@ -212,16 +246,6 @@ function Builder() {
             <div className="text-[11.5px] text-ink-soft mb-1.5">Calls use the published version. Each publish is saved, so you can go back.</div>
             <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What changed? (optional)" className={box} />
             <button onClick={publish} disabled={!!busy || filled === 0} className={`${btn} bg-ink text-paper mt-2`} data-testid="builder-publish-go">{busy === "publish" ? "Publishing…" : `Publish version ${(versions[0]?.version || 0) + 1}`}</button>
-          </div>
-
-          <div className="border border-line rounded-xl bg-raised p-4">
-            <div className="text-[13.5px] font-semibold">Start from a script</div>
-            <div className="text-[11.5px] text-ink-soft mb-1.5">Paste a full script or notes. The AI puts every detail into the sections.</div>
-            <textarea value={paste} onChange={(e) => setPaste(e.target.value)} rows={4} className={box} placeholder="Paste the script here…" data-testid="builder-paste" />
-            <div className="flex flex-wrap gap-2 mt-2">
-              <button onClick={() => importScript(paste)} disabled={!!busy || paste.trim().length < 20} className={`${btn} border border-line`} data-testid="builder-import">{busy === "import" ? "Arranging…" : "Arrange into sections"}</button>
-              {oldScript && <button onClick={() => importScript(oldScript)} disabled={!!busy} className={`${btn} border border-line`} data-testid="builder-import-old">Use this employee&apos;s current script</button>}
-            </div>
           </div>
 
           <div className="border border-line rounded-xl bg-raised p-4" data-testid="builder-versions">
