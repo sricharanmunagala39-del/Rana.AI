@@ -136,8 +136,8 @@ export function sarvamLanguageName(code: string | null | undefined): string {
 
 /** What every call of this employee sends to Sarvam. Caller details are appended to the instructions so they work without extra agent variables. */
 export function sessionPayload(script: any, caller?: { name?: string | null; variables?: Record<string, string> }, direction?: CallDirection) {
-  // A ready-made agent has its own script and greeting: send nothing that would override them.
-  if (parseAgentRef(script?.engine_agent)) return { agent_variables: {} as Record<string, string>, initial_bot_message: undefined as string | undefined, initial_language_name: sarvamLanguageName(script.starting_language) };
+  // A ready-made agent has its own script, greeting and opening language: send nothing that would override them.
+  if (parseAgentRef(script?.engine_agent)) return { agent_variables: {} as Record<string, string>, initial_bot_message: undefined as string | undefined, initial_language_name: undefined as string | undefined };
   // Inbound and outbound must sound different: name the direction when we know it (older employees get both rules).
   // Incoming calls use the inbound script when the employee has one ("they call us"); everything else the outbound one.
   const useIn = direction === "inbound" && String(script.instructions_inbound || "").trim();
