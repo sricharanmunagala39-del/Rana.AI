@@ -264,4 +264,273 @@ export default function HqCrmPage() {
                 {[["Tomorrow", 1], ["In 2 days", 2], ["In 3 days", 3], ["Next week", 7]].map(([l, n]) => <button key={l} onClick={() => setMoving({ ...moving, nextAt: inDays(n as number) })} className={`rounded-lg px-2.5 py-1 text-[12px] border ${moving.nextAt === inDays(n as number) ? "bg-ink text-paper border-ink font-semibold" : "border-line"}`}>{l}</button>)}
               </div>
               <div className="grid grid-cols-2 gap-3">
+                <label className="text-[12px] font-semibold">Next follow-up<input type="datetime-local" value={moving.nextAt} onChange={(e) => setMoving({ ...moving, nextAt: e.target.value })} className={field} data-testid="crm-move-next" /></label>
+                <label className="text-[12px] font-semibold">What to do<input value={moving.nextAction} onChange={(e) => setMoving({ ...moving, nextAction: e.target.value })} className={field} placeholder={moving.to === "prospect" ? "Send proposal" : "Call back"} /></label>
+              </div>
+            </>
+          )}
+          {moving.to === "prospect" && <label className="text-[12px] font-semibold">Expected closing date <span className="font-normal text-ink-soft">(optional — flags it if it slips)</span><input type="date" value={moving.closeAt} onChange={(e) => setMoving({ ...moving, closeAt: e.target.value })} className={field} /></label>}
+          {moving.to === "not_interested" && <label className="text-[12px] font-semibold">Why?<input value={moving.reason} onChange={(e) => setMoving({ ...moving, reason: e.target.value })} className={field} placeholder="Price, no need, using someone else…" /></label>}
+          {moving.to === "deal" && <div className="text-[12.5px] text-ink-soft">🎉 Set the plan and discount in the lead after this, then create their workspace in HQ.</div>}
+          <label className="text-[12px] font-semibold">Note for the team <span className="font-normal text-ink-soft">(optional)</span><textarea value={moving.note} onChange={(e) => setMoving({ ...moving, note: e.target.value })} className={field} rows={2} placeholder="What happened on the call…" data-testid="crm-move-note" /></label>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setMoving(null)} className={btn}>Cancel</button>
+            <button onClick={confirmMove} disabled={busy || ((d.needsFollowUp || []).includes(moving.to) && !moving.nextAt)} className={primary} data-testid="crm-move-save">Move</button>
+          </div>
+        </Modal>
+      )}
+
+      {open && <DealDrawer key={open.deal.id + open.deal.updated_at} data={open} meta={d} busy={busy} onClose={() => setOpen(null)} onSave={save} onMove={move} onLog={logActivity} onDelete={remove} staffName={staffName} />}
+    </div>
+  );
+}
+
+function Modal({ title, onClose, children, testid, wide }: any) {
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className={`w-full ${wide ? "max-w-[860px]" : "max-w-[520px]"} bg-raised rounded-2xl border border-line p-6 flex flex-col gap-3 max-h-[92vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()} data-testid={testid}>
+        <div className="flex items-start justify-between gap-3"><div className="text-[18px] font-display font-semibold">{title}</div><button onClick={onClose} className="text-ink-soft text-xl leading-none">×</button></div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function UploadModal({ staff, me, onClose, onDone }: any) {
+  const [rows, setRows] = useState<string[][] | null>(null);
+  const [map, setMap] = useState<LeadField[]>([]);
+  const [header, setHeader] = useState<string[]>([]);
+  const [fileName, setFileName] = useState("");
+  const [owner, setOwner] = useState(me || "");
+  const [industry, setIndustry] = useState("");
+  const [paste, setPaste] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [result, setResult] = useState<any>(null);
+
+  function use(all: string[][], name: string) {
+    const clean = all.filter((r) => r.some((c) => String(c || "").trim()));
+    if (clean.length < 2) { setErr("That file has no rows under the header."); return; }
+    let h = findHeaderRow(clean); if (h < 0) h = 0;
+    const hd = clean[h].map((c) => String(c || "").trim()); const body = clean.slice(h + 1);
+    setHeader(hd); setRows(body); setMap(guessLeadColumns(hd, body)); setFileName(name); setErr("");
+  }
+  async function pick(f: File | undefined) {
+    if (!f) return;
+    try {
+      if (/\.xlsx$/i.test(f.name)) use(await readXlsx(await f.arrayBuffer()), f.name);
+      else if (/\.xls$/i.test(f.name)) setErr("Old .xls files can't be read — in Excel use File → Save As → .xlsx or .csv.");
+      else use(parseText(await f.text()), f.name);
+    } catch { setErr("Couldn't read that file. Save it as .xlsx or .csv and try again."); }
+  }
+  const leads = rows ? rowsToLeads(rows, map) : [];
+  const ok = map.includes("phone") || map.includes("email");
+  async function submit() {
+    setBusy(true); setErr("");
+    try {
+      const r = await fetch("/api/hq/crm/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ leads, owner: owner || null, industry: industry || null, fileName }) });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error); setResult(j);
+    } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  }
+  const template = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([TEMPLATE], { type: "text/csv" })); a.download = "rana-leads-template.csv"; a.click(); };
+
+  if (result) return (
+    <Modal title="Leads added" onClose={() => onDone(`${result.added} lead${result.added === 1 ? "" : "s"} added to New.`)} testid="crm-upload-result">
+      <div className="text-[14px]" data-testid="crm-upload-summary"><b>{result.added}</b> added to New · <b>{result.duplicates}</b> already in the CRM (skipped) · <b>{result.skipped}</b> missing a name or number</div>
+      {result.problems?.length > 0 && <div className="text-[12px] text-ink-soft border border-line rounded-lg p-2 max-h-[160px] overflow-y-auto">{result.problems.map((p: string) => <div key={p}>{p}</div>)}</div>}
+      <div className="flex justify-end"><button onClick={() => onDone(`${result.added} lead${result.added === 1 ? "" : "s"} added to New.`)} className={primary}>Done</button></div>
+    </Modal>
+  );
+  return (
+    <Modal title="Upload leads" onClose={onClose} testid="crm-upload" wide={!!rows}>
+      {!rows ? (
+        <>
+          <div className="text-[13px] text-ink-soft">Excel (.xlsx) or CSV. Columns can be in any order — we match them for you. Each lead needs a <b>name</b> and a <b>phone or email</b>. Numbers already in the CRM are skipped.</div>
+          <label className="border-2 border-dashed border-line rounded-xl p-6 text-center cursor-pointer hover:border-signal/60">
+            <div className="text-[14px] font-semibold">Choose a file</div>
+            <div className="text-[12px] text-ink-soft">.xlsx or .csv, up to 5,000 rows</div>
+            <input type="file" accept=".xlsx,.csv,.txt,.tsv" className="hidden" onChange={(e) => pick(e.target.files?.[0])} data-testid="crm-upload-file" />
+          </label>
+          <button onClick={template} className="self-start text-[12.5px] text-signal font-semibold">↓ Download the template</button>
+          <details className="text-[12.5px]"><summary className="cursor-pointer text-ink-soft">…or paste rows copied from Excel / Google Sheets</summary>
+            <textarea value={paste} onChange={(e) => setPaste(e.target.value)} rows={5} className={field} placeholder={"Business name\tPhone\tCity\n…"} data-testid="crm-upload-paste" />
+            <button onClick={() => use(parseText(paste), "pasted")} disabled={!paste.trim()} className={`${btn} mt-2`}>Use these rows</button>
+          </details>
+        </>
+      ) : (
+        <>
+          <div className="text-[13px]"><b>{fileName}</b> · {rows.length} rows. Check the columns:</div>
+          <div className="overflow-x-auto border border-line rounded-lg">
+            <table className="text-[12px] min-w-full">
+              <thead><tr>{header.map((h, i) => (
+                <th key={i} className="px-2 py-1.5 text-left border-b border-line align-top">
+                  <div className="text-ink-soft font-normal truncate max-w-[160px]">{h || `Column ${i + 1}`}</div>
+                  <select value={map[i]} onChange={(e) => setMap(map.map((m, j) => (j === i ? (e.target.value as LeadField) : m === e.target.value ? "ignore" : m)))} className={`mt-1 border rounded px-1 py-0.5 text-[12px] ${map[i] === "ignore" ? "border-line text-ink-soft" : "border-signal text-signal font-semibold"}`} data-testid={`crm-map-${i}`}>
+                    <option value="ignore">Don't use</option>{LEAD_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                  </select>
+                </th>))}</tr></thead>
+              <tbody>{rows.slice(0, 5).map((r, i) => <tr key={i}>{header.map((_, j) => <td key={j} className="px-2 py-1 border-b border-line truncate max-w-[160px]">{r[j]}</td>)}</tr>)}</tbody>
+            </table>
+          </div>
+          {!ok && <div className="text-[12.5px] text-miss">Pick which column is the Phone (or Email).</div>}
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-[12px] font-semibold">Who will call these?<select value={owner} onChange={(e) => setOwner(e.target.value)} className={field} data-testid="crm-upload-owner"><option value="">Nobody yet</option>{staff.map((s: any) => <option key={s.email} value={s.email}>{s.name || s.email}</option>)}</select></label>
+            <label className="text-[12px] font-semibold">Industry {map.includes("industry") ? "(when a row has none)" : ""}<select value={industry} onChange={(e) => setIndustry(e.target.value)} className={field}><option value="">Guess from each business name</option>{INDUSTRIES.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}</select></label>
+          </div>
+          {err && <div className="text-[12.5px] text-miss">{err}</div>}
+          <div className="flex justify-between gap-2">
+            <button onClick={() => { setRows(null); setFileName(""); }} className={btn}>← Another file</button>
+            <button onClick={submit} disabled={busy || !ok || !leads.length} className={primary} data-testid="crm-upload-save">{busy ? "Adding…" : `Add ${leads.length} leads to New`}</button>
+          </div>
+        </>
+      )}
+      {!rows && err && <div className="text-[12.5px] text-miss">{err}</div>}
+    </Modal>
+  );
+}
+
+function SheetModal({ d, onClose, onChanged }: any) {
+  const [url, setUrl] = useState(d.sheet.url);
+  const [owner, setOwner] = useState(d.sheet.owner);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [res, setRes] = useState<any>(d.sheet.lastResult);
+  const [copied, setCopied] = useState(false);
+  async function call(method: "PUT" | "POST") {
+    setBusy(true); setErr("");
+    try {
+      const r = await fetch("/api/hq/crm/settings", { method, headers: { "Content-Type": "application/json" }, body: method === "PUT" ? JSON.stringify({ sheetUrl: url, sheetOwner: owner }) : "{}" });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error);
+      if (j.unlinked) { setRes(null); onChanged("Google Sheet unlinked."); return; }
+      setRes({ ok: true, ...j.result }); onChanged(`Sheet synced: ${j.result.added} new lead${j.result.added === 1 ? "" : "s"}.`);
+    } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  }
+  return (
+    <Modal title="Google Sheet & connected apps" onClose={onClose} testid="crm-sheet">
+      <div className="text-[13px] text-ink-soft">Keep adding leads in one Google Sheet — new rows come into <b>New</b> automatically (every time someone opens this page, and every morning). Numbers already here are skipped, so nothing is added twice.</div>
+      {d.manager ? (
+        <>
+          <ol className="text-[12.5px] list-decimal pl-5 text-ink-soft">
+            <li>Make a sheet with columns like <i>Business name, Contact person, Phone, Email, City, Industry, Notes</i>.</li>
+            <li>Share → General access → <b>Anyone with the link</b> → Viewer.</li>
+            <li>Paste the link here.</li>
+          </ol>
+          <label className="text-[12px] font-semibold">Sheet link<input value={url} onChange={(e) => setUrl(e.target.value)} className={field} placeholder="https://docs.google.com/spreadsheets/d/…" data-testid="crm-sheet-url" /></label>
+          <label className="text-[12px] font-semibold">New sheet leads go to<select value={owner} onChange={(e) => setOwner(e.target.value)} className={field}><option value="">Nobody (team picks them up)</option>{d.staff.map((s: any) => <option key={s.email} value={s.email}>{s.name || s.email}</option>)}</select></label>
+          <div className="flex gap-2 justify-end">
+            {d.sheet.url && <button onClick={() => { setUrl(""); }} className={btn}>Unlink</button>}
+            <button onClick={() => call("PUT")} disabled={busy || url === d.sheet.url && owner === d.sheet.owner} className={primary} data-testid="crm-sheet-save">{busy ? "Saving…" : url ? "Save & sync" : "Save"}</button>
+          </div>
+        </>
+      ) : <div className="text-[12.5px]">{d.sheet.url ? "A sheet is linked." : "No sheet linked yet — ask a founder or Operations to link one."}</div>}
+      {d.sheet.url && (
+        <div className="border border-line rounded-lg p-3 text-[12.5px] flex items-center justify-between gap-2" data-testid="crm-sheet-status">
+          <div>{d.sheet.lastSync ? `Last sync ${ago(d.sheet.lastSync)}` : "Not synced yet"}{res ? res.ok ? ` · ${res.added} added, ${res.duplicates} already here, ${res.skipped} incomplete` : <span className="text-miss"> · {res.error}</span> : ""}</div>
+          <button onClick={() => call("POST")} disabled={busy} className={btn} data-testid="crm-sheet-sync">Sync now</button>
+        </div>
+      )}
+      {err && <div className="text-[12.5px] text-miss" data-testid="crm-sheet-error">{err}</div>}
+      {d.inbox && (
+        <details className="text-[12.5px] border-t border-line pt-3">
+          <summary className="cursor-pointer font-semibold">Connect Zapier, Make, website forms or Facebook lead ads</summary>
+          <div className="text-ink-soft mt-2">Send a POST with JSON <code>{`{ "business", "name", "phone", "email", "city", "industry", "notes" }`}</code> to this private address. Keep it secret — anyone with it can add leads.</div>
+          <div className="flex gap-2 mt-2"><input readOnly value={d.inbox} className={`${field} mt-0 font-mono text-[11.5px]`} data-testid="crm-inbox-url" /><button onClick={() => { navigator.clipboard?.writeText(d.inbox); setCopied(true); }} className={btn}>{copied ? "Copied" : "Copy"}</button></div>
+        </details>
+      )}
+    </Modal>
+  );
+}
+
+function DealDrawer({ data, meta, busy, onClose, onSave, onMove, onLog, onDelete, staffName }: any) {
+  const x = data.deal;
+  const [log, setLog] = useState({ kind: "note", text: "", nextAction: x.next_action || "", nextAt: localInput(x.next_action_at) });
+  const blur = (k: string, cur: any) => (e: any) => { const v = e.target.value; if (v !== (cur ?? "")) onSave(x.id, { [k]: v }); };
+  const list = listOf(x.plan);
+  const yearly = x.billing === "yearly";
+  const notes = data.activities.filter((a: any) => a.kind !== "system" && a.kind !== "stage");
+  return (
+    <div className="fixed inset-0 bg-black/30 z-50 flex justify-end" onClick={onClose}>
+      <div className="w-full max-w-[560px] h-full bg-raised border-l border-line overflow-y-auto p-6 flex flex-col gap-4" onClick={(e) => e.stopPropagation()} data-testid="crm-drawer">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <input defaultValue={x.business} onBlur={blur("business", x.business)} className="text-[19px] font-display font-semibold bg-transparent w-full outline-none" data-testid="crm-business" />
+            <div className="text-[12px] text-ink-soft">{meta.sources[x.source] || x.source} · added {ago(x.created_at)} · last update {ago(x.last_activity_at || x.updated_at)}</div>
+          </div>
+          <button onClick={onClose} className="text-ink-soft text-xl">×</button>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5" data-testid="crm-stages">
+          {meta.stages.map((s: any) => (
+            <button key={s.key} disabled={busy} onClick={() => onMove(x, s.key)}
+              className={`rounded-full border px-3 py-1 text-[12px] font-semibold ${x.stage === s.key ? `${STAGE_TONE[s.key]} ring-1 ring-current` : "border-line text-ink-soft"}`} data-testid={`crm-stage-${s.key}`}>{s.label}</button>
+          ))}
+        </div>
+        {x.stage === "not_interested" && x.lost_reason && <div className="text-[12.5px] text-ink-soft">Not interested: {x.lost_reason}</div>}
+        {x.follow !== "none" && x.next_action_at && <div className={`text-[13px] ${FOLLOW_TONE[x.follow]}`} data-testid="crm-next">⏰ {x.follow === "overdue" ? "Follow-up missed: " : "Next: "}{x.next_action || "Follow up"} · {day(x.next_action_at)}</div>}
+        {x.delayed && <div className="text-[12.5px] text-hot font-semibold">This prospect is going cold — {x.expected_close_at && Date.parse(x.expected_close_at) < Date.now() ? "the closing date has passed" : "no update for 7+ days"}. Add a note or move it.</div>}
+
+        <div className="flex gap-2 flex-wrap">
+          {x.phone && <a href={`tel:${x.phone}`} className="border border-line rounded-lg px-3 py-1.5 text-[12.5px] font-semibold">📞 {x.phone}</a>}
+          {x.phone && <a href={wa(x.phone)} target="_blank" rel="noreferrer" className="border border-line rounded-lg px-3 py-1.5 text-[12.5px] font-semibold">💬 WhatsApp</a>}
+          {x.email && <a href={`mailto:${x.email}`} className="border border-line rounded-lg px-3 py-1.5 text-[12.5px] font-semibold">✉️ {x.email}</a>}
+        </div>
+
+        <div className="border border-line rounded-xl p-3 flex flex-col gap-2 bg-paper" data-testid="crm-log">
+          <div className="text-[12px] font-semibold">Add a note for the team</div>
+          <div className="flex flex-wrap gap-1.5">{KINDS.map(([k, l]) => <button key={k} onClick={() => setLog({ ...log, kind: k })} className={`rounded-lg px-2.5 py-1 text-[12px] border ${log.kind === k ? "bg-ink text-paper border-ink font-semibold" : "border-line"}`}>{l}</button>)}</div>
+          <textarea value={log.text} onChange={(e) => setLog({ ...log, text: e.target.value })} rows={2} className={field} placeholder="e.g. Spoke to owner, 40 calls a day, wants Telugu. Call back Thursday." data-testid="crm-log-text" />
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <input value={log.nextAction} onChange={(e) => setLog({ ...log, nextAction: e.target.value })} className={field} placeholder="Next step (e.g. Send proposal)" />
+            <input type="datetime-local" value={log.nextAt} onChange={(e) => setLog({ ...log, nextAt: e.target.value })} className={field} data-testid="crm-next-at" />
+          </div>
+          <div className="flex justify-end">
+            <button disabled={busy || !log.text.trim()} onClick={() => onLog(x.id, { kind: log.kind, text: log.text, nextAction: log.nextAction, nextActionAt: log.nextAt ? new Date(log.nextAt).toISOString() : null })} className={primary} data-testid="crm-log-save">Save note</button>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2" data-testid="crm-timeline">
+          <div className="text-[12px] font-semibold">Notes & history</div>
+          {data.activities.map((a: any) => (
+            <div key={a.id} className={`text-[12.5px] border-l-2 pl-3 ${a.kind === "system" || a.kind === "stage" ? "border-line text-ink-soft" : "border-signal/60"}`}>
+              <div className="text-[11px] text-ink-soft">{KINDS.find(([k]) => k === a.kind)?.[1] || (a.kind === "stage" ? "➜ Stage" : "•")} · {staffName(a.created_by)} · {day(a.created_at)}</div>
+              <div className="whitespace-pre-wrap">{a.text}</div>
+            </div>
+          ))}
+          {!notes.length && <div className="text-[12px] text-ink-soft">No notes yet.</div>}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="text-[12px] font-semibold">Contact person<input defaultValue={x.contact_name || ""} onBlur={blur("contactName", x.contact_name)} className={field} /></label>
+          <label className="text-[12px] font-semibold">Phone<input defaultValue={x.phone || ""} onBlur={blur("phone", x.phone)} className={field} inputMode="tel" /></label>
+          <label className="text-[12px] font-semibold">Email<input defaultValue={x.email || ""} onBlur={blur("email", x.email)} className={field} /></label>
+          <label className="text-[12px] font-semibold">City<input defaultValue={x.city || ""} onBlur={blur("city", x.city)} className={field} /></label>
+          <label className="text-[12px] font-semibold">Industry<select value={x.industry} onChange={(e) => onSave(x.id, { industry: e.target.value })} className={field} data-testid="crm-industry">{INDUSTRIES.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}</select></label>
+          <label className="text-[12px] font-semibold">Owner<select value={x.owner || ""} onChange={(e) => onSave(x.id, { owner: e.target.value })} className={field} data-testid="crm-owner">
+            <option value="">Nobody</option>{meta.staff.map((s: any) => <option key={s.email} value={s.email}>{s.name || s.email}{s.designation ? ` · ${s.designation}` : ""}</option>)}
+          </select></label>
+          {x.stage === "prospect" && <label className="text-[12px] font-semibold col-span-2">Expected closing date<input type="date" defaultValue={x.expected_close_at ? localInput(x.expected_close_at).slice(0, 10) : ""} onBlur={(e) => { const v = e.target.value; if (v !== (x.expected_close_at ? localInput(x.expected_close_at).slice(0, 10) : "")) onSave(x.id, { expectedCloseAt: v ? new Date(v + "T18:00").toISOString() : null }); }} className={field} /></label>}
+        </div>
+
+        {(x.stage === "prospect" || x.stage === "deal") && (
+          <div className="border border-line rounded-xl p-3 flex flex-col gap-2 bg-paper" data-testid="crm-offer">
+            <div className="text-[12px] font-semibold">Offer</div>
+            <div className="grid grid-cols-2 gap-2">
+              <select value={x.plan || ""} onChange={(e) => onSave(x.id, { plan: e.target.value })} className="border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] bg-raised" data-testid="crm-plan">
+                <option value="">Plan not decided</option>{PLAN_KEYS.map((k) => <option key={k} value={k}>{k[0].toUpperCase() + k.slice(1)}</option>)}
+              </select>
+              <div className="flex rounded-lg border border-line overflow-hidden text-[12px] font-semibold">
+                {(["monthly", "yearly"] as const).map((b) => <button key={b} onClick={() => onSave(x.id, { billing: b })} className={`flex-1 py-1.5 ${x.billing === b ? "bg-ink text-paper" : "bg-raised"}`}>{b === "monthly" ? "Monthly" : "Yearly"}</button>)}
+              </div>
+            </div>
+            {x.plan && x.plan !== "enterprise" && (
+              <>
+                <div className="flex flex-wrap gap-1.5">
+                  {SALES_DISCOUNT_STEPS.map((p) => <button key={p} disabled={busy} onClick={() => onSave(x.id, { discountPct: p })} className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold border ${Number(x.discount_pct || 0) === p ? "bg-ink text-paper border-ink" : "border-line"}`} data-testid={`crm-discount-${p}`}>{p ? `${p}% off` : "List price"}</button>)}
+                </div>
+                <div className="text-[13px] tabular-nums" data-testid="crm-price">
+                  {x.discount_pct ? <span className="line-through text-ink-soft mr-1.5">{inr(list)}</span> : null}<b>{inr(x.monthly)}</b>/month
+                  {yearly ? <> · <b>{inr(x.monthly * YEARLY_MONTHS_PAID)}</b> for 12 months (2 free, no setup fee)</> : null}
+                </div>
+              </>
+            )}
 // @@RANA_CONT@@
