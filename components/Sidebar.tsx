@@ -81,6 +81,13 @@ export default function Sidebar({ active, client: clientProp }: { active: string
       window.location.reload();
     }
   }, [client]);
+  // Sales CRM badge: my leads to call (overdue or due today).
+  const [crmDue, setCrmDue] = useState(0);
+  const isHq = !!(client as any)?.hq;
+  useEffect(() => {
+    if (!isHq) return;
+    fetch("/api/hq/crm/due").then((r) => (r.ok ? r.json() : null)).then((j) => j && setCrmDue(Number(j.due) || 0)).catch(() => {});
+  }, [isHq]);
   async function backToHq() {
     const r = await fetch("/api/hq/return", { method: "POST" });
     if (r.ok) window.location.href = "/hq";
@@ -137,6 +144,7 @@ export default function Sidebar({ active, client: clientProp }: { active: string
           </Link>
           <Link href="/hq/crm" className="flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium text-ink-soft hover:bg-raised hover:text-ink" data-testid="hq-crm-nav">
             <span className="w-2 text-center text-[11px]">◆</span> Sales CRM
+            {crmDue > 0 && <span className="ml-auto rounded-full bg-miss text-white text-[10.5px] font-semibold px-1.5 min-w-[18px] text-center" title="Your leads to call today or overdue" data-testid="hq-crm-due">{crmDue}</span>}
           </Link>
         </div>
       )}
