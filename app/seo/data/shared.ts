@@ -4,8 +4,8 @@ import { PLANS, TRIAL_DAYS, TRIAL_MINUTES } from "@/lib/pricing";
 export const INDIAN_LANGS = ["Telugu", "Hindi", "Tamil", "Kannada", "Malayalam", "Marathi", "Bengali", "Gujarati", "Punjabi", "Odia", "English"];
 export const LANGS_SENTENCE = "Telugu, Hindi, Tamil, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, Odia and English — plus Spanish, French and Japanese for callers abroad";
 export const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
-export const TRIAL_LINE = `${TRIAL_DAYS}-day free trial with ${TRIAL_MINUTES} minutes — no card needed`;
-export const ENTRY_LINE = `Plans from ${inr(PLANS.launch.pricePerMonth!)}/month (${PLANS.launch.minutes} minutes), billed in 30-second pulses`;
+export const TRIAL_LINE = "Free demo on your own script";
+export const ENTRY_LINE = `Plans from ${inr(PLANS.starter.pricePerMonth!)}/month (${PLANS.starter.minutes.toLocaleString("en-IN")} minutes), billed in 30-second pulses`;
 
 /** What every RANA AI voice agent does — a shared checklist for solution pages. */
 export const CORE_FEATURES = [
@@ -20,7 +20,7 @@ export const CORE_FEATURES = [
 ];
 
 export const TRUST_FAQS: { q: string; a: string }[] = [
-  { q: "How quickly can we go live?", a: `Usually within a few days: we set up your AI employee with your script, prices, FAQs and languages, you test it by talking to it in your browser, and then we connect your number. You can start with the ${TRIAL_LINE}.` },
+  { q: "How quickly can we go live?", a: `Usually within a few days: we set up your AI employee with your script, prices, FAQs and languages, you test it by talking to it in your browser, and then we connect your number. Start with a free demo on your own script.` },
   { q: "What does it cost?", a: `${ENTRY_LINE}. Starter is ${inr(PLANS.starter.pricePerMonth!)}/month for ${PLANS.starter.minutes.toLocaleString("en-IN")} minutes and Growth ${inr(PLANS.growth.pricePerMonth!)}/month for ${PLANS.growth.minutes.toLocaleString("en-IN")} minutes. Prices exclude GST. See the pricing page for every plan.` },
   { q: "Will callers know they are talking to an AI?", a: "The agent introduces itself by the name you choose and speaks naturally, with natural pauses and interruptions. We recommend being open that it is an AI assistant — callers care far more that they got a quick, correct answer than who gave it." },
 ];

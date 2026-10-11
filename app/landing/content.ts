@@ -19,21 +19,21 @@ const START = PRICE_LIST[PAID_PLAN_KEYS[0]];
 
 export const FAQ: [string, string][] = [
   ["Which businesses is RANA AI for?", "Any business that answers or makes a lot of phone calls: clinics and hospitals, real estate, schools and coaching, e-commerce and D2C brands, insurance and loan companies, hotels and restaurants, automobile dealers and local service businesses. If your team misses calls, calls back late or repeats the same answers all day, RANA can take those calls."],
-  ["What happens when I book a demo?", "You fill a short form and we call you within one working day. On a 20-minute call we learn how your calls work today, then show you an AI employee answering and calling for a business like yours, in your customers' language. No slides and no obligation — or start the free trial and build one yourself."],
+  ["What happens when I book a demo?", "You fill a short form and we call you within one working day. On a 20-minute call we learn how your calls work today, then show you an AI employee answering and calling for a business like yours, in your customers' language. No slides and no obligation."],
   ["Will callers know they're talking to an AI?", "It sounds natural and follows the conversation, but we recommend it introduces itself as your assistant. Honesty keeps trust high — and callers mostly care that someone picked up instantly."],
   ["Which languages does it speak?", `${INDIAN_LANGS_LINE} ${GLOBAL_LANGS_LINE}`],
-  ["Can it use my existing business number?", "Trials run on a shared Indian number. Growth and above get their own Indian number; for promotional outbound lists we help you with DLT registration so you stay compliant."],
-  ["How fast can we go live?", "You can build and test your first AI employee the same day on the free trial. Done-for-you setups with your scripts and data usually take one to two weeks."],
+  ["Can it use my existing business number?", "Starter can add its own Indian number; Growth and above get their own Indian number; for promotional outbound lists we help you with DLT registration so you stay compliant."],
+  ["How fast can we go live?", "Book a demo and we build your first AI employee on your own script, prices and languages. Done-for-you setups with your scripts and data usually take one to two weeks."],
   ["What happens when my minutes run out?", "Plan minutes are used first. After that, calls continue from a prepaid balance you top up by UPI, card or netbanking — or turn on auto-recharge so campaigns never stop."],
   ["What is an AI voice agent?", "An AI voice agent is software that talks on the phone like a trained staff member. RANA AI answers incoming calls and calls your leads, understands what people say in their own language, answers from your business information, and records, transcribes and scores every call for your team."],
-  ["How much does an AI calling agent cost in India?", `RANA AI plans start at ₹${inr0(START.pricePerMonth || 0)} a month for ${inr0(START.minutes)} connected minutes (about ₹${Math.round((START.pricePerMonth || 0) / START.minutes)} a minute), with lower per-minute rates on bigger plans. Calls are billed in 30-second pulses, and every workspace starts with a ${TRIAL_DAYS}-day free trial with ${TRIAL_MINUTES} minutes. ${enginesPricingLine()}`],
+  ["How much does an AI calling agent cost in India?", `RANA AI plans start at ₹${inr0(START.pricePerMonth || 0)} a month for ${inr0(START.minutes)} connected minutes (about ₹${Math.round((START.pricePerMonth || 0) / START.minutes)} a minute), with lower per-minute rates on bigger plans. Calls are billed in 30-second pulses. ${enginesPricingLine()}`],
   ["Is AI calling allowed in India? What about TRAI and DND rules?", "Yes, when it follows TRAI's commercial-communication rules. RANA AI only dials inside the calling hours you set (9 AM to 9 PM, Monday to Saturday, by default), keeps a do-not-call list that grows automatically when someone asks not to be called, and stops a campaign outside those hours. For promotional lists you need DLT registration and the right number series, and you should only call people who enquired or agreed to be contacted — we help you set this up."],
   ["What are the R1 and R2 voice engines?", `They are the two voice engines behind every RANA AI employee, and both are included in every plan. R1 is built for Indian languages and follows the caller when they switch language mid-call. R2 offers 900+ voices, very fast replies, your own cloned voice and global languages (English, Spanish, French, Japanese and Hindi), and keeps each call in the language it opens with. You choose the engine for each AI employee and can switch any time.${engineMinuteRate("cartesia") !== engineMinuteRate("sarvam") ? ` R1 calls use 1 plan minute per call minute; R2 calls use ${engineMinuteRate("cartesia")} plan minutes per call minute.` : ""}`],
   ["Do I get an invoice?", "Yes. Every payment comes with a proper invoice you can download any time from the Billing page."],
 ];
 
 // ---------- Other markets (global, US, Gulf, Europe, Japan) ----------
-const PAID: PaidKey[] = ["launch", "starter", "growth", "scale"];
+const PAID = PAID_PLAN_KEYS as PaidKey[];
 
 export type PlanCard = { key: PaidKey; name: string; symbol: string; price: string; min: string; extra: string; pts: string[]; fee: string; hi: boolean };
 
@@ -57,14 +57,14 @@ export function plansFor(m: Market): PlanCard[] {
 /** FAQ for a market. India keeps its own list; global markets get the same answers rewritten for them. */
 export function faqFor(m: Market): [string, string][] {
   if (m.key === "in") return FAQ;
-  const start = PRICE_BOOK[m.currency].plans.launch;
+  const start = PRICE_BOOK[m.currency].plans[PAID[0]];
   const place = m.key === "global" ? "your country" : m.name;
   return [
     FAQ[0],
     ["Which languages does it speak?", `English, Spanish, French, Japanese and Hindi for callers around the world, plus ${INDIAN_LANGS_LINE.replace(" — and it follows the caller if they switch.", "")} Voices are available in 40+ languages, and more call languages are added as they pass our quality checks.`],
     ["Can I get a local phone number?", `Yes. We set up the number for you — US numbers are available now, and numbers in the UK, UAE, Europe, Japan and other countries are arranged on request. You can also forward your existing business number to your AI employee.`],
     ["Is AI calling allowed?", `Answering incoming calls is fine almost everywhere. For outbound calls the rules depend on the country: in the US, AI-voice calls need the person's prior consent (TCPA); in the UK and EU, data-protection rules (GDPR) apply. RANA keeps a do-not-call list, only dials inside the calling hours you set for each time zone, and we recommend your AI employee says it is an assistant. Call only people who enquired or agreed to be contacted.`],
-    [`How much does an AI calling agent cost in ${place}?`, `Plans start at ${money(m.currency, start.price)} a month for ${PRICE_LIST.launch.minutes} connected minutes, with lower per-minute rates on bigger plans. Calls are billed in 30-second pulses, and every workspace starts with a ${TRIAL_DAYS}-day free trial with ${TRIAL_MINUTES} minutes. ${m.taxNote}`],
+    [`How much does an AI calling agent cost in ${place}?`, `Plans start at ${money(m.currency, start.price)} a month for ${PRICE_LIST[PAID[0]].minutes.toLocaleString("en-IN")} connected minutes, with lower per-minute rates on bigger plans. Calls are billed in 30-second pulses. ${m.taxNote}`],
     FAQ[1], FAQ[2], FAQ[5],
     ["How do I pay?", `By international card. Plans are billed in ${m.currency === "USD" ? "US dollars" : m.currency === "EUR" ? "euros" : m.currency === "JPY" ? "Japanese yen" : "rupees"} and every payment comes with a proper invoice.`],
     FAQ.find(([q]) => q.startsWith("What are the R1 and R2"))!,

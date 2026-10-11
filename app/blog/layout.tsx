@@ -14,7 +14,7 @@ export default function BlogLayout({ children }: { children: React.ReactNode }) 
           </Link>
           <nav className="flex items-center gap-5 text-[13px] text-ink-soft">
             <Link href="/blog" className="hover:text-signal">Blog</Link>
-            <Link href="/signup" className="hover:text-signal">Start free trial →</Link>
+            <Link href="/?demo=1" className="hover:text-signal">Book a demo →</Link>
           </nav>
         </div>
       </header>

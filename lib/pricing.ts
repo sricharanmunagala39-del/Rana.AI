@@ -13,13 +13,14 @@ export type Plan = {
 export const PLANS: Record<PlanKey, Plan> = {
   trial:      { key: "trial",      name: "Trial",      pricePerMonth: 0,     minutes: 100,   overagePerMin: null, employees: 1,   concurrency: 1,  campaignSize: 50,     ownNumber: false, onboardingFee: 0, trialDays: 14, numberAddon: null },
   launch:     { key: "launch",     name: "Launch",     pricePerMonth: 4999,  minutes: 400,   overagePerMin: 10,   employees: 1,   concurrency: 1,  campaignSize: 500,    ownNumber: false, onboardingFee: 4999, numberAddon: null },
-  starter:    { key: "starter",    name: "Starter",    pricePerMonth: 9999,  minutes: 1000,  overagePerMin: 9,    employees: 1,   concurrency: 2,  campaignSize: 2000,   ownNumber: false, onboardingFee: 14999, numberAddon: 999 },
-  growth:     { key: "growth",     name: "Growth",     pricePerMonth: 29999, minutes: 3500,  overagePerMin: 8,    employees: 3,   concurrency: 5,  campaignSize: 10000,  ownNumber: true,  onboardingFee: 24999 },
-  scale:      { key: "scale",      name: "Scale",      pricePerMonth: 89999, minutes: 12000, overagePerMin: 7,    employees: 10,  concurrency: 20, campaignSize: 50000,  ownNumber: true,  onboardingFee: 49999 },
+  starter:    { key: "starter",    name: "Starter",    pricePerMonth: 13999, minutes: 1000,  overagePerMin: 9,    employees: 1,   concurrency: 2,  campaignSize: 2000,   ownNumber: false, onboardingFee: 14999, numberAddon: 999 },
+  growth:     { key: "growth",     name: "Growth",     pricePerMonth: 41999, minutes: 3500,  overagePerMin: 8,    employees: 3,   concurrency: 5,  campaignSize: 10000,  ownNumber: true,  onboardingFee: 24999 },
+  scale:      { key: "scale",      name: "Scale",      pricePerMonth: 125999, minutes: 12000, overagePerMin: 7,    employees: 10,  concurrency: 20, campaignSize: 50000,  ownNumber: true,  onboardingFee: 49999 },
   enterprise: { key: "enterprise", name: "Enterprise", pricePerMonth: null,  minutes: 35000, overagePerMin: null, employees: 999, concurrency: 50, campaignSize: 200000, ownNumber: true,  onboardingFee: null },
 };
 export const PLAN_KEYS = Object.keys(PLANS) as PlanKey[];
-export const PAID_PLAN_KEYS: PlanKey[] = ["launch", "starter", "growth", "scale"];
+/** Plans shown on the public website (Trial and Launch still exist for current clients, but are not offered publicly). */
+export const PAID_PLAN_KEYS: PlanKey[] = ["starter", "growth", "scale"];
 /** The cheapest paid plan — "from ₹X a month" everywhere. */
 export const ENTRY_PLAN = PLANS[PAID_PLAN_KEYS[0]];
 export const TRIAL_MINUTES = PLANS.trial.minutes;
@@ -96,15 +97,15 @@ export const PRICE_BOOK: Record<Currency, { plans: Record<PaidKey, LocalPrice>; 
     enterpriseFrom: ENTERPRISE_FROM,
   },
   USD: {
-    plans: { launch: { price: 69, overage: 0.19, setup: 69 }, starter: { price: 149, overage: 0.17, setup: 199 }, growth: { price: 449, overage: 0.15, setup: 349 }, scale: { price: 1290, overage: 0.12, setup: 699 } },
+    plans: { launch: { price: 69, overage: 0.19, setup: 69 }, starter: { price: 209, overage: 0.17, setup: 199 }, growth: { price: 629, overage: 0.15, setup: 349 }, scale: { price: 1799, overage: 0.12, setup: 699 } },
     enterpriseFrom: 3000,
   },
   EUR: {
-    plans: { launch: { price: 65, overage: 0.18, setup: 65 }, starter: { price: 139, overage: 0.16, setup: 189 }, growth: { price: 419, overage: 0.14, setup: 329 }, scale: { price: 1190, overage: 0.11, setup: 649 } },
+    plans: { launch: { price: 65, overage: 0.18, setup: 65 }, starter: { price: 195, overage: 0.16, setup: 189 }, growth: { price: 589, overage: 0.14, setup: 329 }, scale: { price: 1669, overage: 0.11, setup: 649 } },
     enterpriseFrom: 2800,
   },
   JPY: {
-    plans: { launch: { price: 9900, overage: 28, setup: 9900 }, starter: { price: 21900, overage: 25, setup: 29000 }, growth: { price: 65000, overage: 22, setup: 49000 }, scale: { price: 189000, overage: 18, setup: 99000 } },
+    plans: { launch: { price: 9900, overage: 28, setup: 9900 }, starter: { price: 30900, overage: 25, setup: 29000 }, growth: { price: 91000, overage: 22, setup: 49000 }, scale: { price: 265000, overage: 18, setup: 99000 } },
     enterpriseFrom: 450000,
   },
 };
@@ -133,4 +134,23 @@ export function moneyShort(cur: Currency, n: number): string {
   return `${CURRENCY_SYMBOL[cur]}${t}${u}`;
 }
 
-export function entryPrice(cur: Currency): number { return PRICE_BOOK[cur].plans.launch.price; }
+export function entryPrice(cur: Currency): number { return PRICE_BOOK[cur].plans.starter.price; }
+
+// ---------- Yearly billing ----------
+/** Pay for 10 months, get 12 ("2 months free"); the setup fee is waived on yearly plans. */
+export const YEARLY_MONTHS_PAID = 10;
+export const yearlyTotal = (monthly: number) => monthly * YEARLY_MONTHS_PAID;
+export const yearlyPerMonth = (monthly: number) => Math.round((monthly * YEARLY_MONTHS_PAID) / 12);
+
+// ---------- Sales discounts (HQ only) ----------
+/** Largest discount a salesperson can give on the list price, and the quick choices shown in HQ. */
+export const MAX_SALES_DISCOUNT = 40;
+export const SALES_DISCOUNT_STEPS = [0, 10, 20, 30, 40];
+/** A client's monthly plan price after their locked price or sales discount (list price when neither is set). */
+export function effectiveMonthly(plan: PlanKey, c?: { plan?: string | null; locked_price?: number | string | null; discount_pct?: number | string | null } | null): number {
+  const list = PLANS[plan]?.pricePerMonth || 0;
+  const locked = Number(c?.locked_price) || 0;
+  if (locked > 0 && c?.plan === plan) return locked;
+  const pct = Math.min(MAX_SALES_DISCOUNT, Math.max(0, Number(c?.discount_pct) || 0));
+  return pct ? Math.round(list * (1 - pct / 100)) : list;
+}

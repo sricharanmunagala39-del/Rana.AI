@@ -115,7 +115,7 @@ export const VERTICALS: Vertical[] = [
       ["Can it book directly into our system?", "It sends appointment requests to your front desk on WhatsApp or email. Direct booking into your software can be set up through a webhook on request."],
       ["Is patient information safe?", "Calls, recordings and transcripts stay in your own RANA account, visible only to your team."],
     ],
-    seo: { title: "AI Receptionist for Clinics & Hospitals in India | RANA AI", description: "RANA AI answers patient calls when reception is busy, takes appointment requests and sends reminders in Hindi, Telugu, Tamil and more. Free trial.", keywords: ["ai receptionist for clinic", "hospital appointment booking ai", "clinic call answering", "patient reminder calls", "ai receptionist india"] },
+    seo: { title: "AI Receptionist for Clinics & Hospitals in India | RANA AI", description: "RANA AI answers patient calls when reception is busy, takes appointment requests and sends reminders in Hindi, Telugu, Tamil and more. Book a free demo.", keywords: ["ai receptionist for clinic", "hospital appointment booking ai", "clinic call answering", "patient reminder calls", "ai receptionist india"] },
   },
   {
     slug: "hospitality", key: "hospitality", label: "Hospitality", short: "hotels, resorts, restaurants and travel",
@@ -140,7 +140,7 @@ export const VERTICALS: Vertical[] = [
       ["Does it work for restaurants too?", "Yes — table bookings, timings, menu questions and large-group requests."],
       ["Can it speak to foreign guests?", "Yes. Besides 11 Indian languages it speaks English, Spanish, French and Japanese."],
     ],
-    seo: { title: "AI Receptionist for Hotels & Restaurants | RANA AI", description: "RANA AI answers hotel and restaurant calls 24×7, takes booking requests in the guest's language and confirms arrivals. Free trial.", keywords: ["ai receptionist for hotel", "hotel reservation calls ai", "restaurant table booking ai", "resort booking voice agent"] },
+    seo: { title: "AI Receptionist for Hotels & Restaurants | RANA AI", description: "RANA AI answers hotel and restaurant calls 24×7, takes booking requests in the guest's language and confirms arrivals. Book a free demo.", keywords: ["ai receptionist for hotel", "hotel reservation calls ai", "restaurant table booking ai", "resort booking voice agent"] },
   },
   {
     slug: "it-saas", key: "saas", label: "IT & SaaS", short: "software companies, IT services and B2B teams",
@@ -166,7 +166,7 @@ export const VERTICALS: Vertical[] = [
       ["Can it update our CRM?", "Call results, summaries and lead scores can be sent to HubSpot, Salesforce, Zoho or any CRM through a webhook or Zapier / Make."],
       ["Can it call international prospects?", "Yes, on the R2 engine, in English, Spanish, French or Japanese, with local numbers set up on request."],
     ],
-    seo: { title: "AI SDR & Lead Qualification Calls for IT and SaaS | RANA AI", description: "RANA AI calls every demo request and trial sign-up within a minute, qualifies the lead and books meetings for your sales team. Free trial.", keywords: ["ai sdr", "ai lead qualification calls", "saas demo request follow up", "b2b ai calling agent", "inbound lead calling ai"] },
+    seo: { title: "AI SDR & Lead Qualification Calls for IT and SaaS | RANA AI", description: "RANA AI calls every demo request and trial sign-up within a minute, qualifies the lead and books meetings for your sales team. Book a free demo.", keywords: ["ai sdr", "ai lead qualification calls", "saas demo request follow up", "b2b ai calling agent", "inbound lead calling ai"] },
   },
   {
     slug: "ecommerce", key: "ecommerce", label: "E-commerce", short: "online stores and D2C brands",
@@ -191,7 +191,7 @@ export const VERTICALS: Vertical[] = [
       ["Can it handle angry customers?", "It stays calm, captures the complaint and hands upset or complex cases to a person."],
       ["Which languages?", "11 Indian languages including Hindi, Tamil, Telugu, Kannada, Bengali and Marathi, switching when the customer does."],
     ],
-    seo: { title: "COD Order Confirmation Calls & AI Support for E-commerce | RANA AI", description: "RANA AI confirms COD orders before dispatch, checks addresses and answers order-status calls in 11 Indian languages. Free trial.", keywords: ["cod confirmation calls", "ecommerce ai calling", "ndr calls ai", "d2c customer support ai", "order confirmation ivr alternative"] },
+    seo: { title: "COD Order Confirmation Calls & AI Support for E-commerce | RANA AI", description: "RANA AI confirms COD orders before dispatch, checks addresses and answers order-status calls in 11 Indian languages. Book a free demo.", keywords: ["cod confirmation calls", "ecommerce ai calling", "ndr calls ai", "d2c customer support ai", "order confirmation ivr alternative"] },
   },
   {
     slug: "finance", key: "finance", label: "Finance & insurance", short: "insurance, loans, NBFCs and fintechs",

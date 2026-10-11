@@ -1,7 +1,8 @@
 export const runtime = "nodejs";
 import { isEngine } from "@/lib/voice/engines";
 import { getSession } from "@/lib/session";
-import { requireHq } from "@/lib/hq";
+import { requireHq, hqCan } from "@/lib/hq";
+import { MAX_SALES_DISCOUNT } from "@/lib/pricing";
 import { sb } from "@/lib/db";
 import { createSessionCookie } from "@/lib/auth";
 import { listUsers, updateUser, tempPassword } from "@/lib/users";
@@ -65,6 +66,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const n = String(b.number || "").replace(/[^\d+]/g, "");
     if (n && !/^\+?\d{10,13}$/.test(n)) return Response.json({ error: "Enter the number with country code, e.g. +914012345678." }, { status: 400 });
     patch.sarvam_agent_number = n ? (n.startsWith("+") ? n : `+91${n.slice(-10)}`) : null;
+  }
+  if ("discountPct" in b || "lockedPrice" in b || "discountNote" in b) {
+    if (!hqCan(session, "billing")) return Response.json({ error: "Only HQ staff with billing access can change prices or discounts." }, { status: 403 });
+    if ("discountPct" in b) {
+      const pct = Math.round(Number(b.discountPct) || 0);
+      if (pct < 0 || pct > MAX_SALES_DISCOUNT) return Response.json({ error: `Discount must be between 0 and ${MAX_SALES_DISCOUNT}%.` }, { status: 400 });
+      patch.discount_pct = pct || null;
+    }
+    if ("lockedPrice" in b) { const v = Math.round(Number(b.lockedPrice) || 0); patch.locked_price = v > 0 ? v : null; }
+    if ("discountNote" in b) patch.discount_note = String(b.discountNote || "").slice(0, 300) || null;
+    patch.discount_set_at = new Date().toISOString(); patch.discount_set_by = session!.email;
   }
   if ("notes" in b) patch.hq_notes = String(b.notes || "").slice(0, 2000) || null;
   if ("contactPhone" in b) patch.contact_phone = String(b.contactPhone || "").slice(0, 20) || null;

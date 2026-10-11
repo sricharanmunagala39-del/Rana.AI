@@ -18,7 +18,7 @@ const PRICE = {
   retell: "Pay-as-you-go; about $0.07–0.31/min depending on model and voice, plus numbers and add-ons",
   bland: "From $0.14/min (Start), or $0.12/min with a $299/month platform fee (Build)",
   bolna: "Pay-as-you-go credits, listed at about 6¢ (≈₹5.5) per minute standard",
-  rana: `${inr(PLANS.launch.pricePerMonth!)}–${inr(PLANS.scale.pricePerMonth!)}/month with minutes included, in ₹ with GST invoice`,
+  rana: `${inr(PLANS.starter.pricePerMonth!)}–${inr(PLANS.scale.pricePerMonth!)}/month with minutes included, in ₹ with GST invoice`,
 };
 const ALT_RELATED = ["/best-ai-voice-agents-india", "/vapi-alternative-india", "/retell-ai-alternative", "/bland-ai-alternative", "/compare/rana-ai-vs-bolna", "/pricing"];
 
@@ -104,7 +104,7 @@ export const GROWTH: SeoPageData[] = [
     faqs: [
       { q: "Which is the best AI voice agent in India?", a: "For developers, a platform like Bolna, Vapi or Retell AI. For businesses that want calls answered and leads called without building anything, a ready AI calling agent like RANA AI — set up for you, in Indian languages, billed in rupees." },
       { q: "Which AI voice agent supports Telugu, Hindi and Tamil?", a: "RANA AI has 11 Indian languages built in and switches when the caller does. Developer platforms support Indian languages through the speech and voice providers you plug in — test them on real calls in your language." },
-      { q: "How much does an AI calling agent cost in India?", a: `Developer platforms charge per minute (often in dollars) plus provider costs. RANA AI plans start at ${inr(PLANS.launch.pricePerMonth!)}/month with minutes included. See the pricing page for every plan.` },
+      { q: "How much does an AI calling agent cost in India?", a: `Developer platforms charge per minute (often in dollars) plus provider costs. RANA AI plans start at ${inr(PLANS.starter.pricePerMonth!)}/month with minutes included. See the pricing page for every plan.` },
       ...TRUST_FAQS.slice(0, 1),
     ],
     related: ["/vapi-alternative-india", "/retell-ai-alternative", "/bland-ai-alternative", "/compare/rana-ai-vs-bolna", "/ai-calling-agent", "/pricing"],
@@ -339,7 +339,7 @@ export const COST_TOOL: SeoPageData = {
   ],
   faqs: [
     { q: "What does a telecaller cost in India?", a: "Typical salaries in Indian metros range from about ₹15,000 to ₹25,000 a month, plus incentives, PF, a seat, a SIM and hiring costs as people leave. Use your own numbers in the calculator." },
-    { q: "What does an AI calling agent cost?", a: `RANA AI plans start at ₹${PLANS.launch.pricePerMonth!.toLocaleString("en-IN")}/month for ${PLANS.launch.minutes} minutes; Starter is ₹${PLANS.starter.pricePerMonth!.toLocaleString("en-IN")}/month for ${PLANS.starter.minutes.toLocaleString("en-IN")} minutes. Prices exclude GST.` },
+    { q: "What does an AI calling agent cost?", a: `RANA AI plans start at ₹${PLANS.starter.pricePerMonth!.toLocaleString("en-IN")}/month for ${PLANS.starter.minutes} minutes; Starter is ₹${PLANS.starter.pricePerMonth!.toLocaleString("en-IN")}/month for ${PLANS.starter.minutes.toLocaleString("en-IN")} minutes. Prices exclude GST.` },
     { q: "Can I embed or share this calculator?", a: "Yes — link to this page from your blog or article. If you'd like numbers for a report, email hello@ranaai.in." },
   ],
   related: ["/compare/ai-vs-human-telecaller", "/telecaller-software", "/ai-telecaller", "/blog/telecaller-vs-ai-calling-cost-india", "/pricing"],

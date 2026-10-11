@@ -388,7 +388,6 @@ export default function RanaLive({ open, mode, scenario: startScenario, market, 
                 <p className="text-ink-soft text-[13.5px] mt-1">A 20-minute call: we set her up with your scripts, prices and languages — and she starts taking your calls.</p>
                 <div className="flex flex-wrap gap-3 mt-4 justify-center">
                   <button type="button" onClick={book} className="btn-glow hud-cta-ready rounded-full px-6 py-3 text-[14px] font-semibold" data-testid="live-book">Book a demo</button>
-                  <Link href="/signup" className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Start free — 14 days</Link>
                 </div>
                 <div className="mt-3">
                   {mode === "demo" && <button type="button" onClick={() => { resetCall(); setStep("pick"); }} className="text-[13px] text-ink-soft hover:text-ink px-2" data-testid="live-another">Try another demo →</button>}

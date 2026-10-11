@@ -135,6 +135,9 @@ export default function Sidebar({ active, client: clientProp }: { active: string
           <Link href="/hq/demos" className="flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium text-ink-soft hover:bg-raised hover:text-ink" data-testid="hq-demos-nav">
             <span className="w-2 text-center text-[11px]">★</span> Demo requests
           </Link>
+          <Link href="/hq/crm" className="flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium text-ink-soft hover:bg-raised hover:text-ink" data-testid="hq-crm-nav">
+            <span className="w-2 text-center text-[11px]">◆</span> Sales CRM
+          </Link>
         </div>
       )}
       {client?.pending && (

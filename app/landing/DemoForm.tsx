@@ -71,8 +71,7 @@ export default function DemoForm({ open, onClose, source, prefill }: { open: boo
             </ol>
             {f.email && <p className="text-[13px] text-ink-soft mt-4">A confirmation is on its way to {f.email}.</p>}
             <div className="flex flex-wrap gap-3 mt-7">
-              <Link href="/signup" className="btn-glow rounded-full px-6 py-3 text-[14px] font-semibold">Try it yourself now — free</Link>
-              <button onClick={onClose} className="btn-ghost rounded-full px-6 py-3 text-[14px]">Back to the site</button>
+              <button onClick={onClose} className="btn-glow rounded-full px-6 py-3 text-[14px]">Back to the site</button>
             </div>
           </div>
         ) : (

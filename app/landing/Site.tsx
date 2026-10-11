@@ -5,7 +5,7 @@ import RanaCore from "@/components/RanaCore";
 import Integrations from "@/components/Integrations";
 import { Logo } from "@/components/Sidebar";
 import { INDUSTRY_CALLS, GLOBAL_CALLS, ENGINES_LINE, CALC, CALL_LANGUAGE_COUNT, plansFor, faqFor, type Line, type IndustryCall } from "./content";
-import { TRIAL_DAYS, TRIAL_MINUTES, PLANS as PRICE_LIST, PRICE_BOOK, CURRENCIES, CURRENCY_SYMBOL as SYMBOL, money, moneyShort, inr0, type Currency } from "@/lib/pricing";
+import { PLANS as PRICE_LIST, PRICE_BOOK, CURRENCIES, CURRENCY_SYMBOL as SYMBOL, money, moneyShort, amount, inr0, YEARLY_MONTHS_PAID, type Currency } from "@/lib/pricing";
 import { MARKETS, MARKET_KEYS, MARKET_COOKIE, marketForZone, type Market, type MarketKey } from "./markets";
 import DemoForm, { type DemoPrefill } from "./DemoForm";
 import RanaLive, { type LiveMode } from "./RanaLive";
@@ -229,7 +229,7 @@ function MissedCalls({ onDemo, market, init }: { onDemo: () => void; market: Mar
   const perMonth = missed * market.workDays;
   const won = perMonth * (conv / 100);
   const lost = Math.round(won * value);
-  const plan = PRICE_BOOK[cur].plans.launch.price;
+  const plan = PRICE_BOOK[cur].plans.starter.price;
   const slider = "w-full accent-[rgb(45,225,194)]";
   return (
     <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-24">
@@ -266,8 +266,7 @@ function MissedCalls({ onDemo, market, init }: { onDemo: () => void; market: Mar
               : <>It pays for itself with <b>{Math.ceil(plan / value)} extra customers</b> a month.</>) : null}
           </div>
           <div className="flex flex-wrap gap-3 mt-6 justify-center lg:justify-start">
-            <Link href="/signup" className="btn-glow rounded-full px-6 py-3 text-[14px] font-semibold">Start free — {TRIAL_DAYS} days</Link>
-            <button onClick={onDemo} className="btn-ghost rounded-full px-6 py-3 text-[14px] font-medium">Book a demo</button>
+            <button onClick={onDemo} className="btn-glow rounded-full px-6 py-3 text-[14px] font-semibold">Book a demo</button>
           </div>
         </div>
       </div>
@@ -407,6 +406,8 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
   // Rupee prices: one tap adds 18% GST to every price shown.
   const [gst, setGst] = useState(false);
   const withGst = cur === "INR" && gst;
+  // Monthly or yearly view. Yearly = pay for 10 months, get 12, setup fee waived.
+  const [yearly, setYearly] = useState(false);
   const g = (n: number) => Math.round(n * 1.18 * 100) / 100;
   const PLANS = plansFor({ ...market, currency: cur }).map((p) => {
     if (!withGst) return p;
@@ -461,7 +462,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
           <div className="hidden md:flex items-center gap-3">
             <MarketSwitcher market={market} />
             <Link href="/login" className="text-[13.5px] font-medium text-ink-soft hover:text-ink px-3 py-2">Sign in</Link>
-            <Link href="/signup" className="btn-glow rounded-full px-4 py-2 text-[13.5px] font-semibold" data-testid="nav-trial">Start free trial</Link>
+            <button onClick={openDemo("nav")} className="btn-glow rounded-full px-4 py-2 text-[13.5px] font-semibold" data-testid="nav-trial">Book a demo</button>
             <button onClick={() => setMenu(true)} className="lg:hidden font-mono text-[12px] border border-signal/60 text-signal rounded-full px-3.5 py-2" aria-label="Open menu">MENU +</button>
           </div>
           <div className="md:hidden flex items-center gap-2"><MarketSwitcher market={market} />
@@ -474,9 +475,8 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
           {NAV.map(([l, h]) => h.startsWith("/") ? <Link key={h} href={h} onClick={() => setMenu(false)} className="font-display text-[36px] font-semibold tracking-tight hover:text-signal">{l}</Link> : <a key={h} href={h} onClick={() => setMenu(false)} className="font-display text-[36px] font-semibold tracking-tight hover:text-signal">{l}</a>)}
           <div className="flex flex-wrap justify-center gap-3 mt-4">
             <Link href="/login" className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Sign in</Link>
-            <button onClick={openDemo("menu")} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Book a demo</button>
+            <button onClick={openDemo("menu")} className="btn-glow rounded-full px-5 py-3 text-[14px] font-semibold">Book a demo</button>
             {india && <button onClick={openProof} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Free proof run</button>}
-            <Link href="/signup" className="btn-glow rounded-full px-5 py-3 text-[14px] font-semibold">Start free trial</Link>
           </div>
         </div>
       )}
@@ -508,7 +508,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
                 <button onClick={openDemo("hero")} className="btn-ghost rounded-full px-6 py-3.5 text-[15px] font-medium" data-testid="hero-demo">Book a demo</button>
               </>}
             </div>
-            <div className="text-[12.5px] text-ink-soft/80 mt-4">Or tap Rana to ask her anything about RANA AI — no sign-up. <Link href="/signup" className="text-signal font-semibold hover:underline" data-testid="hero-trial">start free for {TRIAL_DAYS} days</Link> · {TRIAL_MINUTES} minutes · no card.</div>
+            <div className="text-[12.5px] text-ink-soft/80 mt-4">Or tap Rana to ask her anything about RANA AI — no sign-up.</div>
           </div>
           <HeroCore onTalk={openTalk} india={india} ticker={v?.ticker} />
         </section>
@@ -516,7 +516,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
         {/* ---------- Stats ---------- */}
         <section className="max-w-[1160px] mx-auto px-5 sm:px-8 pb-14">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[[<Count key="a" to={CALL_LANGUAGE_COUNT} />, india ? "Call languages — Indian + global" : "Call languages — global + Indian"], ["24×7", "Answers every call"], [<Count key="b" to={14} />, "Day free trial"], [<><Count key="c" to={30} />s</>, "Billing pulses — not full minutes"]].map(([v, l], i) => (
+            {[[<Count key="a" to={CALL_LANGUAGE_COUNT} />, india ? "Call languages — Indian + global" : "Call languages — global + Indian"], ["24×7", "Answers every call"], [<Count key="b" to={11} />, "Indian languages"], [<><Count key="c" to={30} />s</>, "Billing pulses — not full minutes"]].map(([v, l], i) => (
               <div key={i} className="card px-5 py-5 text-center">
                 <div className="font-display text-[30px] sm:text-[36px] font-semibold text-gradient">{v}</div>
                 <div className="text-[12.5px] text-ink-soft mt-1">{l}</div>
@@ -621,7 +621,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
           <div className="reveal text-center max-w-[640px] mx-auto">
             <div className="eyebrow">// PRICING</div>
             <h2 className="font-display text-[32px] sm:text-[46px] font-semibold tracking-[-0.025em] mt-3">Plans that pay for themselves.</h2>
-            <p className="text-ink-soft text-[16px] mt-3">Start free for {TRIAL_DAYS} days with {TRIAL_MINUTES} minutes. {cur === "INR" ? (withGst ? "Prices include 18% GST." : "Prices exclude 18% GST.") : cur === market.currency ? market.taxNote : CUR_NOTE[cur]} Pay annually and the setup fee is waived.</p>
+            <p className="text-ink-soft text-[16px] mt-3">{cur === "INR" ? (withGst ? "Prices include 18% GST." : "Prices exclude 18% GST.") : cur === market.currency ? market.taxNote : CUR_NOTE[cur]} Pay yearly to get 2 months free and no setup fee.</p>
             <div className="inline-flex mt-5 rounded-full border border-white/10 bg-white/[.03] p-1" role="group" aria-label="Show prices in" data-testid="currency-switch">
               {CURRENCIES.map((c) => (
                 <button key={c} type="button" onClick={() => setCur(c)} aria-pressed={cur === c} data-testid={"cur-" + c}
@@ -637,25 +637,34 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
                 </button>
               </div>
             )}
+            <div className="mt-3">
+              <div className="inline-flex rounded-full border border-white/10 bg-white/[.03] p-1" role="group" aria-label="Billing period" data-testid="period-switch">
+                {([["Monthly", false], ["Yearly · 2 months free", true]] as const).map(([l, y]) => (
+                  <button key={l} type="button" onClick={() => setYearly(y)} aria-pressed={yearly === y} data-testid={y ? "period-yearly" : "period-monthly"}
+                    className={"rounded-full px-3.5 py-1.5 text-[12.5px] transition-colors " + (yearly === y ? "bg-signal text-on-accent font-semibold" : "text-ink-soft hover:text-ink")}>{l}</button>
+                ))}
+              </div>
+            </div>
             <p className="text-[14px] mt-3 font-medium" data-testid="engines-line">{ENGINES_LINE}</p>
           </div>
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-12">
-            {PLANS.map((p) => (
-              <div key={p.name} className={`card reveal p-6 flex flex-col ${p.hi ? "card-hi xl:-translate-y-3" : ""}`} data-testid={`plan-${p.name.toLowerCase()}`}>
+          <div className="grid md:grid-cols-3 gap-3 mt-12 max-w-[1100px] mx-auto">
+            {PLANS.map((p) => { const base = cur === "INR" ? (PRICE_LIST[p.key].pricePerMonth || 0) : book.plans[p.key].price; const m = withGst ? g(base) : base; const shown = yearly ? Math.round((m * YEARLY_MONTHS_PAID) / 12) : m; return (
+              <div key={p.name} className={`card reveal p-6 flex flex-col ${p.hi ? "card-hi md:-translate-y-3" : ""}`} data-testid={`plan-${p.name.toLowerCase()}`}>
                 <div className="flex items-center justify-between">
                   <div className="font-display text-[20px] font-semibold">{p.name}</div>
                   {p.hi && <span className="text-[11px] font-mono text-on-accent bg-signal rounded-full px-2.5 py-1">MOST POPULAR</span>}
                 </div>
-                <div className="mt-5 flex items-baseline gap-1"><span className="text-ink-soft text-[20px]">{p.symbol}</span><span className="font-display text-[40px] font-semibold tracking-tight">{p.price}</span><span className="text-ink-soft text-[14px]">/month</span></div>
+                <div className="mt-5 flex items-baseline gap-1"><span className="text-ink-soft text-[20px]">{p.symbol}</span><span className="font-display text-[40px] font-semibold tracking-tight" data-testid={`price-${p.key}`}>{yearly ? amount(cur, shown) : p.price}</span><span className="text-ink-soft text-[14px]">/month</span></div>
+                {yearly && <div className="text-[12px] text-signal" data-testid={`yearly-${p.key}`}>Billed {money(cur, Math.round(m * YEARLY_MONTHS_PAID))} a year · save {money(cur, Math.round(m * (12 - YEARLY_MONTHS_PAID)))}</div>}
                 {withGst && <div className="text-[12px] text-ink-soft" data-testid="gst-split">{"₹"}{inr0(PRICE_LIST[p.key].pricePerMonth || 0)} + {"₹"}{inr0(Math.round(g(PRICE_LIST[p.key].pricePerMonth || 0)) - (PRICE_LIST[p.key].pricePerMonth || 0))} GST</div>}
                 <div className="text-[13.5px] mt-1"><b>{p.min} minutes</b> <span className="text-ink-soft">· then {p.extra}/min prepaid</span></div>
                 <ul className="mt-6 flex flex-col gap-2.5 text-[14px] flex-1">
                   {p.pts.map((t) => <li key={t} className="flex gap-2.5"><span className="text-signal">✓</span>{t}</li>)}
-                  <li className="flex gap-2.5 text-ink-soft"><span className="text-ink-soft">+</span>{p.fee} (free on annual)</li>
+                  {yearly ? <li className="flex gap-2.5"><span className="text-signal">✓</span>No setup fee on yearly plans</li> : <li className="flex gap-2.5 text-ink-soft"><span className="text-ink-soft">+</span>{p.fee} (free on yearly)</li>}
                 </ul>
-                <Link href="/signup" className={`mt-7 rounded-full py-3 text-center text-[14px] font-semibold ${p.hi ? "btn-glow" : "btn-ghost"}`}>Start free trial</Link>
+                <button onClick={openDemo("pricing")} className={`mt-7 rounded-full py-3 text-center text-[14px] font-semibold ${p.hi ? "btn-glow" : "btn-ghost"}`}>Book a demo</button>
               </div>
-            ))}
+            ); })}
           </div>
           {!india && <p className="reveal text-center text-[13px] text-ink-soft mt-4" data-testid="numbers-note">Local numbers: US numbers are ready now; UK, UAE, Europe, Japan and other countries are set up on request. You can also forward your existing number.</p>}
           <div className="reveal card mt-3 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -701,8 +710,8 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
             <p className="text-ink-soft text-[16px] mt-5">Hire your first AI employee in minutes. It starts answering today.</p>
             <div className="flex flex-wrap gap-3 justify-center mt-9">
               {v ? <button onClick={openProof} className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold">Free proof run on my leads</button>
-                : <Link href="/signup" className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold">Start free — {TRIAL_DAYS} days</Link>}
-              <button onClick={openDemo("footer-cta")} className="btn-ghost rounded-full px-7 py-3.5 text-[15px] font-medium">Book a demo</button>
+                : <button onClick={openDemo("footer-cta")} className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold">Book a demo</button>}
+              {v && <button onClick={openDemo("footer-cta")} className="btn-ghost rounded-full px-7 py-3.5 text-[15px] font-medium">Book a demo</button>}
             </div>
             <div className="text-[13px] text-ink-soft mt-5">or write to <a href={`mailto:${CONTACT_EMAIL}`} className="text-signal">{CONTACT_EMAIL}</a></div>
           </div>

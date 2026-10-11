@@ -4,6 +4,7 @@ import Sidebar from "@/components/Sidebar";
 import HqBilling from "@/components/HqBilling";
 import HqOverview, { BAND, Spark } from "@/components/HqOverview";
 import ApprovedOverlay from "@/components/ApprovedOverlay";
+import { effectiveMonthly, SALES_DISCOUNT_STEPS, MAX_SALES_DISCOUNT, yearlyTotal } from "@/lib/pricing";
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const ago = (iso: string | null) => {
@@ -86,7 +87,7 @@ export default function HqPage() {
       if (!r.ok) throw new Error(j.error || "Couldn't save");
       if (body.status === "active" && j.client?.trial_started_at && Date.now() - Date.parse(j.client.trial_started_at) < 60000) setApproved(j.client.name || j.client.company_name || "Workspace");
       setMsg("Saved."); await load();
-      setEditing((e: any) => e && e.id === id ? { ...e, ...j.client, usage: j.usage } : e);
+      setEditing((e: any) => e && e.id === id ? { ...e, ...j.client, usage: j.usage, plan: j.client?.plan ?? e.plan, pricing: j.client ? { lockedPrice: j.client.locked_price != null ? Number(j.client.locked_price) : null, discountPct: Number(j.client.discount_pct) || 0, discountNote: j.client.discount_note || null, discountSetBy: j.client.discount_set_by || null } : e.pricing } : e);
     } catch (e: any) { setMsg(e.message); }
     finally { setBusy(""); }
   }
@@ -230,6 +231,34 @@ export default function HqPage() {
                 {Object.values(data.plans).map((p: any) => <option key={p.key} value={p.key}>{p.name}</option>)}
               </select>
             </label>
+            {data.plans[editing.plan]?.pricePerMonth ? (() => {
+              const pr = editing.pricing || {};
+              const list = data.plans[editing.plan].pricePerMonth;
+              const eff = effectiveMonthly(editing.plan, { plan: editing.plan, locked_price: pr.lockedPrice, discount_pct: pr.discountPct });
+              return (
+                <div className="border border-line rounded-xl p-3 flex flex-col gap-2 bg-paper" data-testid="hq-discount">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div className="text-[12px] font-semibold">On-spot discount <span className="font-normal text-ink-soft">(on the list price, up to {MAX_SALES_DISCOUNT}%)</span></div>
+                    <div className="text-[12.5px] tabular-nums">{eff < list && <span className="line-through text-ink-soft mr-1.5">{inr(list)}</span>}<b>{inr(eff)}</b>/mo · {inr(yearlyTotal(eff))}/yr</div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SALES_DISCOUNT_STEPS.map((d) => (
+                      <button key={d} type="button" onClick={() => patch(editing.id, { discountPct: d })} data-testid={`hq-discount-${d}`}
+                        className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold border ${(pr.discountPct || 0) === d && !pr.lockedPrice ? "bg-ink text-paper border-ink" : "border-line"}`}>{d ? `${d}% off` : "List price"}</button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="text-[11.5px] font-semibold">Locked price ₹/month <span className="font-normal text-ink-soft">(overrides discount)</span>
+                      <input id="hq-locked-price" defaultValue={pr.lockedPrice ?? ""} placeholder="None" inputMode="numeric" onBlur={(e) => { if (e.target.value !== String(pr.lockedPrice ?? "")) patch(editing.id, { lockedPrice: e.target.value }); }} className="mt-1 w-full border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] font-normal" />
+                    </label>
+                    <label className="text-[11.5px] font-semibold">Deal note
+                      <input id="hq-discount-note" defaultValue={pr.discountNote ?? ""} placeholder="e.g. 30% if signed on today's call" onBlur={(e) => { if (e.target.value !== (pr.discountNote ?? "")) patch(editing.id, { discountNote: e.target.value }); }} className="mt-1 w-full border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] font-normal" />
+                    </label>
+                  </div>
+                  <div className="text-[11px] text-ink-soft">Applies to their Billing page, plan invoices and renewals. Yearly = 10 months' price, setup fee waived.{pr.discountSetBy ? ` Last set by ${pr.discountSetBy}.` : ""}</div>
+                </div>
+              );
+            })() : null}
             {editing.plan === "trial" && (
               <div className="flex gap-2">
                 <button onClick={() => patch(editing.id, { extendTrialDays: 7 })} className="border border-line rounded-lg px-3 py-1.5 text-[12px] font-semibold">Extend trial 7 days</button>

@@ -91,7 +91,7 @@ export default function SeoPage({ p, children }: { p: SeoPageData; children?: Re
         <div className="flex flex-wrap gap-3 mt-8">
           <Link href="/?talk=1" className="btn-glow rounded-full px-6 py-3 text-[15px] font-semibold" data-testid="seo-talk">🎙️ Talk to Rana now</Link>
           {p.demo && <Link href={`/?try=${p.demo}`} className="btn-ghost rounded-full px-6 py-3 text-[15px] font-medium">Try a live demo</Link>}
-          <Link href="/signup" className="btn-ghost rounded-full px-6 py-3 text-[15px] font-medium">Start free trial</Link>
+          <Link href="/?demo=1" className="btn-ghost rounded-full px-6 py-3 text-[15px] font-medium">Book a demo</Link>
         </div>
       )}
 
@@ -129,9 +129,9 @@ export default function SeoPage({ p, children }: { p: SeoPageData; children?: Re
 
       <section className="mt-14 rounded-2xl border border-signal/30 bg-signal/[.06] p-6 sm:p-8">
         <div className="font-display text-[24px] font-semibold">Ready to stop missing calls?</div>
-        <p className="text-ink-soft text-[15px] mt-2 max-w-[620px]">Build your first AI employee on the free trial and test it in your browser today — no card needed. Or see every plan and price.</p>
+        <p className="text-ink-soft text-[15px] mt-2 max-w-[620px]">Book a free demo and we build your first AI employee on your own script, prices and languages. Or see every plan and price.</p>
         <div className="flex flex-wrap gap-3 mt-5">
-          <Link href="/signup" className="btn-glow rounded-full px-6 py-3 text-[15px] font-semibold">Start free trial</Link>
+          <Link href="/?demo=1" className="btn-glow rounded-full px-6 py-3 text-[15px] font-semibold">Book a demo</Link>
           <Link href="/pricing" className="btn-ghost rounded-full px-6 py-3 text-[15px] font-medium">See pricing</Link>
         </div>
       </section>

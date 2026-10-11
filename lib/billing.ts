@@ -2,6 +2,7 @@
 // Works with or without Razorpay: without keys, invoices are still issued and HQ marks them paid by bank transfer.
 import { sb } from "./db";
 import { PLANS, type PlanKey, limitsOf, cycleStart, minutesBetween } from "./plans";
+import { effectiveMonthly } from "./pricing";
 import { razorpayConfigured, createPaymentLink, cancelPaymentLink } from "./razorpay";
 
 export const GRACE_DAYS = 7;          // unpaid this many days past the due date → calling pauses
@@ -103,8 +104,9 @@ export function buyerOf(c: any) {
   };
 }
 
-export function planPrice(plan: PlanKey, interval: Interval): number {
-  const p = PLANS[plan].pricePerMonth || 0;
+/** Plan fee for one billing period. With a client, uses their locked price or sales discount (see effectiveMonthly). */
+export function planPrice(plan: PlanKey, interval: Interval, c?: any): number {
+  const p = effectiveMonthly(plan, c);
   return interval === "annual" ? p * 10 : p;
 }
 const monthsOf = (i: Interval | null | undefined) => (i === "annual" ? 12 : 1);
@@ -115,15 +117,17 @@ export function checkoutQuote(c: any, plan: PlanKey, interval: Interval, today =
   const s = seller();
   const P = PLANS[plan];
   const items: Item[] = [];
-  const price = planPrice(plan, interval);
-  items.push({ description: `${P.name} plan — ${interval === "annual" ? "12 months (annual, 2 months free)" : "1 month"} · ${P.minutes.toLocaleString("en-IN")} connected minutes/month`, sac: s.sac, qty: 1, rate: price, amount: price });
+  const price = planPrice(plan, interval, c);
+  const pct = Number(c?.discount_pct) || 0;
+  const locked = Number(c?.locked_price) > 0 && c?.plan === plan;
+  items.push({ description: `${P.name} plan — ${interval === "annual" ? "12 months (annual, 2 months free)" : "1 month"} · ${P.minutes.toLocaleString("en-IN")} connected minutes/month${!locked && pct ? ` · ${pct}% discount on list price` : ""}`, sac: s.sac, qty: 1, rate: price, amount: price });
   if (!c?.onboarding_paid && interval === "monthly" && P.onboardingFee)
     items.push({ description: "One-time onboarding: script, voice and number set-up with a RANA specialist", sac: s.sac, qty: 1, rate: P.onboardingFee, amount: P.onboardingFee, onboarding: true });
   const paidUntil: string | null = c?.plan_paid_until || null;
   const cur = PLANS[c?.plan as PlanKey];
   if (paidUntil && paidUntil > today && cur && cur.key !== plan && SELF_SERVE.includes(cur.key)) {
-    const curMonthly = cur.pricePerMonth || 0;
-    if ((P.pricePerMonth || 0) < curMonthly) return { items: [], error: `You're on ${cur.name} until ${paidUntil}. To move to a smaller plan, write to support@ranaai.in and we'll switch you at renewal.` };
+    const curMonthly = effectiveMonthly(cur.key, c);
+    if ((P.pricePerMonth || 0) < (cur.pricePerMonth || 0)) return { items: [], error: `You're on ${cur.name} until ${paidUntil}. To move to a smaller plan, write to support@ranaai.in and we'll switch you at renewal.` };
     if (c.billing_interval === "annual" && interval === "monthly") return { items: [], error: `You're on an annual ${cur.name} plan until ${paidUntil}. Upgrade to an annual plan, or write to support@ranaai.in.` };
     const left = daysBetween(today, paidUntil);
     const paidFor = c.billing_interval === "annual" ? curMonthly * 10 : curMonthly;
@@ -298,7 +302,7 @@ export async function runBilling(now = new Date()) {
         const has = inv.some((i) => (i.kind === "renewal" || i.kind === "plan") && i.status !== "void" && (i.period_start === c.plan_paid_until || (i.status === "issued" && i.plan === plan)));
         if (!has) {
           const interval: Interval = c.billing_interval === "annual" ? "annual" : "monthly";
-          const price = planPrice(plan, interval);
+          const price = planPrice(plan, interval, c);
           const r = await createInvoice(c, {
             kind: "renewal", plan, interval, periodStart: c.plan_paid_until, periodEnd: addMonths(c.plan_paid_until, monthsOf(interval)),
             dueDate: c.plan_paid_until, notify: true, createdBy: "auto-renewal", now,
