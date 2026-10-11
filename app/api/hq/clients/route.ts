@@ -27,6 +27,7 @@ export async function GET(req: Request) {
     return {
       id: c.id, name: c.name, industry: c.industry, plan: c.plan, status: c.status, createdAt: c.created_at,
       contactPhone: c.contact_phone, notes: c.hq_notes, number: c.sarvam_agent_number,
+      pricing: { lockedPrice: c.locked_price != null ? Number(c.locked_price) : null, discountPct: Number(c.discount_pct) || 0, discountNote: c.discount_note || null, discountSetAt: c.discount_set_at || null, discountSetBy: c.discount_set_by || null },
       overrides: { minutes: c.minutes_included, employees: c.max_employees, concurrency: c.max_concurrency, campaignSize: c.max_campaign_size, allowOverage: c.allow_overage, walletEnabled: c.wallet_enabled, voiceProviders: c.voice_providers || ["sarvam"] },
       signup: c.signup_source || null,
       owner: owner ? { email: owner.email, lastLogin: owner.last_login_at } : { email: c.login_email, lastLogin: null },

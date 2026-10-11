@@ -210,14 +210,17 @@ export default function BillingPage() {
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-3">
-                    {SELF.map((k) => {
+                    {SELF.filter((k) => k !== "launch" || u.plan.key === "launch").map((k) => {
                       const p = plans.find((x) => x.key === k); const q = b.quotes[`${k}:${interval}`];
                       if (!p || !q) return null;
+                      const listAmt = interval === "annual" ? p.pricePerMonth * 10 : p.pricePerMonth;
+                      const planLine = (q.items || []).find((i: any) => !i.onboarding && i.amount > 0);
+                      const yourAmt = planLine ? planLine.amount : listAmt;
                       const current = u.plan.key === k;
                       return (
                         <div key={k} className={`rounded-xl border p-4 flex flex-col gap-2 ${current ? "border-signal bg-signal-tint/40" : "border-line"}`} data-testid={`plan-${k}`}>
                           <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold">{p.name}</div>{k === "growth" && <span className="text-[10.5px] font-semibold text-signal">Most popular</span>}</div>
-                          <div><span className="text-[22px] font-display font-semibold tabular-nums">{inr(interval === "annual" ? p.pricePerMonth * 10 : p.pricePerMonth)}</span><span className="text-[12px] text-ink-soft">/{interval === "annual" ? "year" : "month"}</span></div>
+                          <div>{yourAmt < listAmt && <span className="text-[13px] text-ink-soft line-through tabular-nums mr-1.5" data-testid={`list-${k}`}>{inr(listAmt)}</span>}<span className="text-[22px] font-display font-semibold tabular-nums">{inr(yourAmt)}</span><span className="text-[12px] text-ink-soft">/{interval === "annual" ? "year" : "month"}</span></div>
                           <div className="text-[12px] text-ink-soft">{p.minutes.toLocaleString(displayLocale())} min/month · {p.employees} employee{p.employees === 1 ? "" : "s"} · {p.concurrency} calls at once</div>
                           {q.error ? <div className="text-[12px] text-ink-soft">{q.error}</div> : (
                             <>
