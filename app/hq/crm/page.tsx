@@ -533,4 +533,20 @@ function DealDrawer({ data, meta, busy, onClose, onSave, onMove, onLog, onDelete
                 </div>
               </>
             )}
-// @@RANA_CONT@@
+            {x.stage === "deal" && <label className="text-[12px] font-semibold">RANA client<select value={x.client_id || ""} onChange={(e) => onSave(x.id, { clientId: e.target.value })} className={field}>
+              <option value="">Not linked yet</option>{meta.clients.map((c: any) => <option key={c.id} value={c.id}>{c.name} · {c.plan}</option>)}
+            </select></label>}
+          </div>
+        )}
+
+        <label className="text-[12px] font-semibold">Came from<select value={x.source} onChange={(e) => onSave(x.id, { source: e.target.value })} className={field}>{Object.entries(meta.sources).map(([k, l]: any) => <option key={k} value={k}>{l}</option>)}</select></label>
+        {x.notes && <div className="text-[12px]"><div className="font-semibold">Details from import</div><div className="whitespace-pre-wrap text-ink-soft">{x.notes}</div></div>}
+
+        <div className="pt-2 border-t border-line flex justify-between items-center">
+          <span className="text-[11px] text-ink-soft">Owner: {staffName(x.owner)}</span>
+          {meta.canDelete && <button onClick={() => onDelete(x.id, x.business)} className="text-miss text-[12px] font-semibold">Delete lead</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
