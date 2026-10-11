@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/billing",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/crm-digest",
+      "schedule": "30 3 * * *"
     }
   ],
   "git": {
