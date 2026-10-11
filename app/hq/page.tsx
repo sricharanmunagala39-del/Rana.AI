@@ -4,6 +4,7 @@ import Sidebar from "@/components/Sidebar";
 import HqBilling from "@/components/HqBilling";
 import HqOverview, { BAND, Spark } from "@/components/HqOverview";
 import ApprovedOverlay from "@/components/ApprovedOverlay";
+import { effectiveMonthly, SALES_DISCOUNT_STEPS, MAX_SALES_DISCOUNT, yearlyTotal } from "@/lib/pricing";
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const ago = (iso: string | null) => {
