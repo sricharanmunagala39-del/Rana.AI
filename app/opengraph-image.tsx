@@ -30,7 +30,7 @@ export default function OgImage() {
           <div style={{ fontSize: 76, fontWeight: 700, lineHeight: 1.05, letterSpacing: -2, color: "#9284FF" }}>Every lead qualified.</div>
         </div>
         <div style={{ display: "flex", fontSize: 28, color: "#8E96A7", gap: 36 }}>
-          <span>Indian + global languages</span><span>Inbound + outbound</span><span>14-day free trial</span><span style={{ color: "#ECEEF3" }}>ranaai.in</span>
+          <span>Indian + global languages</span><span>Inbound + outbound</span><span>Free demo</span><span style={{ color: "#ECEEF3" }}>ranaai.in</span>
         </div>
       </div>
     ),

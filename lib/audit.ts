@@ -11,12 +11,13 @@ export type AuditAction =
   | "lead_updated" | "dnc_added" | "dnc_removed" | "calling_rules_changed" | "report_downloaded" | "integration_added" | "integration_changed" | "integration_removed"
   | "voice_cloned" | "voice_deleted"
   | "hq_client_created" | "hq_client_updated" | "hq_workspace_opened" | "hq_owner_password_reset"
-  | "billing_details_changed" | "invoice_created" | "invoice_paid" | "invoice_voided";
+  | "billing_details_changed" | "invoice_created" | "invoice_paid" | "invoice_voided"
+  | "crm_deal_created" | "crm_stage_changed" | "crm_deal_deleted";
 
 export const AUDIT_LABEL: Record<AuditAction, string> = {
   login: "Signed in", login_failed: "Failed sign-in", password_changed: "Changed their password",
   password_reset_requested: "Asked for a password reset link", password_reset_done: "Reset their password with an email link",
-  user_invited: "Invited a teammate", user_role_changed: "Changed a teammate's role", user_designation_changed: "Changed a designation",
+  user_invited: "Invited a teammate", user_role_changed: "Changed a teammate's role", user_designation_changed: "Changed a designation", crm_deal_created: "Added a sales deal", crm_stage_changed: "Moved a sales deal", crm_deal_deleted: "Deleted a sales deal",
   user_deactivated: "Removed a teammate's access", user_reactivated: "Restored a teammate's access",
   user_password_reset: "Reset a teammate's password",
   number_provisioned: "Added a phone number", number_imported: "Imported a Twilio number",

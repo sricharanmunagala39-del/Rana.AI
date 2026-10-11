@@ -31,7 +31,7 @@ export const LANDING: SeoPageData[] = [
   {
     path: "/ai-receptionist", kind: "solution", label: "AI receptionist",
     title: "AI Receptionist India — Answers Every Call 24×7",
-    description: "An AI receptionist that answers every call, books appointments and takes messages in Telugu, Hindi, Tamil, English and more. No missed calls, no hold. Free 14-day trial.",
+    description: "An AI receptionist that answers every call, books appointments and takes messages in Telugu, Hindi, Tamil, English and more. No missed calls, no hold. Book a free demo.",
     h1: "An AI receptionist that never misses a call",
     eyebrow: "AI receptionist · India",
     intro: "Your front desk can only take one call at a time. An AI receptionist takes all of them — at 9 AM and at 11 PM, on Sundays and during festival rush — answers questions correctly, books the slot, and sends your team a summary of every call.",

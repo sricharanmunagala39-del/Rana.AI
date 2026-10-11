@@ -26,8 +26,7 @@ export function IndustryHeader({ onDemo }: { onDemo: () => void }) {
           <Link href="/#pricing" className="hover:text-ink">Pricing</Link>
         </nav>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={onDemo} className="hidden sm:inline-flex btn-ghost rounded-full px-4 py-2 text-[13px] font-medium">Book a demo</button>
-          <Link href="/signup" className="btn-glow rounded-full px-4 py-2 text-[13px] font-semibold">Start free trial</Link>
+          <button type="button" onClick={onDemo} className="btn-glow rounded-full px-4 py-2 text-[13px] font-semibold">Book a demo</button>
         </div>
       </div>
     </header>
@@ -270,7 +269,6 @@ export default function IndustryExperience({ ind, menu }: { ind: Industry; menu:
               <div className="flex flex-wrap gap-3 justify-center mt-7">
                 <button type="button" onClick={() => setProof(true)} className="btn-glow rounded-full px-6 py-3 text-[15px] font-semibold" data-testid="cta-proof">Free proof run on my data</button>
                 <button type="button" onClick={() => setDemo(`industry-${ind.slug}-cta`)} className="btn-ghost rounded-full px-6 py-3 text-[15px] font-medium">Book a demo</button>
-                <Link href="/signup" className="btn-ghost rounded-full px-6 py-3 text-[15px] font-medium">Start free trial</Link>
               </div>
             </div>
           </section>

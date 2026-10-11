@@ -50,7 +50,7 @@ const C: City[] = [
 export const CITIES: SeoPageData[] = C.map((c) => ({
   path: `/ai-voice-agent-${c.slug}`, kind: "city", label: `AI voice agent ${c.name.split(" (")[0]}`,
   title: `AI Voice Agent in ${c.name.split(" (")[0]} — AI Calling in ${c.langs.split(",")[0].split(" and ")[0]}`,
-  description: `AI voice agent and AI receptionist for ${c.name} businesses: answers and makes calls in ${c.langs}, 24×7. Qualifies leads and books appointments. Free trial.`,
+  description: `AI voice agent and AI receptionist for ${c.name} businesses: answers and makes calls in ${c.langs}, 24×7. Qualifies leads and books appointments. Book a free demo.`,
   h1: `AI voice agent for businesses in ${c.name}`,
   eyebrow: `${c.name} · ${c.state}`,
   intro: c.local,
