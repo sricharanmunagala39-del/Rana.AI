@@ -8,10 +8,11 @@ const field = "mt-1 w-full border border-line rounded-lg px-2.5 py-1.5 text-[12.
 /** Billing inside the HQ client drawer: invoices, issue a plan or custom invoice, mark paid (bank/UPI), cancel. */
 export default function HqBilling({ clientId, onChanged }: { clientId: string; onChanged?: () => void }) {
   const [d, setD] = useState<any>(null);
-  const [mode, setMode] = useState<"" | "plan" | "custom">("");
+  const [mode, setMode] = useState<"" | "plan" | "custom" | "recharge">("");
   const [plan, setPlan] = useState({ plan: "growth", interval: "monthly", waiveOnboarding: false });
   const [lines, setLines] = useState([{ description: "", qty: "1", rate: "" }]);
   const [notes, setNotes] = useState("");
+  const [topup, setTopup] = useState("10000");
   const [paying, setPaying] = useState<any>(null);
   const [pay, setPay] = useState({ via: "bank transfer", ref: "" });
   const [msg, setMsg] = useState("");
@@ -23,7 +24,7 @@ export default function HqBilling({ clientId, onChanged }: { clientId: string; o
   async function issue() {
     setBusy(true); setMsg("");
     try {
-      const body = mode === "plan" ? { mode, ...plan } : { mode, notes, items: lines.map((l) => ({ description: l.description, qty: Number(l.qty) || 1, rate: Number(l.rate) || 0 })) };
+      const body = mode === "plan" ? { mode, ...plan } : mode === "recharge" ? { mode, amount: Number(topup) || 0 } : { mode, notes, items: lines.map((l) => ({ description: l.description, qty: Number(l.qty) || 1, rate: Number(l.rate) || 0 })) };
       const r = await fetch(`/api/hq/clients/${clientId}/invoices`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const j = await r.json();
       if (!r.ok) { setMsg(j.error || "Couldn't issue the invoice."); return; }
@@ -89,6 +90,7 @@ export default function HqBilling({ clientId, onChanged }: { clientId: string; o
       {!mode ? (
         <div className="flex gap-2">
           <button onClick={() => setMode("plan")} className="border border-line rounded-lg px-3 py-1.5 text-[12px] font-semibold" data-testid="hq-inv-plan">Invoice a plan</button>
+          <button onClick={() => setMode("recharge")} className="border border-line rounded-lg px-3 py-1.5 text-[12px] font-semibold" data-testid="hq-inv-topup">Top-up link</button>
           <button onClick={() => setMode("custom")} className="border border-line rounded-lg px-3 py-1.5 text-[12px] font-semibold" data-testid="hq-inv-custom">Custom invoice</button>
         </div>
       ) : (
@@ -101,6 +103,12 @@ export default function HqBilling({ clientId, onChanged }: { clientId: string; o
               </div>
               <label className="flex items-center gap-2 text-[12px]"><input type="checkbox" checked={plan.waiveOnboarding} onChange={(e) => setPlan({ ...plan, waiveOnboarding: e.target.checked })} /> Waive onboarding fee</label>
               <div className="text-[11px] text-ink-soft">When paid, the plan switches on and renews automatically every {plan.interval === "annual" ? "year" : "month"}.</div>
+            </>
+          ) : mode === "recharge" ? (
+            <>
+              <div className="flex flex-wrap gap-1.5">{[5000, 10000, 25000].map((a) => <button key={a} onClick={() => setTopup(String(a))} className={`rounded-lg px-3 py-1 text-[12px] border ${topup === String(a) ? "bg-ink text-paper border-ink font-semibold" : "border-line"}`}>{inr(a)}</button>)}</div>
+              <label className="text-[11px] font-semibold">Amount (before GST)<input id="hq-topup-amount" value={topup} onChange={(e) => setTopup(e.target.value.replace(/[^\d]/g, ""))} className={field} inputMode="numeric" /></label>
+              <div className="text-[11px] text-ink-soft">Prepaid calling credit — minimum ₹2,000. When it's paid (Razorpay or Mark paid), the amount goes into their balance and is used after their plan minutes. Due in 3 days.</div>
             </>
           ) : (
             <>

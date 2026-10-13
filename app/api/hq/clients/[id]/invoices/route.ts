@@ -6,6 +6,8 @@ import { audit } from "@/lib/audit";
 import { PLANS, type PlanKey } from "@/lib/plans";
 import { listInvoices, billingState, createInvoice, checkoutQuote, planPrice, addMonths, addDays, todayIST, r2, SELF_SERVE, seller, type Item, type Interval } from "@/lib/billing";
 import { razorpayConfigured, razorpayMode } from "@/lib/razorpay";
+import { rechargeInvoice } from "@/lib/autoRecharge";
+import { MIN_RECHARGE } from "@/lib/wallet";
 
 async function load(id: string) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
@@ -24,6 +26,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 /**
  * POST — HQ issues an invoice.
  *  { mode: "plan", plan, interval, waiveOnboarding? }  → plan invoice; paying it switches the plan on and starts auto-renewal
+ *  { mode: "recharge", amount } → prepaid calling credit (top-up); paying it adds the amount before GST to their balance
  *  { mode: "custom", items: [{description, qty, rate}], dueDays?, notes? } → one-off (set-up, number rental, pilot fee…)
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -42,6 +45,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       const q = checkoutQuote(b.waiveOnboarding ? { ...c, onboarding_paid: true } : c, plan, interval);
       if (q.error) return Response.json({ error: q.error }, { status: 400 });
       r = await createInvoice(c, { kind: "plan", plan, interval, items: q.items, createdBy: `HQ ${session!.email}`, notify, origin, notes: b.notes || null });
+    } else if (b.mode === "recharge") {
+      if (c.plan === "trial") return Response.json({ error: "Top-ups are for paid plans. Move them to a plan first." }, { status: 400 });
+      const amount = Math.round(Number(b.amount));
+      if (!(amount >= MIN_RECHARGE) || amount > 1_000_000) return Response.json({ error: `Top-up between ₹${MIN_RECHARGE.toLocaleString("en-IN")} and ₹10,00,000.` }, { status: 400 });
+      r = await rechargeInvoice(c, amount, { origin, createdBy: `HQ ${session!.email}`, notify });
     } else {
       const items: Item[] = (Array.isArray(b.items) ? b.items : []).slice(0, 20).map((i: any) => {
         const qty = Math.max(0.01, Number(i.qty) || 1), rate = r2(Number(i.rate) || 0);
