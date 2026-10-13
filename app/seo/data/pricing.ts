@@ -10,7 +10,7 @@ const rows = PAID_PLAN_KEYS.map((k) => {
 
 export const PRICING: SeoPageData = {
   path: "/pricing", kind: "pricing", label: "Pricing",
-  title: "AI Calling Agent Pricing India — From ₹4,999/month",
+  title: `AI Calling Agent Pricing India — From ${inr(PLANS.starter.pricePerMonth!)}/month`,
   description: `How much does an AI calling agent cost in India? RANA AI plans start at ${inr(PLANS.starter.pricePerMonth!)}/month for ${PLANS.starter.minutes} minutes, billed in 30-second pulses. Prices exclude GST.`,
   h1: "AI calling agent pricing — simple monthly plans in rupees",
   eyebrow: "Pricing · India",
