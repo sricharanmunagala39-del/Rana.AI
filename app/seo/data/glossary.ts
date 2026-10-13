@@ -2,7 +2,7 @@
 // people to the regulator / their telecom provider; we are not giving legal advice.
 import type { SeoPageData } from "../types";
 
-type G = { slug: string; term: string; short: string; def: string; why: string; rana: string; more?: { h2: string; bullets: string[] }; faq?: { q: string; a: string }[]; related: string[]; kw?: string[] };
+type G = { slug: string; term: string; short: string; def: string; why: string; rana: string; more?: { h2: string; bullets: string[] }; faq?: { q: string; a: string }[]; related: string[]; kw?: string[]; /** Optional <title> / meta description written for what people actually search. */ title?: string; desc?: string };
 
 const G_: G[] = [
   { slug: "ai-voice-agent", term: "AI voice agent", short: "Software that holds real phone conversations — understanding speech, deciding what to say, and speaking back.", kw: ["what is an ai voice agent", "ai voice agent meaning"],
@@ -24,13 +24,17 @@ const G_: G[] = [
     more: { h2: "What you typically register", bullets: ["Your business as a principal entity", "Headers / calling numbers", "Content templates (for SMS)", "Consent templates and consents you collect"] },
     faq: [{ q: "Do I need DLT registration for AI calls?", a: "If you make commercial (promotional) calls, yes — the same rules apply whether a person or an AI makes the call. Service and transactional calls to your own customers follow different rules. Check your case with your telecom provider." }],
     related: ["/blog/trai-dlt-rules-for-ai-calling", "/glossary/trai-tcccpr-rules", "/glossary/dnd-ncpr"] },
-  { slug: "trai-tcccpr-rules", term: "TRAI TCCCPR rules", short: "India's rules for commercial calls and messages: the Telecom Commercial Communications Customer Preference Regulations, 2018 (amended 2025).", kw: ["tcccpr", "trai telemarketing rules", "trai rules for calling"],
+  { slug: "trai-tcccpr-rules", term: "TRAI TCCCPR rules", short: "India's rules for commercial calls and messages: the Telecom Commercial Communications Customer Preference Regulations, 2018 (amended 2025).", kw: ["tcccpr", "trai telemarketing rules", "trai rules for calling", "tcccpr full form", "tcccpr 2018"],
+    title: "TRAI TCCCPR Rules Explained (2018, Amended 2025)",
+    desc: "TCCCPR full form and what TRAI's TCCCPR 2018 rules (amended 2025) mean for business calls and SMS: consent, DND, DLT, number series and penalties.",
     def: "TCCCPR 2018 is TRAI's framework against unsolicited commercial communication (spam calls and SMS). It covers customer preferences (DND), consent, registration on DLT, number series for commercial calls, complaint handling and penalties. TRAI amended it in 2025 to tighten enforcement against spam.",
     why: "Any business calling customers in India — with people or AI — needs to follow it. Get it wrong and your numbers can be blocked.", rana: "RANA is built to support compliant calling: do-not-call lists, calling-hour limits and a recording and transcript of every call.",
     more: { h2: "Key ideas", bullets: ["Promotional calls need consent or must respect the caller's DND preferences", "Commercial calls go out from designated number series (TRAI assigned the 140 series for promotional calls; the 1600 series is being used for service and transactional calls by regulated financial entities)", "Customers can complain; repeated complaints have consequences for the sender", "Calls must happen within permitted time bands"] },
     faq: [{ q: "Is this legal advice?", a: "No — this is a plain-English overview. Read TRAI's official regulations and confirm your setup with your telecom provider or lawyer." }],
     related: ["/glossary/dlt-registration", "/glossary/dnd-ncpr", "/blog/trai-dlt-rules-for-ai-calling"] },
-  { slug: "dnd-ncpr", term: "DND / NCPR", short: "India's Do Not Disturb registry (National Customer Preference Register), where people opt out of commercial calls and SMS.", kw: ["dnd meaning", "ncpr", "do not disturb registry india"],
+  { slug: "dnd-ncpr", term: "DND / NCPR", short: "India's Do Not Disturb registry (National Customer Preference Register), where people opt out of commercial calls and SMS.", kw: ["dnd meaning", "ncpr", "ncpr full form", "ncpr meaning", "ncpr full form in banking", "do not disturb registry india"],
+    title: "NCPR Full Form & Meaning: DND Rules for Businesses",
+    desc: "NCPR full form is National Customer Preference Register, India's DND list. What NCPR means, how DND registration works and the rules businesses must follow.",
     def: "The National Customer Preference Register lets mobile users block all commercial communication or choose categories (banking, real estate, education, health and so on). Registration is done by SMS to 1909, the operator's app or the TRAI DND app.",
     why: "Calling a DND-registered number for promotion without their consent can lead to complaints and penalties.", rana: "Keep your own do-not-call list in RANA; numbers on it are never called. Always check your leads' consent and DND status for promotional campaigns.",
     related: ["/glossary/trai-tcccpr-rules", "/glossary/dlt-registration", "/ai-telecaller"] },
@@ -92,8 +96,8 @@ const G_: G[] = [
 
 export const GLOSSARY: SeoPageData[] = G_.map((g) => ({
   path: `/glossary/${g.slug}`, kind: "glossary", label: g.term,
-  title: `What is ${g.term.replace(/ \(.*\)$/, "")}? Meaning & Uses`,
-  description: `${g.short} Why it matters for AI calling in India.`,
+  title: g.title ?? `What is ${g.term.replace(/ \(.*\)$/, "")}? Meaning & Uses`,
+  description: g.desc ?? `${g.short} Why it matters for AI calling in India.`,
   h1: `What is ${g.term}?`,
   eyebrow: "Glossary",
   intro: g.short,

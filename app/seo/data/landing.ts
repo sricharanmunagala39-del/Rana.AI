@@ -79,7 +79,7 @@ export const LANDING: SeoPageData[] = [
   {
     path: "/ai-telecaller", kind: "solution", label: "AI telecaller",
     title: "AI Telecaller — Replace Manual Telecalling in India",
-    description: "An AI telecaller that calls every lead within a minute, qualifies them in their language and books site visits, demos and callbacks. Hundreds of calls a day, from ₹4,999/month.",
+    description: `An AI telecaller that calls every lead within a minute, qualifies them in their language and books site visits, demos and callbacks. Hundreds of calls a day, from ${inr(PLANS.starter.pricePerMonth!)}/month.`,
     h1: "AI telecaller: call every lead in a minute, in their language",
     eyebrow: "AI telecaller · Outbound calling",
     intro: "Telecalling is the engine of Indian sales — and the hardest part to run: hiring, training, attrition, targets, and leads that sit for hours. An AI telecaller calls every lead as soon as it arrives, asks your qualification questions, handles the usual objections and books the next step. Your sales team only calls the people who are ready.",
