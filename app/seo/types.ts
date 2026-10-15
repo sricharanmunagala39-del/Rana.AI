@@ -16,7 +16,7 @@ export type SeoSection = {
 };
 
 export type SeoPageData = {
-  path: string;            // "/ai-receptionist", "/compare/rana-ai-vs-vapi", …
+  path: string;            // "/ai-receptionist", "/vapi-alternative-india", …
   kind: SeoKind;
   /** <title> — keep under ~60 characters; " | RANA AI" is added unless it already contains RANA. */
   title: string;
