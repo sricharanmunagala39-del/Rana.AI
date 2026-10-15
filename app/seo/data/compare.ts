@@ -38,11 +38,11 @@ function platform(name: string, slug: string, url: string, pricing: string, stre
       ...extra,
       ...TRUST_FAQS.slice(1, 2),
     ],
-    related: ["/vapi-alternative-india", "/compare/rana-ai-vs-vapi", "/compare/rana-ai-vs-retell-ai", "/compare/rana-ai-vs-bland-ai", "/compare/rana-ai-vs-bolna", "/pricing"].filter((p) => p !== `/compare/rana-ai-vs-${slug}`),
+    related: ["/vapi-alternative-india", "/compare/rana-ai-vs-retell-ai", "/compare/rana-ai-vs-bland-ai", "/compare/rana-ai-vs-bolna", "/pricing"].filter((p) => p !== `/compare/rana-ai-vs-${slug}`),
   };
 }
 
-export const COMPARE: SeoPageData[] = [
+const ALL_COMPARE: SeoPageData[] = [
   platform("Vapi", "vapi", "https://vapi.ai/pricing", "$0.05/min platform fee plus pass-through costs for speech, model, voice and telephony; plans from $0 (pay-as-you-go) to $999+/month", ["You are a developer building a voice product for many clients", "You want to choose and swap every model and provider yourself", "You need very fine control over latency and call logic"]),
   platform("Retell AI", "retell-ai", "https://www.retellai.com/pricing", "Pay-as-you-go; voice agents about $0.07–0.31/min depending on model and voice, plus phone numbers and add-ons", ["You have engineers and want a well-documented voice-agent API", "You mostly serve English-speaking callers in the US or Europe", "You want to pick your own LLM per agent"]),
   platform("Bland AI", "bland-ai", "https://www.bland.ai/pricing", "From $0.14/min (Start) or $0.12/min with a $299/month platform fee (Build); one rate covers model, speech and voice", ["You run very large outbound volumes in the US", "You want an all-in per-minute rate in dollars and have a developer to integrate it", "You need enterprise contracts with dedicated infrastructure"]),
@@ -96,3 +96,7 @@ export const COMPARE: SeoPageData[] = [
     related: ["/blog/missed-call-to-lead-conversion", "/glossary/missed-call-service", "/glossary/speed-to-lead", "/ai-calling-agent"],
   },
 ];
+
+/** /compare/rana-ai-vs-vapi said the same thing as /vapi-alternative-india, and Google flagged it as a duplicate.
+ *  It now 301-redirects there (next.config.js), so it is left out of the sitemap and static pages. */
+export const COMPARE: SeoPageData[] = ALL_COMPARE.filter((p) => p.path !== "/compare/rana-ai-vs-vapi");

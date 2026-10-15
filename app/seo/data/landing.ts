@@ -74,7 +74,7 @@ export const LANDING: SeoPageData[] = [
       { q: "Which languages can patients speak?", a: `${LANGS_SENTENCE}. It follows the patient if they switch language mid-call.` },
       ...TRUST_FAQS.slice(1),
     ],
-    related: ["/industries/clinics-hospitals", "/industries/dental-clinics", "/ai-receptionist", "/blog/ai-receptionist-for-clinics-india", "/telugu-ai-voice-agent", "/pricing"],
+    related: ["/for/healthcare", "/industries/dental-clinics", "/ai-receptionist", "/blog/ai-receptionist-for-clinics-india", "/telugu-ai-voice-agent", "/pricing"],
   },
   {
     path: "/ai-telecaller", kind: "solution", label: "AI telecaller",
@@ -98,7 +98,7 @@ export const LANDING: SeoPageData[] = [
       { q: "Will it sound robotic?", a: "No — it uses natural Indian voices, handles interruptions and speaks in short, conversational sentences. Listen to a sample on our homepage, or talk to it yourself." },
       ...TRUST_FAQS.slice(1),
     ],
-    related: ["/compare/ai-vs-human-telecaller", "/blog/telecaller-vs-ai-calling-cost-india", "/industries/real-estate", "/industries/education-coaching", "/ai-calling-agent", "/glossary/dlt-registration"],
+    related: ["/compare/ai-vs-human-telecaller", "/blog/telecaller-vs-ai-calling-cost-india", "/for/real-estate", "/for/education", "/ai-calling-agent", "/glossary/dlt-registration"],
   },
   {
     path: "/telugu-ai-voice-agent", kind: "language", label: "Telugu AI voice agent",
@@ -206,6 +206,6 @@ export const LANDING: SeoPageData[] = [
       { q: "Can I move from Vapi or Retell to RANA?", a: "Yes. Send us your current prompt and call flow; we'll set it up as a RANA AI employee, and you can compare both on real calls." },
       ...TRUST_FAQS.slice(0, 1),
     ],
-    related: ["/compare/rana-ai-vs-vapi", "/compare/rana-ai-vs-retell-ai", "/compare/rana-ai-vs-bland-ai", "/compare/rana-ai-vs-bolna", "/pricing"],
+    related: ["/vapi-alternative-india", "/compare/rana-ai-vs-retell-ai", "/compare/rana-ai-vs-bland-ai", "/compare/rana-ai-vs-bolna", "/pricing"],
   },
 ];

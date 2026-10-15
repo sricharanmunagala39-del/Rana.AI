@@ -7,6 +7,7 @@ import { INDUSTRIES } from "./data/industries";
 import { CITIES } from "./data/cities";
 import { GLOSSARY } from "./data/glossary";
 import { GROWTH, COST_TOOL } from "./data/growth";
+import { INDUSTRY_MENU } from "../industries/menu";
 
 export const ALL_SEO: SeoPageData[] = [...LANDING, PRICING, ...COMPARE, ...INDUSTRIES, ...CITIES, ...GLOSSARY, ...GROWTH, COST_TOOL];
 export const SEO_BY_PATH: Record<string, SeoPageData> = Object.fromEntries(ALL_SEO.map((p) => [p.path, p]));
@@ -24,16 +25,24 @@ export const BLOG_LABELS: Record<string, string> = {
   "/blog/telugu-ai-voice-agent": "Telugu AI voice agent guide",
   "/blog/trai-dlt-rules-for-ai-calling": "TRAI DLT rules for AI calling",
   "/blog/missed-call-to-lead-conversion": "Missed call to lead conversion playbook",
+  "/blog/clinic-appointment-reminder-call-script": "Clinic appointment reminder call script",
+  "/blog/insurance-renewal-reminder-call-script": "Insurance renewal reminder call script",
+  "/blog/check-dnd-status-before-calling": "How to check DND status before calling",
+  "/blog/cod-order-confirmation-call-script": "COD order confirmation call script",
+  "/blog/hotel-reservation-call-script": "Hotel reservation call script",
+  "/blog/solar-lead-qualification-call-script": "Solar lead qualification call script",
 };
-export const labelFor = (path: string) => SEO_BY_PATH[path]?.label || BLOG_LABELS[path] || path;
+/** Industry pages at /for/<slug> (app/industries), labelled for related-link cards and the footer. */
+export const FOR_LABELS: Record<string, string> = Object.fromEntries(INDUSTRY_MENU.map((i) => [`/for/${i.slug}`, `AI calling for ${i.label}`]));
+export const labelFor = (path: string) => SEO_BY_PATH[path]?.label || BLOG_LABELS[path] || FOR_LABELS[path] || path;
 
 /** Footer / hub link groups. */
 export const LINK_GROUPS: { title: string; links: string[] }[] = [
   { title: "Solutions", links: ["/ai-calling-agent", "/ai-receptionist", "/ai-receptionist-for-clinics", "/ai-receptionist-for-doctors", "/ai-telecaller", "/ai-voice-calling", "/telecaller-software", "/pricing"] },
   { title: "Languages", links: ["/telugu-ai-voice-agent", "/hindi-ai-voice-agent", "/tamil-ai-voice-agent", "/kannada-ai-voice-agent"] },
-  { title: "Industries", links: ["/industries/real-estate", "/industries/clinics-hospitals", "/industries/education-coaching", "/industries/e-commerce", "/industries/banking-nbfc-loans", "/industries/insurance", "/industries"] },
+  { title: "Industries", links: ["/for/real-estate", "/for/healthcare", "/for/education", "/for/ecommerce", "/for/bfsi", "/industries/insurance", "/industries"] },
   { title: "Cities", links: [...CITIES.map((c) => c.path), "/ai-receptionist-for-hospitals-hyderabad", "/ai-calling-for-real-estate-hyderabad", "/ai-calling-for-coaching-institutes-hyderabad"] },
-  { title: "Compare", links: ["/best-ai-voice-agents-india", "/vapi-alternative-india", "/retell-ai-alternative", "/bland-ai-alternative", "/compare/rana-ai-vs-vapi", "/compare/rana-ai-vs-retell-ai", "/compare/rana-ai-vs-bland-ai", "/compare/ai-vs-human-telecaller", "/compare"] },
+  { title: "Compare", links: ["/best-ai-voice-agents-india", "/vapi-alternative-india", "/retell-ai-alternative", "/bland-ai-alternative", "/compare/rana-ai-vs-retell-ai", "/compare/rana-ai-vs-bland-ai", "/compare/ai-vs-human-telecaller", "/compare"] },
   { title: "Learn", links: ["/tools/ai-calling-cost-calculator", "/blog", "/glossary/dlt-registration", "/glossary/trai-tcccpr-rules", "/glossary/speed-to-lead", "/glossary"] },
 ];
 export const HUB_LABELS: Record<string, string> = { "/industries": "All industries →", "/compare": "All comparisons →", "/glossary": "Glossary →", "/blog": "Blog" };

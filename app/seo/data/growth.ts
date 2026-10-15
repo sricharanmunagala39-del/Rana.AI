@@ -219,7 +219,7 @@ export const GROWTH: SeoPageData[] = [
       { q: "Where are call recordings kept?", a: "Recordings and transcripts are stored in your RANA AI account for your team to review. See our privacy policy for how data is handled." },
       ...TRUST_FAQS,
     ],
-    related: ["/ai-receptionist-for-clinics", "/ai-receptionist-for-hospitals-hyderabad", "/industries/clinics-hospitals", "/industries/dental-clinics", "/blog/ai-receptionist-for-clinics-india"],
+    related: ["/ai-receptionist-for-clinics", "/ai-receptionist-for-hospitals-hyderabad", "/for/healthcare", "/industries/dental-clinics", "/blog/ai-receptionist-for-clinics-india"],
   },
 
   // ---- City + industry: Google ranks these for local searches (e.g. "ai receptionist hospitals hyderabad").
@@ -251,7 +251,7 @@ export const GROWTH: SeoPageData[] = [
       { q: "Does it work with our existing hospital number?", a: "Yes. Forward calls from your existing number (all calls, or only when busy / after hours) to your AI receptionist." },
       ...TRUST_FAQS.slice(1),
     ],
-    related: ["/ai-receptionist-for-clinics", "/ai-receptionist-for-doctors", "/ai-voice-agent-hyderabad", "/telugu-ai-voice-agent", "/industries/clinics-hospitals"],
+    related: ["/ai-receptionist-for-clinics", "/ai-receptionist-for-doctors", "/ai-voice-agent-hyderabad", "/telugu-ai-voice-agent", "/for/healthcare"],
   },
   {
     path: "/ai-calling-for-real-estate-hyderabad", kind: "city", label: "AI calling for real estate in Hyderabad",
@@ -286,7 +286,7 @@ export const GROWTH: SeoPageData[] = [
       { q: "Can it transfer a hot buyer to our sales manager live?", a: "It hands over hot leads instantly with the full summary on WhatsApp, and can pass the caller to your team when they ask for a person." },
       ...TRUST_FAQS.slice(1),
     ],
-    related: ["/industries/real-estate", "/blog/ai-telecaller-for-real-estate-india", "/ai-voice-agent-hyderabad", "/ai-telecaller", "/telugu-ai-voice-agent"],
+    related: ["/for/real-estate", "/blog/ai-telecaller-for-real-estate-india", "/ai-voice-agent-hyderabad", "/ai-telecaller", "/telugu-ai-voice-agent"],
   },
   {
     path: "/ai-calling-for-coaching-institutes-hyderabad", kind: "city", label: "AI calling for coaching institutes in Hyderabad",
@@ -314,7 +314,7 @@ export const GROWTH: SeoPageData[] = [
       { q: "Can it talk to parents as well as students?", a: "Yes — it adjusts its tone, answers parents' questions about fees, safety and results, and books a visit for both." },
       ...TRUST_FAQS.slice(1),
     ],
-    related: ["/industries/education-coaching", "/blog/ai-calling-for-coaching-institutes", "/ai-voice-agent-hyderabad", "/ai-telecaller", "/telugu-ai-voice-agent"],
+    related: ["/for/education", "/blog/ai-calling-for-coaching-institutes", "/ai-voice-agent-hyderabad", "/ai-telecaller", "/telugu-ai-voice-agent"],
   },
 ];
 
