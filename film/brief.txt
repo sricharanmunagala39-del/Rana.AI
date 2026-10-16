@@ -1,0 +1,15 @@
+You are the director, writer, cinematographer and editor of a RANA AI advertisement; make the whole film end to end without asking me any questions, and choose models that run on this 16 GB GPU.
+BRAND: RANA AI (ranaai.in) — AI voice employees that make and answer business calls in Indian languages, follow up leads and summarise calls.
+CAMPAIGN: one week of manual outbound calling vs a faster AI workflow with RANA AI.
+LANGUAGE: Telugu voice-over with natural English business words. LENGTH: 30 seconds, 6 shots of 5 seconds. FORMAT: 9:16 vertical, 480p is fine.
+CAST (identical in every shot): Ravi — Telugu man, about 30, short black hair, light-blue shirt, office ID lanyard. First create one character reference image of Ravi and use it as the reference for every shot.
+SHOT 1 (0-5s): Ravi at a cluttered desk in a Hyderabad office, phone to ear, sticky notes everywhere, tired. VO: "రోజంతా calls చేసినా, leads అన్నీ reach అవ్వడం లేదా?"
+SHOT 2 (5-10s): close-up of Ravi's hand dialling a desk phone and writing notes on paper. VO: "Manual dialling, notes, missed follow-ups..."
+SHOT 3 (10-15s): Ravi leans back and opens a laptop (screen softly blurred, not readable), relief on his face. VO: "ఇప్పుడు Rana AI మీ repetitive calls చూసుకుంటుంది."
+SHOT 4 (15-20s): wide shot, calm tidy office, Ravi watching the laptop while his phone stays quiet. VO: "Indian languages లో calls, automatic follow-ups, call summaries."
+SHOT 5 (20-25s): Ravi smiling on one important call, natural window light. VO: "మీ team ముఖ్యమైన conversations మీద focus చేస్తుంది."
+SHOT 6 (25-30s): slow dolly out from Ravi at his clean desk, last second calm and clean. VO: "మీ business కోసం Rana AI ఎలా పనిచేస్తుందో చూడాలనుకుంటున్నారా? DM చేయండి."
+LOOK: photorealistic, real Indian office, natural window light, shallow depth of field, 35-50mm lens feel, slow dolly moves, no sci-fi, no holograms, no text or logos inside generated shots, no readable screens.
+SOUND: one warm natural Telugu male narrator for all VO lines with real pauses, light office ambience, soft modern background music under the voice and lower when he speaks.
+RULES: only say what RANA really does, no numbers, no guaranteed sales, the AI never claims to be human, do not fake a real customer call or product screen.
+DELIVER: one final MP4 with all six shots joined in order, voice and music mixed, plus an .srt file of every spoken line with timings, saved in the output folder; check for black frames and silent gaps before finishing.
