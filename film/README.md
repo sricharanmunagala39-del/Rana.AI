@@ -14,7 +14,11 @@ ONE BRIEF ──► Deepy Prime (WanGP film agent, local Qwen3.8-VL 9B)
                RANA AI mark, branded end card, ducked music, −14 LUFS ──► RANA_final.mp4
 ```
 
-Runs in **Kaggle Notebooks** (free NVIDIA T4 GPU) — nothing installed on your computer. Open `rana_film_kaggle.ipynb` in Kaggle → *Run All* → open the printed link → paste the brief from `BRIEF_TEMPLATE.md`.
+Runs in **Kaggle Notebooks** (free NVIDIA T4 GPU) — nothing installed on your computer.
+
+**Recommended: background mode** — `rana_film_background.ipynb`. Edit the brief in cell 1 → *Save Version → Save & Run All (Commit)*. No browser or login needed and Kaggle's 40-min idle timeout can't stop it (runs up to ~10.5 h). Download `RANA_final.mp4` from the version's **Output** tab. `run_film.py` does the work: installs WanGP, sets Deepy Prime + Qwen3.8 VL 9B (GGUF Q4) + the T4-safe PyTorch decoder, sends the brief to the local Deepy server, waits, then runs `finish.py`.
+
+Interactive mode — `rana_film_kaggle.ipynb` → *Run All* → run `tunnel.py` for the link → paste the brief at `/deepy/`. Needs a click in the notebook every ~30 min or Kaggle stops the session.
 
 ## Why WanGP (verified 16 Oct 2026)
 
@@ -33,7 +37,7 @@ Checked and **not chosen**: HKUDS/ViMax (MIT, good agent, but only works through
 
 - **GPU is required.** This repo's container has no GPU; generation runs on Kaggle (≈30 GPU h/week free, 12 h max per session, phone-verified account, internet on). Untested on Kaggle by us yet — first run may need small fixes.
 - **Speed/quality on T4:** expect several minutes per 5-second shot; a 35 s ad ≈ 2–4 h. Quality is good but below paid top models (Veo/Kling); faces can drift on long shots — keep shots 3–5 s.
-- **First-time setup in the web UI:** choose Deepy Prime + *Qwen3.8VL Uncensored 9B (GGUF Q4)* in *Configuration → Prompt Enhancer / Deepy*.
+- **T4 lessons (16 Oct 2026):** the 27B Deepy model is too slow on a T4 (0 tokens after 13 min); Gradio `--share` links don't appear on Kaggle (use `tunnel.py`); the Triton/vllm decoder crashes on T4 (`.bf16 requires sm_80`) — use the PyTorch decoder. Qwen3.8 9B is hidden in the WanGP menu at this commit ("until it works reliably"); `run_film.py` enables it via `wgp_config.json`. The 9B path is not yet proven end-to-end.
 - **Real product footage** (call recording, dashboard screenshots) must come from you — the ad must not fake product screens or calls.
 - **Music:** use what Deepy generates or a track you own the rights to; do not use copyrighted songs.
 - **Claims:** "100 call attempts in ~5 min" is only true on the Scale plan (20 concurrent calls) and means attempts, not conversations.
