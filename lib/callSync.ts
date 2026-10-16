@@ -9,6 +9,7 @@ import { engineOfAgentRef } from "./voice/engines";
 import { handoffAfterCall } from "./handoffAlert";
 import { leadAlertsAfterCall } from "./leadAlerts";
 import { applyInsight } from "./callInsight";
+import { recordPromisesForCall } from "./promises/store";
 
 const FIRST_SYNC_LOOKBACK_DAYS = 14;
 const OVERLAP_MS = 30 * 60 * 1000; // re-read the last 30 min so calls that were still in progress get their final state
@@ -77,6 +78,7 @@ export async function syncClientCalls(clientId: string): Promise<SyncResult> {
           if (handoff) saved.follow_up = true;
           await leadAlertsAfterCall(client, { ...saved, handoff: handoff || saved.handoff || null, follow_up: saved.follow_up || !!handoff })
             .catch((e: any) => res.errors.push(`alerts ${c.id}: ${e?.message || e}`));
+          await recordPromisesForCall(client, { ...saved, handoff: handoff || saved.handoff || null });
         }
         // "Don't call me again" goes straight onto the do-not-call list so no future campaign dials them.
         if (row.source !== "manual" && row.caller_phone) {
