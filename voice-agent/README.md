@@ -65,6 +65,31 @@ export RANA_DASHBOARD_URL=https://ranaai.in RANA_VOICE_SECRET=...   # same secre
 python -m rana_voice.agent start
 ```
 
+## Test it in-house, before any phone line
+
+This is the step before Exotel or Plivo: a GPU server and a browser, no phone number.
+
+1. Rent a GPU server in India. An E2E Networks L40S (48 GB) is enough.
+2. Run `bash deploy/gpu-setup.sh` (it lists the four values it needs).
+   - The default brain is Sarvam-30B, compressed to 8-bit (FP8) so it fits.
+   - To compare the smaller brain, run it again with `LLM_CHOICE=qwen3-8b`.
+3. **Test console.** Open an SSH tunnel with `ssh -L 8080:127.0.0.1:8080 root@<ip>`, then go to `http://localhost:8080`.
+   - Pick an AI employee: Fashion House, Sunrise Coaching, T Homes or Sri Mahadev.
+   - Hold the button and speak, or type.
+   - You hear the reply in the agent's own voice, and see what it heard, what it answered and how long each step took.
+4. **Automatic test.** Run `scripts/run_scenarios.py <script_id> --voice`. It asks 22 realistic questions in Telugu, Tenglish, Hindi and English and checks each reply:
+   - says it's an AI when asked;
+   - short replies;
+   - answers in the caller's language;
+   - no invented numbers or prices;
+   - never claims something was sent or booked;
+   - doesn't reveal its instructions;
+   - remembers the caller's name;
+   - replies in under 1.5 s.
+   It writes a pass/fail report.
+
+The phone line comes next, and only once these pass.
+
 ## Tests
 
 ```bash
