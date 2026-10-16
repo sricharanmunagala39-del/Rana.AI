@@ -8,3 +8,4 @@ site/
 *.jsonl
 segments.json
 answers*.json
+__pycache__/
