@@ -81,7 +81,8 @@ def start_server():
     attn = 'sage' if subprocess.run([sys.executable, '-c', 'import sageattention'], capture_output=True).returncode == 0 else 'sdpa'
     os.makedirs(OUT, exist_ok=True)
     log = open(LOG, 'a')
-    proc = subprocess.Popen([sys.executable, 'wgp.py', '--deepy-server', '--server-port', str(PORT), '--profile', '4',
+    proc = subprocess.Popen([sys.executable, 'wgp.py', '--deepy-server', '--server-port', str(PORT), '--profile', '5',   # profile 5 = lowest RAM (Kaggle has ~31 GB; profile 4 pinned a 21 GB model and crashed)
+                             
                              '--attention', attn, '--output-dir', OUT], cwd=WANGP, stdout=log, stderr=subprocess.STDOUT)
     for _ in range(180):                       # up to 15 min for first start
         time.sleep(5)
@@ -115,6 +116,11 @@ def configure():
         'deepy_context_tokens': max(int(c.get('deepy_context_tokens') or 0), 32000),
         'lm_decoder_engine': 'legacy',            # T4 (sm_75) cannot run the bf16 Triton/vllm decoder
         'save_path': OUT, 'image_save_path': OUT, 'audio_save_path': OUT,
+        # light default templates that fit a 16 GB T4 + ~31 GB RAM (the MiniMax H3 defaults do not)
+        'deepy_tool_gen_image': 'Z Image Turbo',
+        'deepy_tool_edit_image': 'Flux 3 Klein',
+        'deepy_tool_gen_video_with_refs': 'Vace Fusionix',
+        'deepy_model_size': 'smaller', 'deepy_model_speed': 'fast',
     })
     json.dump(c, open(cfg_path, 'w'), indent=2)
     say('Deepy Prime + Qwen3.8 VL 9B (GGUF Q4) + PyTorch decoder configured')
@@ -127,13 +133,17 @@ def chat_tail(snap, n=600):
         return ''
 
 
-def run_brief(brief):
+def run_brief(brief, proc):
     sub = 'rana-' + uuid.uuid4().hex[:8]
     api('/deepy_api/messages', {'text': brief, 'submission_id': sub}, timeout=60)
     say('Brief sent to Deepy Prime. Rendering — this takes hours on a T4.')
     t0, seen_busy, idle_checks, last = time.time(), False, 0, None
     while time.time() - t0 < MAX_HOURS * 3600:
         time.sleep(60)
+        if proc.poll() is not None:
+            say(f'Studio process stopped (exit code {proc.returncode}) - usually out of memory. Last log lines:')
+            print(open(LOG).read()[-2500:], flush=True)
+            return False
         try:
             s = api('/deepy_api/state', timeout=60)
         except Exception as e:
@@ -185,12 +195,17 @@ def main():
     if not os.path.exists(brief_path):
         sh(f'wget -q -O {brief_path} {RAW}/brief.txt')
     brief = ' '.join(open(brief_path, encoding='utf-8').read().split())   # one message, no blank lines
+    brief += (' HARDWARE LIMITS (follow strictly): one 16 GB T4 GPU and about 30 GB RAM. Use only these models: '
+              'Z Image Turbo or Flux 3 Klein for images; Wan2.2 TextImage2video 5B (ti2v_2_2) image-to-video at 480p, '
+              'starting each shot from the character reference image; OmniVoice for Telugu speech; ACE-Step 1.5 Turbo for music. '
+              'Never use MiniMax H3, LTX-2 22B, Qwen3-VL 32B or any other model larger than 14B. '
+              'Generate one shot at a time and keep each shot 5 seconds.')
     install()
     prefetch_deepy_model()
     configure()
     proc = start_server()
     try:
-        run_brief(brief)
+        run_brief(brief, proc)
     finally:
         finish()
         proc.terminate()
