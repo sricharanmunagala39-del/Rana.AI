@@ -100,9 +100,24 @@ curl -sf http://127.0.0.1:8000/v1/models >/dev/null && echo "brain: up" || echo 
 curl -sf http://127.0.0.1:8001/health && echo
 curl -sf http://127.0.0.1:8002/health && echo
 
+# Optional: a secure https link to the test console, so no SSH tunnel is needed (the browser only allows the
+# microphone on https). Caddy gets a free certificate for <ip>.sslip.io; the console's own password still applies.
+if [ "${PUBLIC_HTTPS:-0}" = "1" ]; then
+  echo "== Secure link for the test console"
+  apt-get install -y -qq debian-keyring debian-archive-keyring apt-transport-https gnupg >/dev/null
+  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list
+  apt-get update -qq && apt-get install -y -qq caddy >/dev/null
+  HOST="$(curl -s https://api.ipify.org | tr . -).sslip.io"
+  printf '%s {\n  reverse_proxy 127.0.0.1:8080\n}\n' "$HOST" > /etc/caddy/Caddyfile
+  systemctl restart caddy
+  echo "Test console: https://$HOST   (user: rana, password: PLAYGROUND_PASSWORD)"
+  echo "Only ports 80 and 443 need to be open; the model servers stay private on 127.0.0.1."
+fi
+
 cat <<'EOF'
 
-Done. From your own computer:
+Done. If PUBLIC_HTTPS=1, open the https link printed above. Otherwise, from your own computer:
   ssh -L 8080:127.0.0.1:8080 root@<server-ip>
   then open http://localhost:8080  (user: rana, password: PLAYGROUND_PASSWORD)
 
