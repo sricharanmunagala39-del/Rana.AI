@@ -1,0 +1,336 @@
+<title>Telugu Call Test Set</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Noto+Sans+Telugu:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one work column. Sticky progress bar on top, recordings as tabs, clips as rows: play | draft + answer | verdict. */
+:root {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --ink: #1d2422;
+  --muted: #5d6763;
+  --line: #dcdcd4;
+  --accent: #a2660c;        /* turmeric */
+  --accent-ink: #ffffff;
+  --accent-soft: #f4e7cf;
+  --ok: #2f7a4f;
+  --ok-soft: #e1f0e6;
+  --warn: #9a5b00;
+  --warn-soft: #fbeccf;
+  --skip: #6a6f7a;
+  --skip-soft: #e9eaee;
+  --focus: #1f6fb2;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-te: "Noto Sans Telugu", "Nirmala UI", "Gautami", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141816; --surface: #1c2220; --ink: #e8ece9; --muted: #9aa6a1; --line: #2f3835;
+    --accent: #e0a542; --accent-ink: #1a1408; --accent-soft: #3a2d15;
+    --ok: #6cc28f; --ok-soft: #1d3326; --warn: #e7b25c; --warn-soft: #3a2c12;
+    --skip: #a4a9b4; --skip-soft: #262a31; --focus: #6fb3ee; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141816; --surface: #1c2220; --ink: #e8ece9; --muted: #9aa6a1; --line: #2f3835;
+  --accent: #e0a542; --accent-ink: #1a1408; --accent-soft: #3a2d15;
+  --ok: #6cc28f; --ok-soft: #1d3326; --warn: #e7b25c; --warn-soft: #3a2c12;
+  --skip: #a4a9b4; --skip-soft: #262a31; --focus: #6fb3ee; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font: 16px/1.5 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 920px; margin: 0 auto; }
+header.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  padding-block: 18px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 10px;
+}
+h1 { font-size: 1.45rem; margin: 0; line-height: 1.2; text-wrap: balance; }
+.sub { color: var(--muted); font-size: .9rem; margin: 0; }
+.progress { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.bar { flex: 1 1 220px; height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .3s; }
+.count { font-family: var(--f-mono); font-size: .85rem; font-variant-numeric: tabular-nums; color: var(--muted); }
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.tabs button {
+  font: 500 .82rem var(--f-mono); border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  padding: 6px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tabs button .n { opacity: .7; margin-left: 4px; }
+.filters { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: .88rem; color: var(--muted); }
+.filters label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+details.guide { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin-top: 16px; }
+details.guide summary { cursor: pointer; font-weight: 700; }
+details.guide ul { margin: 8px 0 2px; padding-left: 20px; display: grid; gap: 4px; max-width: 70ch; }
+.te { font-family: var(--f-te); }
+main { display: grid; gap: 10px; margin-top: 16px; }
+.empty { color: var(--muted); padding: 24px 0; }
+.clip {
+  display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; align-items: start;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+  border-left: 5px solid var(--line);
+}
+.clip[data-status="ok"], .clip[data-status="fixed"] { border-left-color: var(--ok); }
+.clip[data-status="unclear"] { border-left-color: var(--warn); }
+.clip[data-status="skip"] { border-left-color: var(--skip); }
+.play {
+  width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
+  cursor: pointer; display: grid; place-items: center; font-size: 1.1rem;
+}
+.play[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.time { font: .72rem var(--f-mono); color: var(--muted); text-align: center; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.body { display: grid; gap: 8px; min-width: 0; }
+.meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: .8rem; color: var(--muted); }
+.pill { font: 600 .72rem var(--f-body); letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; background: var(--skip-soft); color: var(--skip); }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.unclear { background: var(--warn-soft); color: var(--warn); }
+.draft { font-size: .95rem; color: var(--muted); margin: 0; overflow-wrap: anywhere; }
+.draft b { font: 600 .7rem var(--f-body); letter-spacing: .06em; text-transform: uppercase; margin-right: 6px; color: var(--muted); }
+textarea {
+  width: 100%; min-height: 64px; resize: vertical; font: 1.05rem/1.6 var(--f-te); color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+}
+textarea:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.actions button {
+  font: 600 .85rem var(--f-body); padding: 7px 12px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+}
+.actions button.primary { background: var(--ok); border-color: var(--ok); color: var(--surface); }
+.actions button:disabled { opacity: .5; cursor: default; }
+.who { font-size: .78rem; color: var(--muted); }
+.banner { margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: var(--warn-soft); color: var(--warn); font-size: .9rem; }
+@media (max-width: 520px) {
+  .clip { grid-template-columns: 1fr; }
+  .playcol { display: flex; gap: 10px; align-items: center; }
+  .time { margin-top: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Telugu Call Test Set</h1>
+      <p class="sub">Listen to each clip and type exactly what was said. This becomes the answer key RANA uses to test speech models.</p>
+    </div>
+    <div class="progress">
+      <div class="bar" aria-hidden="true"><i id="barFill"></i></div>
+      <span class="count" id="countText">Loading clips…</span>
+    </div>
+    <nav class="tabs" id="tabs" aria-label="Recordings"></nav>
+    <div class="filters">
+      <label><input type="checkbox" id="onlyTodo"> Show only clips not done yet</label>
+      <span id="saveState" class="who" aria-live="polite"></span>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <details class="guide" id="guide">
+    <summary>How to transcribe (read once)</summary>
+    <ul>
+      <li>Write <b>exactly what is heard</b>, both people, in the order spoken. Don't fix grammar or summarise.</li>
+      <li>Use <b>Telugu script</b>. English words spoken in the call stay in Telugu script, the way the draft writes them: <span class="te">ఓకే, ఆన్లైన్, ప్లాన్</span>.</li>
+      <li>Write <b>numbers, prices, dates and names</b> as spoken, carefully. These matter most: <span class="te">రెండు వేల ఐదు వందలు</span>, not 2500.</li>
+      <li>If a word can't be made out, write <span class="te">[అస్పష్టం]</span> in its place. If the whole clip is noise or silence, press <b>Can't hear</b>.</li>
+      <li>If the clip isn't Telugu at all, press <b>Not Telugu</b>.</li>
+      <li>Press <b>Draft is correct</b> only if the draft matches word for word. Otherwise edit the box and press <b>Save correction</b>.</li>
+      <li>About one clip in five is <b>listen-only</b>: no draft is shown, so type it from scratch. These keep the test fair, so please don't skip them.</li>
+    </ul>
+  </details>
+
+  <main id="list"><p class="empty">Loading clips…</p></main>
+</div>
+
+<script>
+(() => {
+  const state = { segs: [], recs: [], rec: null, corr: {}, onlyTodo: false, me: null, db: null, canWrite: false };
+  const $ = (id) => document.getElementById(id);
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  const DONE = new Set(["ok", "fixed", "unclear", "skip"]);
+  const LABEL = { ok: "Draft correct", fixed: "Corrected", unclear: "Can't hear", skip: "Not Telugu" };
+
+  try { state.onlyTodo = localStorage.getItem("onlyTodo") === "1"; } catch {}
+  $("onlyTodo").checked = state.onlyTodo;
+  $("onlyTodo").addEventListener("change", (e) => {
+    state.onlyTodo = e.target.checked;
+    try { localStorage.setItem("onlyTodo", state.onlyTodo ? "1" : "0"); } catch {}
+    renderList();
+  });
+
+  // ---- audio: one element per recording, played from a clip's start to its end ----
+  const players = {};
+  let playing = null;
+  function stopAll() {
+    if (!playing) return;
+    players[playing.rec]?.pause();
+    document.querySelectorAll('.play[aria-pressed="true"]').forEach((b) => { b.setAttribute("aria-pressed", "false"); b.textContent = "▶"; b.setAttribute("aria-label", "Play clip"); });
+    playing = null;
+  }
+  function play(seg, btn) {
+    const same = playing && playing.id === seg.id;
+    stopAll();
+    if (same) return;
+    let a = players[seg.rec];
+    if (!a) {
+      a = players[seg.rec] = new Audio(`audio/${seg.rec}.mp3`);
+      a.preload = "auto";
+      a.addEventListener("timeupdate", () => { if (playing && playing.rec === seg.rec && a.currentTime >= playing.end) stopAll(); });
+      a.addEventListener("ended", stopAll);
+    }
+    playing = { id: seg.id, rec: seg.rec, end: seg.end + 0.15 };
+    btn.setAttribute("aria-pressed", "true"); btn.textContent = "■"; btn.setAttribute("aria-label", "Stop");
+    const go = () => { a.currentTime = Math.max(0, seg.start - 0.1); a.play().catch(() => stopAll()); };
+    if (a.readyState >= 1) go(); else a.addEventListener("loadedmetadata", go, { once: true });
+  }
+
+  // ---- rendering ----
+  function counts(rec) {
+    const list = rec ? state.segs.filter((s) => s.rec === rec) : state.segs;
+    return { total: list.length, done: list.filter((s) => DONE.has(state.corr[s.id]?.status)).length };
+  }
+  function renderHeader() {
+    const c = counts(null);
+    $("countText").textContent = `${c.done} of ${c.total} clips done`;
+    $("barFill").style.width = c.total ? `${(100 * c.done) / c.total}%` : "0";
+    const tabs = $("tabs");
+    tabs.replaceChildren(...state.recs.map((r) => {
+      const b = document.createElement("button");
+      const rc = counts(r);
+      b.type = "button"; b.setAttribute("aria-pressed", String(r === state.rec));
+      b.append(`Call ${r.replace("rec", "")}`);
+      const n = document.createElement("span"); n.className = "n"; n.textContent = `${rc.done}/${rc.total}`; b.append(n);
+      b.addEventListener("click", () => { state.rec = r; stopAll(); renderHeader(); renderList(); });
+      return b;
+    }));
+  }
+  function clipRow(seg) {
+    const c = state.corr[seg.id];
+    const row = document.createElement("article");
+    row.className = "clip"; row.dataset.status = c?.status || "";
+    row.innerHTML = `
+      <div class="playcol"><button class="play" type="button" aria-pressed="false" aria-label="Play clip">▶</button>
+        <div class="time"></div></div>
+      <div class="body">
+        <div class="meta"><span class="pill"></span><span class="who"></span></div>
+        <p class="draft te"><b>Draft</b><span></span></p>
+        <textarea class="te" rows="2" aria-label="Correct transcript"></textarea>
+        <div class="actions">
+          <button type="button" data-s="ok">Draft is correct</button>
+          <button type="button" data-s="fixed" class="primary">Save correction</button>
+          <button type="button" data-s="unclear">Can't hear</button>
+          <button type="button" data-s="skip">Not Telugu</button>
+        </div>
+      </div>`;
+    row.querySelector(".time").textContent = `${fmt(seg.start)}–${fmt(seg.end)}`;
+    const pill = row.querySelector(".pill");
+    pill.textContent = c ? LABEL[c.status] || "Saved" : "To do";
+    pill.className = "pill" + (c?.status === "ok" || c?.status === "fixed" ? " ok" : c?.status === "unclear" ? " unclear" : "");
+    row.querySelector(".who").textContent = c?.at ? `saved ${new Date(c.at).toLocaleString()}` : "";
+    row.querySelector(".draft span").textContent = seg.draft || "(no draft text)";
+    const ta = row.querySelector("textarea");
+    ta.id = `t_${seg.id}`;
+    ta.value = c && typeof c.text === "string" ? c.text : (seg.blind ? "" : (seg.draft || ""));
+    if (seg.blind) {
+      row.querySelector(".draft").hidden = true;
+      row.querySelector('[data-s="ok"]').hidden = true;
+      ta.placeholder = "Listen-only clip: type what you hear, from scratch";
+      const tag = document.createElement("span"); tag.className = "pill unclear"; tag.textContent = "Listen-only";
+      row.querySelector(".meta").prepend(tag);
+    }
+    row.querySelector(".play").addEventListener("click", (e) => play(seg, e.currentTarget));
+    row.querySelectorAll(".actions button").forEach((b) => {
+      b.disabled = !state.canWrite;
+      b.addEventListener("click", () => save(seg, b.dataset.s, ta.value));
+    });
+    return row;
+  }
+  function renderList() {
+    const list = $("list");
+    let segs = state.segs.filter((s) => s.rec === state.rec);
+    if (state.onlyTodo) segs = segs.filter((s) => !DONE.has(state.corr[s.id]?.status));
+    if (!segs.length) {
+      const p = document.createElement("p"); p.className = "empty";
+      p.textContent = state.segs.length ? "Every clip in this call is done. Pick another call above." : "No clips yet.";
+      list.replaceChildren(p); return;
+    }
+    list.replaceChildren(...segs.map(clipRow));
+  }
+  function refreshRow(id) {
+    const old = document.querySelector(`#t_${CSS.escape(id)}`)?.closest(".clip");
+    const seg = state.segs.find((s) => s.id === id);
+    if (!old || !seg) return;
+    if (document.activeElement && old.contains(document.activeElement) && document.activeElement.tagName === "TEXTAREA") return; // don't wipe someone mid-typing
+    old.replaceWith(clipRow(seg));
+  }
+
+  // ---- saving ----
+  async function save(seg, status, text) {
+    if (!state.db) return;
+    const clean = String(text || "").trim();
+    if (status === "fixed" && !clean) { $("saveState").textContent = "Type the transcript before saving, or press Can't hear."; return; }
+    const body = {
+      clip: seg.id, rec: seg.rec, status,
+      text: status === "ok" ? (seg.draft || "") : status === "fixed" ? clean : "",
+      draft: seg.draft || "", blind: !!seg.blind, by: state.me || null, at: new Date().toISOString(),
+    };
+    $("saveState").textContent = "Saving…";
+    try {
+      await state.db.collection("corrections").doc(seg.id).set(body);
+      $("saveState").textContent = `Saved ${seg.id.replace("rec", "call ")}`;
+      // jump to the next clip that isn't done
+      const segs = state.segs.filter((s) => s.rec === seg.rec);
+      const next = segs.slice(segs.indexOf(seg) + 1).find((s) => !DONE.has(state.corr[s.id]?.status) && s.id !== seg.id);
+      if (next) document.getElementById(`t_${next.id}`)?.focus({ preventScroll: false });
+    } catch (e) {
+      $("saveState").textContent = e?.code === "permission_denied" ? "You can view but not save. Ask the owner for edit access." : "Couldn't save. Check your connection and press the button again.";
+    }
+  }
+
+  // ---- boot ----
+  async function boot() {
+    try {
+      const r = await fetch("segments.json", { cache: "no-store" });
+      state.segs = await r.json();
+    } catch { $("list").innerHTML = '<p class="empty">The clip list could not be loaded. Reload the page.</p>'; return; }
+    state.recs = [...new Set(state.segs.map((s) => s.rec))].sort();
+    state.rec = state.recs[0] || null;
+    renderHeader(); renderList();
+
+    const claude = window.claude;
+    const db = claude ? await claude.use("db") : null;
+    const user = claude ? await claude.use("user") : null;
+    if (!db) {
+      const b = $("banner"); b.hidden = false;
+      b.textContent = "Saving isn't available in this view. Open the page signed in to claude.ai to record answers.";
+      return;
+    }
+    state.db = db;
+    try { state.me = user ? await user.id() : null; } catch {}
+    state.canWrite = user ? (user.can?.("data.write") ?? true) !== false : true;
+    renderList(); // enable the buttons now that saving is possible
+    db.collection("corrections").limit(1000).onSnapshot((snap) => {
+      const changed = [];
+      snap.docChanges().forEach((ch) => {
+        if (ch.type === "removed") delete state.corr[ch.doc.id]; else state.corr[ch.doc.id] = ch.doc.data();
+        changed.push(ch.doc.id);
+      });
+      renderHeader();
+      if (changed.length > 20) renderList(); else changed.forEach(refreshRow);
+    }, () => {
+      const b = $("banner"); b.hidden = false;
+      b.textContent = "Saved answers couldn't be loaded. Reload the page to try again.";
+    });
+  }
+  boot();
+})();
+</script>

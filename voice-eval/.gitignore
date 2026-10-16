@@ -1,0 +1,10 @@
+# Call audio and transcripts are customer data: never commit them.
+audio/
+clips/
+site/
+*.wav
+*.mp3
+*.aac
+*.jsonl
+segments.json
+answers*.json
