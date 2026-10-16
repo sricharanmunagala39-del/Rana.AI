@@ -1,0 +1,13 @@
+# Agent
+livekit-agents[openai,silero]==1.7.1
+httpx>=0.27,<1
+# Model servers
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+python-multipart>=0.0.9
+numpy>=1.26
+faster-whisper>=1.1,<2
+# GPU-only, for the Indic Parler voice (install on the GPU server):
+#   torch, transformers, git+https://github.com/huggingface/parler-tts.git
+# Tests
+pytest>=8
