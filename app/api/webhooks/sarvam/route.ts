@@ -17,6 +17,7 @@ import { optOutPhrase, addDnc } from "@/lib/compliance";
 import { normalisePhone } from "@/lib/campaigns";
 import { sb } from "@/lib/db";
 import { getClientById } from "@/lib/supabase";
+import { recordPromisesForCall } from "@/lib/promises/store";
 
 /**
  * Best-effort fetch of the call recording from Sarvam's analytics API.
@@ -110,7 +111,9 @@ export async function POST(req: Request) {
     }
     // The client's own lead alerts (Slack, WhatsApp, email, webhook) — each call to each channel once.
     const alerts = await leadAlertsAfterCall(client, { ...saved, handoff: handoff || saved.handoff || null, follow_up: saved.follow_up || !!handoff });
-    return Response.json({ ok: true, id: saved.id, lead_status: saved.lead_status, handoff: handoff ? handoff.rule : null, alerts });
+    // Promise Engine: open a tracked task for every commitment made on the call (off unless RANA_PROMISES is set; never throws).
+    const promises = await recordPromisesForCall(client, { ...saved, handoff: handoff || saved.handoff || null });
+    return Response.json({ ok: true, id: saved.id, lead_status: saved.lead_status, handoff: handoff ? handoff.rule : null, alerts, promises });
   } catch (err: any) {
     console.error("[webhook] failed", err?.message);
     return Response.json({ error: err?.message || "Failed to store call" }, { status: 500 });
