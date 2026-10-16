@@ -60,6 +60,23 @@ def install():
     sh(f'wget -q -O {WORK}/rana/finish.py {RAW}/finish.py')
 
 
+def prefetch_deepy_model():
+    """The 9B model is hidden in WanGP's menu, so WanGP does not download it by itself."""
+    from huggingface_hub import hf_hub_download
+    dst = f'{WANGP}/ckpts/Qwen3_5_9B_Abliterated'
+    os.makedirs(dst, exist_ok=True)
+    files = [('Qwen3_5_9B_Abliterated', f) for f in ('chat_template.jinja', 'config.json', 'tokenizer.json', 'tokenizer_config.json',
+                                                      'video_preprocessor_config.json', 'vocab.json', 'Qwen3.5-9B-vision_bf16.safetensors')]
+    files.append(('Qwen3_8_27B_Uncensored', 'Qwen3.8-9B-Uncensored-Heretic-Q4_K_M.gguf'))
+    for sub, name in files:
+        if os.path.exists(f'{dst}/{name}'):
+            continue
+        say('downloading', name)
+        p = hf_hub_download('DeepBeepMeep/Wan2.1', f'{sub}/{name}', local_dir=f'{WANGP}/ckpts/_hf_tmp')
+        shutil.move(p, f'{dst}/{name}')
+    say('Deepy model files ready in', dst)
+
+
 def start_server():
     attn = 'sage' if subprocess.run([sys.executable, '-c', 'import sageattention'], capture_output=True).returncode == 0 else 'sdpa'
     os.makedirs(OUT, exist_ok=True)
@@ -169,6 +186,7 @@ def main():
         sh(f'wget -q -O {brief_path} {RAW}/brief.txt')
     brief = ' '.join(open(brief_path, encoding='utf-8').read().split())   # one message, no blank lines
     install()
+    prefetch_deepy_model()
     configure()
     proc = start_server()
     try:
