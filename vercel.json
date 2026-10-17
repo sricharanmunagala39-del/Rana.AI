@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/crm-digest",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/sales-engine",
+      "schedule": "0 5 * * 1-6"
     }
   ],
   "git": {

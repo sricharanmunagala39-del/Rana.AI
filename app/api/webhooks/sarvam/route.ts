@@ -110,11 +110,26 @@ export async function POST(req: Request) {
     }
     // The client's own lead alerts (Slack, WhatsApp, email, webhook) — each call to each channel once.
     const alerts = await leadAlertsAfterCall(client, { ...saved, handoff: handoff || saved.handoff || null, follow_up: saved.follow_up || !!handoff });
+    // A real call placed by the HQ Sales Engine: hand its outcome back to that campaign (never blocks this webhook).
+    const meta = payload?.metadata || payload?.webhook_metadata || payload?.webhook_config?.metadata || {};
+    if (meta?.rana_source === "sales_engine" && meta?.se_prospect_id) {
+      await recordSalesEngineCall(String(meta.se_prospect_id), row).catch((e: any) => console.error("[webhook] sales engine", e?.message));
+    }
     return Response.json({ ok: true, id: saved.id, lead_status: saved.lead_status, handoff: handoff ? handoff.rule : null, alerts });
   } catch (err: any) {
     console.error("[webhook] failed", err?.message);
     return Response.json({ error: err?.message || "Failed to store call" }, { status: 500 });
   }
+}
+
+async function recordSalesEngineCall(prospectId: string, row: any) {
+  const { recordLiveOutcome } = await import("@/lib/salesEngine/engine");
+  const { SupabaseStore, SupabaseCrm } = await import("@/lib/salesEngine/supabaseStore");
+  const { hqClientId } = await import("@/lib/salesEngine/prod");
+  const transcript = (row.transcript || []).map((t: any) => `${t.role === "user" ? "Them" : "Rana"}: ${t.text}`).join("\n");
+  await recordLiveOutcome({ store: new SupabaseStore(await hqClientId()), crm: new SupabaseCrm() }, prospectId, {
+    connected: (row.duration_seconds ?? 0) > 0, transcript, summary: row.summary || null, durationSec: row.duration_seconds ?? null,
+  });
 }
 
 export async function GET() {
