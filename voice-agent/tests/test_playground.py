@@ -119,3 +119,24 @@ def test_checker_language_and_length():
     assert r["language"] is False and r["short"] is False
     assert sentences("ఒకటి. రెండు? three!") == 3
     assert "1400" in numbers("cost 1,400 rupees") and "రెండు" in numbers("రెండు వేల")
+
+
+# ---- offline scripts file + thinking-tag stripping (Colab / no dashboard) ----
+def test_offline_scripts_file(monkeypatch, tmp_path):
+    f = tmp_path / "emp.json"
+    f.write_text(json.dumps([{**CFG, "id": "s", "client_name": "The Fashion House", "employee": "Priya"}]), encoding="utf-8")
+    monkeypatch.setenv("PLAYGROUND_PASSWORD", "test-pass")
+    monkeypatch.setenv("PLAYGROUND_SCRIPTS_FILE", str(f))
+    monkeypatch.delenv("PLAYGROUND_EMPLOYEES", raising=False)
+    c = TestClient(create_app(Brain(client=model_servers({}), dashboard=None)))
+    c.auth = ("rana", "test-pass")
+    assert c.get("/api/employees").json() == [{"id": "s", "name": "The Fashion House: Priya"}]
+    assert c.post("/api/turn", data={"script_id": "s", "text": "hi", "speak": "false"}).status_code == 200
+    assert c.post("/api/turn", data={"script_id": "nope", "text": "hi"}).status_code == 404
+
+
+def test_strip_thinking():
+    from servers.playground import strip_thinking
+    assert strip_thinking("<think>price is 1400</think>\nషర్ట్స్ 1400 నుంచి.") == "షర్ట్స్ 1400 నుంచి."
+    assert strip_thinking("reasoning...</think> హలో") == "హలో"
+    assert strip_thinking("హలో సర్") == "హలో సర్"

@@ -29,7 +29,13 @@ class FasterWhisperEngine:
     def __init__(self, model: str, device: str = "auto", compute_type: str = "int8"):
         from faster_whisper import WhisperModel
         self.name = model
-        self.model = WhisperModel(model, device=device, compute_type=compute_type)
+        try:
+            self.model = WhisperModel(model, device=device, compute_type=compute_type)
+        except (RuntimeError, ValueError) as e:  # e.g. GPU libraries missing: keep working on CPU, just slower
+            if device == "cpu":
+                raise
+            print(f"[stt] GPU load failed ({e}); falling back to CPU", flush=True)
+            self.model = WhisperModel(model, device="cpu", compute_type="int8")
 
     def transcribe(self, audio16k: np.ndarray, language: str) -> str:
         segs, _ = self.model.transcribe(audio16k, language=language or "te", beam_size=2,

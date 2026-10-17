@@ -61,7 +61,7 @@ describe("finished call → calls row", () => {
     assert.equal(r.caller_turns, 1);
     assert.equal(r.lead_status, "ready_to_close"); // "ready to join" is a commitment signal in classifyCall
     assert.equal((r.agent_variables as any).rana_script_id, "33333333-3333-3333-3333-333333333333");
-    assert.equal((r.raw_payload as any).engine, "rana");
+    assert.equal((r as any).raw_payload.engine, "rana");
   });
   test("unanswered outbound call is stored as not connected with zero duration", () => {
     const r = ranaPayloadToCall(call({ direction: "outbound", answered: false, end_reason: "no_answer", transcript: [] }));

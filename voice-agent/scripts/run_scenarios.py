@@ -71,8 +71,12 @@ def check(sc: dict, reply: str, script_text: str, timings: dict, with_voice: boo
 async def main(script_id: str, with_voice: bool) -> int:
     base = os.environ.get("PLAYGROUND_URL", "http://127.0.0.1:8080")
     auth = ("rana", os.environ["PLAYGROUND_PASSWORD"])
-    dash = Dashboard(os.environ.get("RANA_DASHBOARD_URL", "https://ranaai.in"), os.environ["RANA_VOICE_SECRET"])
-    cfg = await dash.fetch_config(direction="inbound", script_id=script_id)
+    offline = os.environ.get("PLAYGROUND_SCRIPTS_FILE")
+    if offline:  # same exported scripts file the test console uses
+        cfg = {e["id"]: e for e in json.loads(Path(offline).read_text(encoding="utf-8"))}[script_id]
+    else:
+        dash = Dashboard(os.environ.get("RANA_DASHBOARD_URL", "https://ranaai.in"), os.environ["RANA_VOICE_SECRET"])
+        cfg = await dash.fetch_config(direction="inbound", script_id=script_id)
     script_text = f"{cfg.get('instructions', '')} {cfg.get('greeting', '')}"
     scenarios = json.loads((Path(__file__).resolve().parents[1] / "tests" / "scenarios.json").read_text(encoding="utf-8"))
 

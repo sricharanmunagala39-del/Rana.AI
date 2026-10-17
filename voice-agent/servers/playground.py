@@ -38,23 +38,40 @@ TTS_MODEL = os.environ.get("TTS_MODEL", "indic-parler-tts")
 DEFAULT_VOICE = os.environ.get("TTS_DEFAULT_VOICE", "Lalitha")
 MAX_HISTORY = 20
 
-security = HTTPBasic()
+security = HTTPBasic(auto_error=False)  # we answer 401 ourselves, after the Colab rule below
 
 
-def check_password(creds: HTTPBasicCredentials = Depends(security)) -> None:
+def check_password(creds: HTTPBasicCredentials | None = Depends(security)) -> None:
     want = os.environ.get("PLAYGROUND_PASSWORD", "")
+    # Google Colab only: its port link already requires the notebook owner's Google sign-in. Both conditions must hold,
+    # so this can never switch the password off on a real server.
+    if not want and os.environ.get("PLAYGROUND_ALLOW_NO_PASSWORD") == "1" and os.environ.get("COLAB_RELEASE_TAG"):
+        return
     if not want:
         raise HTTPException(503, "Set PLAYGROUND_PASSWORD before using the test console.")
-    if not secrets.compare_digest(creds.password.encode(), want.encode()):
+    if creds is None or not secrets.compare_digest(creds.password.encode(), want.encode()):
         raise HTTPException(401, "Wrong password.", headers={"WWW-Authenticate": "Basic"})
 
 
 def employees() -> list[dict]:
     """PLAYGROUND_EMPLOYEES='[{"id":"<script uuid>","name":"Fashion House – Inbound"}]'"""
     try:
-        return json.loads(os.environ.get("PLAYGROUND_EMPLOYEES", "[]"))
+        listed = json.loads(os.environ.get("PLAYGROUND_EMPLOYEES", "[]"))
     except ValueError:
-        return []
+        listed = []
+    offline = os.environ.get("PLAYGROUND_SCRIPTS_FILE")
+    if not listed and offline and Path(offline).exists():
+        listed = [{"id": e["id"], "name": f"{e.get('client_name', '')}: {e.get('employee', '')}".strip(": ")}
+                  for e in json.loads(Path(offline).read_text(encoding="utf-8"))]
+    return listed
+
+
+def strip_thinking(text: str) -> str:
+    """Some open models write their reasoning in <think>…</think> before the answer. Callers must never hear it."""
+    import re
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.S)
+    text = re.sub(r"^.*?</think>", "", text, flags=re.S)  # an unopened closing tag
+    return text.strip()
 
 
 class Brain:
@@ -67,6 +84,13 @@ class Brain:
 
     async def config(self, script_id: str) -> dict:
         if script_id not in self._cfg:
+            offline = os.environ.get("PLAYGROUND_SCRIPTS_FILE")
+            if offline:  # test without the dashboard: compiled scripts exported to a JSON file
+                found = {e["id"]: e for e in json.loads(Path(offline).read_text(encoding="utf-8"))}
+                if script_id not in found:
+                    raise HTTPException(404, "That AI employee isn't in the scripts file.")
+                self._cfg[script_id] = found[script_id]
+                return self._cfg[script_id]
             if not self.dash:
                 raise HTTPException(503, "Dashboard not configured (RANA_DASHBOARD_URL / RANA_VOICE_SECRET).")
             try:
@@ -83,12 +107,14 @@ class Brain:
         return r.json().get("text", "").strip(), (time.perf_counter() - t0) * 1000
 
     async def think(self, instructions: str, history: list[dict], said: str) -> tuple[str, float]:
-        msgs = [{"role": "system", "content": instructions}] + history[-MAX_HISTORY:] + [{"role": "user", "content": said}]
+        suffix = os.environ.get("LLM_SYSTEM_SUFFIX", "")  # e.g. "/no_think" turns off Qwen3's slow thinking mode
+        msgs = [{"role": "system", "content": f"{instructions}\n{suffix}".strip()}] + history[-MAX_HISTORY:] + [{"role": "user", "content": said}]
         t0 = time.perf_counter()
         r = await self.http.post(f"{LLM_URL}/chat/completions", headers={"authorization": "Bearer local"},
                                  json={"model": LLM_MODEL, "messages": msgs, "temperature": 0.3, "max_tokens": 160})
         r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"].strip(), (time.perf_counter() - t0) * 1000
+        text = r.json()["choices"][0]["message"].get("content") or ""
+        return strip_thinking(text), (time.perf_counter() - t0) * 1000
 
     async def speak(self, text: str, voice: str, speed: float) -> tuple[bytes, float]:
         t0 = time.perf_counter()

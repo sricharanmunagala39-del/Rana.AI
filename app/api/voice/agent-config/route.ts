@@ -47,7 +47,12 @@ export async function POST(req: Request) {
     if (!insideWindow(rulesFromClient(client))) return Response.json({ error: "Outside this client's legal calling hours.", window: true }, { status: 409 });
   }
 
-  const s = sessionPayload(script, body?.caller, direction);
+  // An employee bound to a ready-made Sarvam agent (engine_agent) compiles to nothing, because Sarvam holds that prompt.
+  // RANA's own engine has no Sarvam agent behind it, so it always compiles the script stored in RANA.
+  const s = sessionPayload({ ...script, engine_agent: null }, body?.caller, direction);
+  if (!String(s.agent_variables.rana_instructions || "").trim()) {
+    return Response.json({ error: "This AI employee has no script stored in RANA yet." }, { status: 422 });
+  }
   return Response.json({
     client_id: client.id,
     client_name: client.company_name || client.name,
