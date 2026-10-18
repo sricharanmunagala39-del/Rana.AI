@@ -224,7 +224,14 @@ export type EngineAction =
   | { action: "go_live"; channel: "email" | "whatsapp"; confirm: "GO LIVE" }
   | { action: "dry_run"; channel: "email" | "whatsapp" }
   | { action: "tick" }
-  | { action: "sheet_sync" };
+  | { action: "sheet_sync" }
+  // Result of a warm-lead AI call placed via /api/internal/leadflow/call (sent from the Sarvam webhook).
+  | {
+      action: "call_result"; leadflow_lead_id: string; attempt_id: string | null; interaction_id: string | null; call_id: string | null;
+      connectivity_status: string | null; completion_status: string | null; duration_seconds: number | null; lead_status: string | null;
+      summary: string | null; recording_url: string | null;
+      outputs: { call_outcome: string | null; preferred_time: string | null; email: string | null; notes: string | null };
+    };
 
 export type EngineResult = { ok: true; data: any } | { ok: false; error: string; status: number };
 

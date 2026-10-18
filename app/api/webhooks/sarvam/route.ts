@@ -17,6 +17,43 @@ import { optOutPhrase, addDnc } from "@/lib/compliance";
 import { normalisePhone } from "@/lib/campaigns";
 import { sb } from "@/lib/db";
 import { getClientById } from "@/lib/supabase";
+import { engine } from "@/lib/leadflow";
+
+/** Our webhook metadata (rana_source, leadflow_lead_id…) — wherever Sarvam echoes it in the payload. */
+function webhookMeta(p: any): Record<string, any> {
+  const nested = [p?.metadata, p?.webhook_metadata, p?.webhook_config?.metadata].filter((m) => m && typeof m === "object");
+  return Object.assign({}, p, ...nested);
+}
+
+/**
+ * A warm-lead call placed by LeadFlow (/api/internal/leadflow/call): hand the outcome back to the LeadFlow engine.
+ * Never throws — the webhook's own response must not depend on it.
+ */
+async function leadflowAfterCall(payload: any, row: any, saved: any) {
+  try {
+    const meta = webhookMeta(payload);
+    if (meta.rana_source !== "leadflow" || !meta.leadflow_lead_id) return;
+    const vars = { ...(row.agent_variables || {}), ...(saved?.agent_variables || {}) };
+    const out = (k: string) => (vars[k] == null || vars[k] === "" ? null : String(vars[k]));
+    const r = await engine({
+      action: "call_result",
+      leadflow_lead_id: String(meta.leadflow_lead_id),
+      attempt_id: payload?.attempt_id ?? null,
+      interaction_id: row.interaction_id ?? null,
+      call_id: saved?.id != null ? String(saved.id) : null,
+      connectivity_status: saved?.connectivity_status ?? row.connectivity_status ?? null,
+      completion_status: saved?.completion_status ?? row.completion_status ?? null,
+      duration_seconds: saved?.duration_seconds ?? row.duration_seconds ?? null,
+      lead_status: saved?.lead_status ?? row.lead_status ?? null,
+      summary: saved?.summary ?? row.summary ?? null,
+      recording_url: saved?.recording_url ?? row.recording_url ?? null,
+      outputs: { call_outcome: out("call_outcome"), preferred_time: out("preferred_time"), email: out("email"), notes: out("notes") },
+    });
+    if (!r.ok) console.error("[webhook] leadflow call_result", r.error);
+  } catch (e: any) {
+    console.error("[webhook] leadflow call_result", e?.message || e);
+  }
+}
 
 /**
  * Best-effort fetch of the call recording from Sarvam's analytics API.
@@ -110,6 +147,8 @@ export async function POST(req: Request) {
     }
     // The client's own lead alerts (Slack, WhatsApp, email, webhook) — each call to each channel once.
     const alerts = await leadAlertsAfterCall(client, { ...saved, handoff: handoff || saved.handoff || null, follow_up: saved.follow_up || !!handoff });
+    // Called by LeadFlow (warm sales lead)? Report the outcome back to the LeadFlow engine.
+    await leadflowAfterCall(payload, row, saved);
     return Response.json({ ok: true, id: saved.id, lead_status: saved.lead_status, handoff: handoff ? handoff.rule : null, alerts });
   } catch (err: any) {
     console.error("[webhook] failed", err?.message);
