@@ -12,7 +12,8 @@ export type AuditAction =
   | "voice_cloned" | "voice_deleted"
   | "hq_client_created" | "hq_client_updated" | "hq_workspace_opened" | "hq_owner_password_reset"
   | "billing_details_changed" | "invoice_created" | "invoice_paid" | "invoice_voided"
-  | "crm_deal_created" | "crm_stage_changed" | "crm_deal_deleted";
+  | "crm_deal_created" | "crm_stage_changed" | "crm_deal_deleted"
+  | "leadflow_mode_changed";
 
 export const AUDIT_LABEL: Record<AuditAction, string> = {
   login: "Signed in", login_failed: "Failed sign-in", password_changed: "Changed their password",
@@ -34,6 +35,7 @@ export const AUDIT_LABEL: Record<AuditAction, string> = {
   hq_workspace_opened: "RANA support opened this workspace", hq_owner_password_reset: "RANA reset the owner's password",
   billing_details_changed: "Changed billing details", invoice_created: "An invoice was issued",
   invoice_paid: "An invoice was paid", invoice_voided: "An invoice was cancelled",
+  leadflow_mode_changed: "Switched outbound sending between dry run and live",
 };
 
 function ipOf(req?: Request): string | null {

@@ -46,7 +46,7 @@ export default function HqCrmPage() {
   const [busy, setBusy] = useState(false);
 
   const load = () => fetch("/api/hq/crm", { cache: "no-store" }).then(async (r) => { const j = await r.json(); if (!r.ok) throw new Error(j.error); setD(j); if (j.synced) setMsg(`${j.synced} new lead${j.synced === 1 ? "" : "s"} pulled from the Google Sheet.`); }).catch((e) => setErr(e.message));
-  useEffect(() => { load(); try { const v = localStorage.getItem("crm-view"); if (v === "list" || v === "board") setView(v); const o = localStorage.getItem("crm-owner"); if (o) setOwner(o); } catch {} }, []);
+  useEffect(() => { load(); const deal = new URLSearchParams(window.location.search).get("deal"); if (deal) openDeal(deal); try { const v = localStorage.getItem("crm-view"); if (v === "list" || v === "board") setView(v); const o = localStorage.getItem("crm-owner"); if (o) setOwner(o); } catch {} }, []);
   useEffect(() => { try { localStorage.setItem("crm-view", view); localStorage.setItem("crm-owner", owner); } catch {} }, [view, owner]);
 
   const staffName = (e: string | null) => { if (!e) return "Nobody"; const s = d?.staff?.find((x: any) => x.email === e); return s?.name || e.split("@")[0]; };
