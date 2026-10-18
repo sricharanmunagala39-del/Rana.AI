@@ -146,6 +146,9 @@ export default function Sidebar({ active, client: clientProp }: { active: string
             <span className="w-2 text-center text-[11px]">◆</span> Sales CRM
             {crmDue > 0 && <span className="ml-auto rounded-full bg-miss text-white text-[10.5px] font-semibold px-1.5 min-w-[18px] text-center" title="Your leads to call today or overdue" data-testid="hq-crm-due">{crmDue}</span>}
           </Link>
+          <Link href="/hq/outbound" className={`flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] font-medium ${active === "hq-outbound" ? "bg-signal-tint text-signal" : "text-ink-soft hover:bg-raised hover:text-ink"}`} data-testid="hq-outbound-nav">
+            <span className="w-2 text-center text-[11px]">✉</span> Outbound (LeadFlow)
+          </Link>
         </div>
       )}
       {client?.pending && (
