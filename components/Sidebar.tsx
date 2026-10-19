@@ -208,14 +208,12 @@ export default function Sidebar({ active, client: clientProp }: { active: string
 }
 
 export function Logo({ size = 30 }: { size?: number }) {
+  // RANA AI mark (R + eye + globe) on a white tile so it reads on both night and day themes.
+  const inner = Math.round(size * 0.86);
   return (
-    <span className="relative inline-flex items-center justify-center shrink-0 rounded-[9px] brand-mark" style={{ width: size, height: size }}>
-      <span className="absolute inset-[2px] rounded-[7px] bg-paper flex items-center justify-center">
-        <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none" aria-hidden>
-          <circle cx="12" cy="12" r="6.5" stroke="rgb(var(--c-signal))" strokeWidth="2.4" />
-          <circle cx="12" cy="12" r="2.2" fill="rgb(var(--c-violet))" />
-        </svg>
-      </span>
+    <span className="inline-flex items-center justify-center shrink-0 rounded-[9px] bg-white ring-1 ring-black/5 overflow-hidden" style={{ width: size, height: size }} data-testid="rana-logo">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/rana-mark.svg" alt="" aria-hidden width={inner} height={inner} style={{ display: "block", width: inner, height: inner }} />
     </span>
   );
 }
