@@ -12,7 +12,7 @@ export const esc = (s: any) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":
 export function emailHtml(o: { title: string; lines: string[]; button?: { label: string; url: string }; foot?: string }) {
   return `<!doctype html><html><body style="margin:0;background:#f3f4f1;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#141a17">
 <div style="max-width:560px;margin:0 auto;padding:28px 18px">
-<div style="font-weight:700;font-size:18px;margin-bottom:18px">RANA AI</div>
+<div style="font-weight:700;font-size:18px;margin-bottom:18px"><img src="${APP_URL()}/apple-icon" width="28" height="28" alt="" style="vertical-align:middle;border-radius:6px;margin-right:8px">RANA AI</div>
 <div style="background:#fff;border:1px solid #e3e5e0;border-radius:14px;padding:26px">
 <div style="font-size:19px;font-weight:700;margin-bottom:12px">${esc(o.title)}</div>
 ${o.lines.map((l) => `<p style="font-size:14.5px;line-height:1.55;margin:0 0 12px">${l}</p>`).join("")}

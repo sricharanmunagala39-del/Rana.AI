@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { brandMarkDataUri } from "@/lib/brandMark";
 
 // Social share card (WhatsApp, LinkedIn, X, Slack) for every page that doesn't set its own.
 export const alt = "RANA AI — AI voice agents in Indian and global languages";
@@ -17,10 +18,9 @@ export default function OgImage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div style={{ width: 64, height: 64, borderRadius: 18, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg,#2DE1C2,#9284FF)" }}>
-            <div style={{ width: 52, height: 52, borderRadius: 14, background: "#090C13", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ width: 26, height: 26, borderRadius: 13, border: "5px solid #2DE1C2" }} />
-            </div>
+          <div style={{ width: 72, height: 72, borderRadius: 18, display: "flex", alignItems: "center", justifyContent: "center", background: "#ffffff" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={brandMarkDataUri()} width={62} height={62} alt="" />
           </div>
           <div style={{ fontSize: 40, fontWeight: 700, letterSpacing: -1 }}>RANA AI</div>
         </div>
