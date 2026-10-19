@@ -251,3 +251,33 @@ export async function engine(body: EngineAction): Promise<EngineResult> {
   }
   return { ok: true, data };
 }
+
+// ---- Email schedule + stats (Postgres functions, granted to service_role only) ----
+
+export type ScheduledEmail = { planned_day: string; lead_id: number; lead_name: string | null; company: string | null; email: string | null; step_no: number; subject: string | null; country: string | null; source: string | null };
+export type EmailStat = { period: string; sent: number; first_emails: number; followups: number; opened: number; clicked: number; bounced: number; replies: number };
+
+/** Today's date in India as YYYY-MM-DD, `offsetDays` from now. */
+export function istDate(offsetDays = 0, now = Date.now()): string {
+  return new Date(now + 330 * 60_000 + offsetDays * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Forecast of upcoming outreach emails, grouped by IST sending day (oldest first). */
+export async function emailSchedule(days = 45) {
+  const rows = (await sb<ScheduledEmail[]>(`/rpc/leadflow_email_schedule`, { method: "POST", body: JSON.stringify({ p_days: days }) })) || [];
+  const byDay = new Map<string, ScheduledEmail[]>();
+  for (const r of rows) { const d = byDay.get(r.planned_day) || []; d.push(r); byDay.set(r.planned_day, d); }
+  return Array.from(byDay.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([day, emails]) => ({
+    day, total: emails.length, first: emails.filter((e) => e.step_no === 1).length, followups: emails.filter((e) => e.step_no > 1).length,
+    emails: emails.sort((a, b) => a.step_no - b.step_no || String(a.company || "").localeCompare(String(b.company || ""))),
+  }));
+}
+
+/** Emails sent per IST day (last `days` days) and per month (all time), newest first. */
+export async function emailStats(days = 30) {
+  const call = (body: object) => sb<EmailStat[]>(`/rpc/leadflow_email_stats`, { method: "POST", body: JSON.stringify(body) }).then((r) => (r || []).map((s) => ({ ...s,
+    sent: Number(s.sent) || 0, first_emails: Number(s.first_emails) || 0, followups: Number(s.followups) || 0, opened: Number(s.opened) || 0,
+    clicked: Number(s.clicked) || 0, bounced: Number(s.bounced) || 0, replies: Number(s.replies) || 0 })));
+  const [daily, monthly] = await Promise.all([call({ p_period: "day", p_from: istDate(-(days - 1)) }), call({ p_period: "month" })]);
+  return { today: istDate(), daily, monthly };
+}

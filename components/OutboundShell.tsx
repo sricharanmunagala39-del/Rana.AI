@@ -12,6 +12,8 @@ export const danger = "bg-miss text-white rounded-lg px-4 py-2 text-[13px] font-
 const TABS = [
   { href: "/hq/outbound", label: "Overview" },
   { href: "/hq/outbound/sequence", label: "Sequence" },
+  { href: "/hq/outbound/scheduled", label: "Scheduled" },
+  { href: "/hq/outbound/stats", label: "Email stats" },
   { href: "/hq/outbound/whatsapp", label: "WhatsApp" },
   { href: "/hq/outbound/replies", label: "Replies" },
   { href: "/hq/outbound/settings", label: "Settings" },
@@ -120,3 +122,7 @@ export const ago = (d: string | null | undefined) => {
   const s = (Date.now() - Date.parse(d)) / 1000;
   return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m ago` : s < 86400 ? `${Math.round(s / 3600)}h ago` : `${Math.round(s / 86400)}d ago`;
 };
+/** A Postgres date (YYYY-MM-DD, already an India-time day) as "Wed, 21 Oct" / "October 2026". */
+const pgDate = (d: string) => new Date(`${d.slice(0, 10)}T12:00:00+05:30`);
+export const istDay = (d: string | null | undefined, year = false) => (d ? pgDate(d).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short", ...(year ? { year: "numeric" } : {}) }) : "");
+export const istMonth = (d: string | null | undefined) => (d ? pgDate(d).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "long", year: "numeric" }) : "");
