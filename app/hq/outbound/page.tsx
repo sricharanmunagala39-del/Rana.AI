@@ -106,11 +106,14 @@ function SentBox({ label, t, live }: { label: string; t: any; live: boolean }) {
   const done = live ? t.sent : t.sent + t.dryRun;
   const pct = t.cap ? Math.min(100, (done / t.cap) * 100) : 0;
   return (
-    <div className="border border-line rounded-xl bg-raised px-4 py-3">
+    <div className={`border rounded-xl bg-raised px-4 py-3 ${t.failed ? "border-miss/50" : "border-line"}`}>
       <div className="text-[11.5px] text-ink-soft">{label}</div>
       <div className="text-[22px] font-display font-semibold tabular-nums">{done}<span className="text-[13px] text-ink-soft font-normal"> / {t.cap || "—"}</span></div>
       <div className="h-1 rounded-full bg-line mt-1 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-signal to-violet" style={{ width: `${pct}%` }} /></div>
-      <div className="text-[11px] text-ink-soft mt-1">{[t.sent && `${t.sent} sent`, t.dryRun && `${t.dryRun} dry run`, t.failed && `${t.failed} failed`].filter(Boolean).join(" · ") || "none yet today"}</div>
+      <div className="text-[11px] text-ink-soft mt-1">
+        {[t.sent && `${t.sent} sent`, t.dryRun && `${t.dryRun} dry run`].filter(Boolean).join(" · ") || (t.failed ? "0 sent" : "none yet today")}
+        {!!t.failed && <span className="text-miss font-semibold" data-testid={`${label.startsWith("WhatsApp") ? "wa" : "email"}-failed`}> · {t.failed} failed{t.failReasons?.length ? ` (${t.failReasons.map((r: any) => r.reason).join("; ")})` : ""}</span>}
+      </div>
     </div>
   );
 }

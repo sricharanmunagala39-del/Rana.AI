@@ -34,7 +34,7 @@ export default function LeadPage({ params }: { params: { id: string } }) {
   // One timeline: activities, messages that went out, and replies that came in.
   const timeline = d ? [
     ...d.activities.map((a: any) => ({ at: a.created_at, icon: "•", text: a.text, tag: a.kind })),
-    ...d.outbox.map((o: any) => ({ at: o.created_at, icon: o.channel === "whatsapp" ? "💬" : o.channel === "owner" ? "🔔" : "✉️", text: `${o.step_no === 0 ? "WhatsApp intro" : o.step_no ? `Step ${o.step_no}` : o.channel === "owner" ? "Owner alert" : "Message"}${o.subject ? `: ${o.subject}` : ""}`, tag: o.status + (o.event ? ` · ${o.event}` : ""), bad: o.status === "failed" || o.event === "bounced" })),
+    ...d.outbox.map((o: any) => ({ at: o.created_at, icon: o.channel === "whatsapp" ? "💬" : o.channel === "owner" ? "🔔" : "✉️", text: `${o.step_no === 0 ? "WhatsApp intro" : o.step_no ? `Step ${o.step_no}` : o.channel === "owner" ? "Owner alert" : "Message"}${o.subject ? `: ${o.subject}` : ""}`, tag: o.status + (o.event ? ` · ${o.event}` : ""), bad: o.status === "failed" || o.status === "undelivered" || o.event === "failed" || o.event === "bounced" })),
     ...d.replies.map((r: any) => ({ at: r.created_at, icon: "↩", text: `Replied${r.summary ? `: ${r.summary}` : r.body ? `: ${String(r.body).slice(0, 140)}` : ""}`, tag: [r.classification, r.status].filter(Boolean).join(" · ") })),
   ].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)) : [];
 
