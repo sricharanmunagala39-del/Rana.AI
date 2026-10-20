@@ -74,7 +74,7 @@ export default function OutboundOverview() {
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {d.health.map((r: any) => {
-                  const stale = Date.now() - Date.parse(r.ran_at) > 3 * 3600_000;
+                  const stale = Date.now() - Date.parse(r.ran_at) > 3 * 3600_000 || /_error/.test(JSON.stringify(r.detail || {}));
                   return (
                     <div key={r.job} className="rounded-lg border border-line bg-paper px-3 py-2 text-[12.5px]">
                       <div className="flex items-center gap-2">
@@ -95,11 +95,23 @@ export default function OutboundOverview() {
   );
 }
 
+/** One line from a leadflow_runs detail: the engine nests what it did under `result` (tick) or returns it flat (sheet_sync). */
 function detailText(d: any): string {
   if (!d) return "";
   if (typeof d === "string") return d;
   if (d.error) return String(d.error);
-  return Object.entries(d).filter(([, v]) => typeof v !== "object").map(([k, v]) => `${k}: ${v}`).join(" · ");
+  const r = d.result && typeof d.result === "object" ? d.result : d;
+  if (r.active === false) return r.note || "Engine paused (PC version in charge)";
+  const errors = Object.entries(r).filter(([k, v]) => k.endsWith("_error") && v).map(([k, v]) => `${k.replace(/_error$/, "")}: ${v}`);
+  const sheet = r.sheet || (r.rows_seen != null ? r : null);
+  const parts = [
+    ...errors,
+    r.due?.outside_window ? "outside sending window" : r.due ? `sent ${r.due.sent || 0}` : "",
+    r.personal?.written ? `personalised ${r.personal.written}` : "",
+    r.bounces ? `${r.bounces} bounce${r.bounces === 1 ? "" : "s"}` : "",
+    sheet ? `sheet: ${sheet.added || 0} new${sheet.enrolled ? `, ${sheet.enrolled} enrolled` : ""}` : "",
+  ].filter(Boolean);
+  return parts.join(" · ") || (d.ms != null ? `took ${d.ms} ms` : "");
 }
 
 function SentBox({ label, t, live }: { label: string; t: any; live: boolean }) {
