@@ -25,7 +25,7 @@ export default function SequencePage() {
   }, [rows, q, status]);
 
   return (
-    <OutboundShell title="Sequence tracker" sub="WhatsApp intro, then up to five steps. Dates in amber went out in dry run. Click a row to open the lead.">
+    <OutboundShell title="Sequence tracker" sub="WhatsApp intro, then up to five steps. Dates in amber went out in dry run; red ✕ means it failed and was not delivered. Click a row to open the lead.">
       <Notice err={err} onClear={() => setErr("")} />
       <div className="flex flex-wrap items-center gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search lead, company, campaign…" className="border border-line rounded-lg px-3 py-2 text-[13px] bg-raised w-full sm:w-[280px]" data-testid="seq-search" />
@@ -57,7 +57,7 @@ export default function SequencePage() {
                   </td>
                   {STEPS.map(([n]) => {
                     const s = r.steps?.[n];
-                    return <td key={n} className={`px-2 py-2 whitespace-nowrap tabular-nums ${s ? (s.dry ? "text-hot" : "") : "text-ink-soft/50"}`} title={s ? `${when(s.at)}${s.dry ? " (dry run)" : ""}` : ""}>{s ? dayOnly(s.at) : "—"}</td>;
+                    return <td key={n} className={`px-2 py-2 whitespace-nowrap tabular-nums ${s ? (s.failed ? "text-miss" : s.dry ? "text-hot" : "") : "text-ink-soft/50"}`} title={s ? `${when(s.at)}${s.failed ? " (failed, not delivered)" : s.dry ? " (dry run)" : ""}` : ""}>{s ? `${dayOnly(s.at)}${s.failed ? " ✕" : ""}` : "—"}</td>;
                   })}
                   <td className="px-2 py-2"><EnrollmentPill status={r.status} /></td>
                   <td className="px-3 py-2 whitespace-nowrap text-ink-soft">{r.status === "active" && r.nextSendAt ? <span className={Date.parse(r.nextSendAt) < Date.now() ? "text-hot font-semibold" : ""}>{when(r.nextSendAt)}</span> : "—"}</td>

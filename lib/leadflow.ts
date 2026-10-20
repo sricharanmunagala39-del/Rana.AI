@@ -19,9 +19,13 @@ export type Lead = {
 export type Enrollment = { id: number; campaign_id: number; lead_id: number; status: EnrollmentStatus; current_step: number | null; next_send_at: string | null; created_at: string };
 export type Outbox = {
   id: number; lead_id: number | null; enrollment_id: number | null; channel: "email" | "whatsapp" | "owner"; to_addr: string | null;
-  subject: string | null; body: string | null; status: "sent" | "dry-run" | "failed"; note: string | null; provider_id: string | null;
+  subject: string | null; body: string | null; status: "sent" | "dry-run" | "failed" | "undelivered"; note: string | null; provider_id: string | null;
   event: string | null; step_no: number | null; created_at: string;
 };
+
+/** Accepted by the provider and not rejected afterwards. Meta can accept a WhatsApp (status 'sent') and fail it later (event 'failed'). */
+export const outboxDelivered = (o: { status: string; event?: string | null }) => o.status === "sent" && o.event !== "failed";
+export const outboxFailed = (o: { status: string; event?: string | null }) => o.status === "failed" || o.status === "undelivered" || o.event === "failed";
 export type Reply = { id: number; lead_id: number | null; enrollment_id: number | null; channel: string; body: string | null; classification: string | null; summary: string | null; draft: string | null; status: "pending_owner" | "sent" | "dismissed"; created_at: string };
 export type WaMessage = { id: number; direction: "in" | "out"; wa_number: string; lead_id: number | null; body: string | null; status: string | null; sent_by: "agent" | "you" | "template" | null; unread: boolean | null; created_at: string };
 export type WaConvo = { number: string; lead_id: number | null; mode: ConvoMode; stage: ConvoStage; origin: "inbound" | "outbound" | null; contact_name: string | null; contact_email: string | null; booked_at: string | null; crm_deal_id: string | null; updated_at: string | null };
@@ -81,13 +85,31 @@ export async function engineHealth(): Promise<Run[]> {
   return runs.filter((r) => (seen.has(r.job) ? false : (seen.add(r.job), true)));
 }
 
+/** Meta's reason for failed WhatsApps (leadflow_wa_events payload.errors[0].title), most common first. */
+export async function waFailReasons(providerIds: (string | null)[]): Promise<{ reason: string; count: number }[]> {
+  const ids = Array.from(new Set(providerIds.filter((x): x is string => !!x)));
+  const titles = new Map<string, string>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const rows = (await sb<{ wa_msg_id: string; payload: any }[]>(`/leadflow_wa_events?status=eq.failed&wa_msg_id=in.${inList(ids.slice(i, i + 100))}&select=wa_msg_id,payload&order=id.desc`).catch(() => [])) || [];
+    for (const r of rows) {
+      const e = r.payload?.errors?.[0];
+      const title = e?.title || e?.message;
+      if (title && !titles.has(r.wa_msg_id)) titles.set(r.wa_msg_id, `${e?.code ? `Meta ${e.code}: ` : ""}${title}`);
+    }
+  }
+  const counts = new Map<string, number>();
+  for (const id of ids) { const t = titles.get(id); if (t) counts.set(t, (counts.get(t) || 0) + 1); }
+  return Array.from(counts.entries()).map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count);
+}
+
 /** Overview numbers for /hq/outbound. */
 export async function overview() {
   const since = istDayStart();
   const [s, enr, today, pending, unread, health] = await Promise.all([
     getSettings(),
     sbAll<{ status: EnrollmentStatus }>(`/leadflow_enrollments?select=status&order=id.asc`).catch(() => []),
-    sbAll<{ channel: string; status: string }>(`/leadflow_outbox?created_at=gte.${encodeURIComponent(since)}&select=channel,status&order=id.asc`).catch(() => []),
+    // Every row since midnight IST: sequence steps and follow-ups (enrollment_id null) alike.
+    sbAll<Pick<Outbox, "channel" | "status" | "event" | "provider_id">>(`/leadflow_outbox?created_at=gte.${encodeURIComponent(since)}&select=channel,status,event,provider_id&order=id.asc`).catch(() => []),
     sb<{ id: number }[]>(`/leadflow_replies?status=eq.pending_owner&select=id&limit=1000`).catch(() => []),
     sb<{ wa_number: string }[]>(`/leadflow_wa_messages?unread=eq.true&direction=eq.in&select=wa_number&limit=5000`).catch(() => []),
     engineHealth(),
@@ -95,16 +117,17 @@ export async function overview() {
   const byStatus: Record<string, number> = {};
   enr.forEach((e) => { byStatus[e.status] = (byStatus[e.status] || 0) + 1; });
   const tally = (ch: string) => ({
-    sent: today.filter((o) => o.channel === ch && o.status === "sent").length,
+    sent: today.filter((o) => o.channel === ch && outboxDelivered(o)).length,
     dryRun: today.filter((o) => o.channel === ch && o.status === "dry-run").length,
-    failed: today.filter((o) => o.channel === ch && o.status === "failed").length,
+    failed: today.filter((o) => o.channel === ch && outboxFailed(o)).length,
   });
+  const waFailed = today.filter((o) => o.channel === "whatsapp" && outboxFailed(o));
   return {
     settings: s,
     emailLive: s.send_mode === "resend", waLive: s.wa_mode === "live",
     enrollments: byStatus, totalEnrolled: enr.length,
     email: { ...tally("email"), cap: Number(s.daily_cap) || 0 },
-    whatsapp: { ...tally("whatsapp"), cap: Number(s.wa_cap) || 0 },
+    whatsapp: { ...tally("whatsapp"), cap: Number(s.wa_cap) || 0, failReasons: await waFailReasons(waFailed.map((o) => o.provider_id)) },
     pendingReplies: (pending || []).length,
     unreadMessages: (unread || []).length,
     unreadChats: new Set((unread || []).map((m) => m.wa_number)).size,
@@ -118,16 +141,18 @@ export async function sequence() {
     sbAll<Enrollment>(`/leadflow_enrollments?order=created_at.desc`, 5000).catch(() => [] as Enrollment[]),
     getCampaigns().catch(() => [] as Campaign[]),
   ]);
-  const out = await sbAll<Pick<Outbox, "lead_id" | "enrollment_id" | "step_no" | "status" | "created_at">>(
-    `/leadflow_outbox?step_no=not.is.null&status=in.(sent,dry-run)&channel=in.(email,whatsapp)&select=lead_id,enrollment_id,step_no,status,created_at&order=created_at.asc`, 50_000).catch(() => []);
-  const byEnr = new Map<number, Record<number, { at: string; dry: boolean }>>();
-  const byLead = new Map<number, Record<number, { at: string; dry: boolean }>>();
+  const out = await sbAll<Pick<Outbox, "lead_id" | "enrollment_id" | "step_no" | "status" | "event" | "created_at">>(
+    `/leadflow_outbox?step_no=not.is.null&status=in.(sent,dry-run,undelivered)&channel=in.(email,whatsapp)&select=lead_id,enrollment_id,step_no,status,event,created_at&order=created_at.asc`, 50_000).catch(() => []);
+  const byEnr = new Map<number, Record<number, { at: string; dry: boolean; failed: boolean }>>();
+  const byLead = new Map<number, Record<number, { at: string; dry: boolean; failed: boolean }>>();
   for (const o of out) {
     const map = o.enrollment_id != null ? byEnr : o.lead_id != null ? byLead : null;
     const key = (o.enrollment_id ?? o.lead_id) as number;
     if (!map || o.step_no == null) continue;
     const steps = map.get(key) || {};
-    if (!steps[o.step_no]) steps[o.step_no] = { at: o.created_at, dry: o.status === "dry-run" };
+    // First delivered attempt wins; a step that only ever failed (e.g. Meta rejected the WhatsApp) shows as failed.
+    const failed = outboxFailed(o);
+    if (!steps[o.step_no] || (steps[o.step_no].failed && !failed)) steps[o.step_no] = { at: o.created_at, dry: o.status === "dry-run", failed };
     map.set(key, steps);
   }
   const leads = await leadsByIds(enr.map((e) => e.lead_id));
@@ -250,4 +275,34 @@ export async function engine(body: EngineAction): Promise<EngineResult> {
     return { ok: false, error: `LeadFlow engine: ${typeof msg === "string" ? msg : JSON.stringify(msg)}`, status: res.ok ? 400 : res.status >= 500 ? 502 : res.status };
   }
   return { ok: true, data };
+}
+
+// ---- Email schedule + stats (Postgres functions, granted to service_role only) ----
+
+export type ScheduledEmail = { planned_day: string; lead_id: number; lead_name: string | null; company: string | null; email: string | null; step_no: number; subject: string | null; country: string | null; source: string | null };
+export type EmailStat = { period: string; sent: number; first_emails: number; followups: number; opened: number; clicked: number; bounced: number; replies: number };
+
+/** Today's date in India as YYYY-MM-DD, `offsetDays` from now. */
+export function istDate(offsetDays = 0, now = Date.now()): string {
+  return new Date(now + 330 * 60_000 + offsetDays * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Forecast of upcoming outreach emails, grouped by IST sending day (oldest first). */
+export async function emailSchedule(days = 45) {
+  const rows = (await sb<ScheduledEmail[]>(`/rpc/leadflow_email_schedule`, { method: "POST", body: JSON.stringify({ p_days: days }) })) || [];
+  const byDay = new Map<string, ScheduledEmail[]>();
+  for (const r of rows) { const d = byDay.get(r.planned_day) || []; d.push(r); byDay.set(r.planned_day, d); }
+  return Array.from(byDay.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([day, emails]) => ({
+    day, total: emails.length, first: emails.filter((e) => e.step_no === 1).length, followups: emails.filter((e) => e.step_no > 1).length,
+    emails: emails.sort((a, b) => a.step_no - b.step_no || String(a.company || "").localeCompare(String(b.company || ""))),
+  }));
+}
+
+/** Emails sent per IST day (last `days` days) and per month (all time), newest first. */
+export async function emailStats(days = 30) {
+  const call = (body: object) => sb<EmailStat[]>(`/rpc/leadflow_email_stats`, { method: "POST", body: JSON.stringify(body) }).then((r) => (r || []).map((s) => ({ ...s,
+    sent: Number(s.sent) || 0, first_emails: Number(s.first_emails) || 0, followups: Number(s.followups) || 0, opened: Number(s.opened) || 0,
+    clicked: Number(s.clicked) || 0, bounced: Number(s.bounced) || 0, replies: Number(s.replies) || 0 })));
+  const [daily, monthly] = await Promise.all([call({ p_period: "day", p_from: istDate(-(days - 1)) }), call({ p_period: "month" })]);
+  return { today: istDate(), daily, monthly };
 }
