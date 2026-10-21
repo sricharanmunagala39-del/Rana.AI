@@ -67,15 +67,26 @@ export async function crmDigest() {
   const sent: any[] = [];
   const byOwner: Record<string, any[]> = {};
   for (const d of due) if (d.owner) (byOwner[d.owner] ||= []).push(d);
-  for (const [to, list] of Object.entries(byOwner)) {
+  // Tasks due by tonight (India time), per owner.
+  const end = new Date(Date.now() + 5.5 * 3600e3); end.setUTCHours(23, 59, 59, 999);
+  const taskRows = ((await sb<any[]>(`/crm_tasks?done_at=is.null&owner=not.is.null&due_at=lte.${encodeURIComponent(new Date(end.getTime() - 5.5 * 3600e3).toISOString())}&order=due_at.asc&limit=2000`).catch(() => [])) || []);
+  const tDealIds = Array.from(new Set(taskRows.map((t) => t.deal_id).filter(Boolean)));
+  const tDeals = tDealIds.length ? ((await sb<any[]>(`/crm_deals?id=in.(${tDealIds.join(",")})&select=id,business`).catch(() => [])) || []) : [];
+  const tName = Object.fromEntries(tDeals.map((x) => [x.id, x.business]));
+  const tasksBy: Record<string, any[]> = {};
+  for (const t of taskRows) (tasksBy[t.owner] ||= []).push(t);
+  const taskLine = (t: any) => `${Date.parse(t.due_at) < Date.now() ? "⚠ " : ""}${esc(t.title)}${t.deal_id && tName[t.deal_id] ? ` — <a href="${url}?deal=${t.deal_id}">${esc(tName[t.deal_id])}</a>` : ""}`;
+  for (const to of Array.from(new Set([...Object.keys(byOwner), ...Object.keys(tasksBy)]))) {
+    const list = byOwner[to] || []; const tl = tasksBy[to] || [];
     const over = list.filter((d) => d.follow === "overdue"), today = list.filter((d) => d.follow === "today"), late = list.filter((d) => d.delayed && d.follow !== "overdue");
     const lines = [
       over.length ? `<b style="color:#b42318">Follow-up date passed (${over.length})</b><br>${over.slice(0, 25).map(line).join("<br>")}` : "",
       today.length ? `<b>Call today (${today.length})</b><br>${today.slice(0, 25).map(line).join("<br>")}` : "",
+      tl.length ? `<b>Tasks due (${tl.length})</b><br>${tl.slice(0, 25).map(taskLine).join("<br>")}` : "",
       late.length ? `<b style="color:#b54708">Prospects going cold (${late.length})</b> — no update for ${DELAYED_AFTER_DAYS}+ days or closing date passed<br>${late.slice(0, 25).map(line).join("<br>")}` : "",
     ].filter(Boolean);
-    const r = await sendEmail({ to, subject: `Your leads today: ${over.length} overdue, ${today.length} due`, html: emailHtml({ title: "Your follow-ups for today", lines, button: { label: "Open Sales CRM", url } }), kind: "crm_digest" });
-    sent.push({ to, ok: r.ok, count: list.length });
+    const r = await sendEmail({ to, subject: `Your leads today: ${over.length} overdue, ${today.length} due${tl.length ? `, ${tl.length} task${tl.length === 1 ? "" : "s"}` : ""}`, html: emailHtml({ title: "Your follow-ups for today", lines, button: { label: "Open Sales CRM", url } }), kind: "crm_digest" });
+    sent.push({ to, ok: r.ok, count: list.length, tasks: tl.length });
   }
   const managers = await managerEmails();
   if (managers.length && (due.length || fresh.length)) {
