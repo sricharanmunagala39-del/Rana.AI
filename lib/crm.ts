@@ -1,6 +1,6 @@
 // RANA HQ → Sales CRM: RANA AI's own leads, from upload to closed deal.
 // Five stages only: New → Contacted → Prospect → Deal (+ Not interested). Every lead has an industry.
-import { sb } from "./db";
+import { sb, sbAll } from "./db";
 import { PLANS, MAX_SALES_DISCOUNT, YEARLY_MONTHS_PAID } from "./pricing";
 
 export const STAGES = [
@@ -45,7 +45,8 @@ export function guessIndustry(...texts: (string | null | undefined)[]): Industry
 
 export const SOURCES: Record<string, string> = {
   manual: "Added by team", upload: "Excel / CSV upload", sheet: "Google Sheet", website: "Website demo form", proof: "Free proof run",
-  ai_call: "AI sales call", referral: "Referral", inbox: "Connected app", walk_in: "Walk-in / event", linkedin: "LinkedIn", whatsapp: "WhatsApp", other: "Other",
+  ai_call: "AI sales call", referral: "Referral", inbox: "Connected app", walk_in: "Walk-in / event", linkedin: "LinkedIn", whatsapp: "WhatsApp",
+  instagram: "Instagram DM / comment", facebook: "Facebook Messenger / comment", other: "Other",
 };
 export const ACTIVITY_KINDS: Record<string, string> = {
   note: "Note", call: "Call", whatsapp: "WhatsApp", email: "Email", meeting: "Meeting", stage: "Stage change", system: "Update",
@@ -84,6 +85,10 @@ export function view(d: any) {
 }
 
 const clip = (v: any, n: number) => { const s = String(v ?? "").replace(/\s+/g, " ").trim().slice(0, n); return s || null; };
+/** Like clip, but keeps line breaks (for notes). */
+const clipLines = (v: any, n: number) => { const s = String(v ?? "").replace(/\r\n?/g, "\n").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, n); return s || null; };
+/** Last 10 digits of a phone number: how numbers stored in different formats are matched. */
+export const last10 = (p: string | null | undefined) => { const d = String(p || "").replace(/\D/g, ""); return d.length >= 10 ? d.slice(-10) : ""; };
 /** Indian numbers → +91XXXXXXXXXX; anything else kept as digits. */
 export function phoneOf(v: any): string | null {
   let d = String(v ?? "").replace(/[^\d+]/g, "");
@@ -114,7 +119,7 @@ export function dealPatch(b: any): { patch: any; error?: string } {
   if ("nextActionAt" in b) { const t = b.nextActionAt ? Date.parse(b.nextActionAt) : NaN; patch.next_action_at = Number.isFinite(t) ? new Date(t).toISOString() : null; }
   if ("expectedCloseAt" in b) { const t = b.expectedCloseAt ? Date.parse(b.expectedCloseAt) : NaN; patch.expected_close_at = Number.isFinite(t) ? new Date(t).toISOString() : null; }
   if ("lostReason" in b) patch.lost_reason = clip(b.lostReason, 300);
-  if ("notes" in b) patch.notes = clip(b.notes, 4000);
+  if ("notes" in b) patch.notes = clipLines(b.notes, 4000);
   if ("clientId" in b) patch.client_id = /^[0-9a-f-]{36}$/i.test(String(b.clientId || "")) ? b.clientId : null;
   return { patch };
 }
@@ -231,4 +236,53 @@ export function sheetCsvUrl(url: string): string | null {
   if (!m) return null;
   const gid = String(url).match(/[#&?]gid=(\d+)/)?.[1];
   return `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=csv${gid ? `&gid=${gid}` : ""}`;
+}
+
+/* ───────────── hot AI calls on RANA's own line → leads ───────────── */
+
+/** RANA HQ's own workspace id (its calls are RANA's sales calls, not a client's). Cached per instance. */
+let hqIdCache: string | null = null;
+export async function hqClientId(): Promise<string | null> {
+  if (hqIdCache) return hqIdCache;
+  const [c] = (await sb<any[]>(`/clients?is_hq=eq.true&select=id&limit=1`).catch(() => [])) || [];
+  hqIdCache = c?.id || null;
+  return hqIdCache;
+}
+const HOT_CALL = ["hot", "ready_to_close"];
+/** Hot / ready-to-close calls on RANA HQ's line whose number isn't in the CRM yet (preview or import). */
+export async function hotCallsNotInCrm(): Promise<any[]> {
+  const hq = await hqClientId();
+  if (!hq) return [];
+  const calls = (await sb<any[]>(`/calls?client_id=eq.${hq}&lead_status=in.(${HOT_CALL.join(",")})&order=created_at.desc&limit=500&select=id,caller_phone,caller_name,summary,lead_status,lead_reason,created_at,agent_variables`).catch(() => [])) || [];
+  const have = await sbAll<any>(`/crm_deals?phone=not.is.null&select=phone&order=id.asc`).catch(() => [] as any[]);
+  const phones = new Set(have.map((h) => last10(h.phone)).filter(Boolean));
+  const out: any[] = []; const seen = new Set<string>();
+  for (const c of calls) {
+    if (!/^\+?\d[\d\s-]{7,}$/.test(String(c.caller_phone || ""))) continue; // skip website test calls ("website…")
+    const phone = phoneOf(c.caller_phone);
+    const k = last10(phone);
+    if (!phone || !k || phones.has(k) || seen.has(k)) continue;
+    seen.add(k); out.push({ ...c, phone });
+  }
+  return out;
+}
+export async function importHotCalls(by: string): Promise<number> {
+  const list = await hotCallsNotInCrm();
+  if (!list.length) return 0;
+  const v = (c: any, k: string) => clip(c.agent_variables?.[k], 150);
+  const rows = list.map((c) => ({
+    business: v(c, "business") || v(c, "company") || clip(c.caller_name, 100) || `Caller ${c.phone}`,
+    contact_name: clip(c.caller_name, 100), phone: c.phone, city: v(c, "city"),
+    industry: guessIndustry(v(c, "industry"), v(c, "business"), c.summary), source: "ai_call", stage: "new", created_by: by,
+    notes: [`AI call (${c.lead_status === "ready_to_close" ? "ready to close" : "hot"}) on ${new Date(c.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`, c.lead_reason, c.summary].filter(Boolean).join("\n").slice(0, 4000),
+    created_at: c.created_at, last_activity_at: c.created_at,
+  }));
+  await sb(`/crm_deals`, { method: "POST", prefer: "return=minimal", body: JSON.stringify(rows) });
+  return rows.length;
+}
+
+/** Active RANA HQ teammates' emails (tasks can only be given to them; the morning email goes to the owner). */
+export async function hqStaffEmails(clientId: string): Promise<Set<string>> {
+  const rows = (await sb<any[]>(`/users?client_id=eq.${encodeURIComponent(clientId)}&is_active=eq.true&select=email&limit=500`).catch(() => [])) || [];
+  return new Set(rows.map((r) => String(r.email || "").toLowerCase()).filter(Boolean));
 }

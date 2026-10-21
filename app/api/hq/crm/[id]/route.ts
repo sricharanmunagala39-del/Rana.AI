@@ -4,19 +4,24 @@ import { requireHq } from "@/lib/hq";
 import { sb } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { dealPatch, addActivity, view, stageOf, STAGES, ACTIVITY_KINDS, NEEDS_FOLLOW_UP } from "@/lib/crm";
+import { dealTimeline } from "@/lib/crmTimeline";
 
 const ok = (id: string) => /^[0-9a-f-]{36}$/i.test(id);
 const stageLabel = (k: string) => STAGES.find((s) => s.key === stageOf(k))?.label || k;
 
-/** GET → one deal with its activity timeline. */
+/** GET → one deal with its team notes, its full timeline (calls, WhatsApp, email, Instagram/Messenger, tasks) and its tasks. */
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const session = await getSession(req);
   const denied = requireHq(session, "view"); if (denied) return denied;
   if (!ok(params.id)) return Response.json({ error: "Not found" }, { status: 404 });
   const [d] = (await sb<any[]>(`/crm_deals?id=eq.${params.id}&limit=1`)) || [];
   if (!d) return Response.json({ error: "Not found" }, { status: 404 });
-  const activities = (await sb<any[]>(`/crm_activities?deal_id=eq.${d.id}&order=created_at.desc&limit=200`).catch(() => [])) || [];
-  return Response.json({ deal: view(d), activities });
+  const [activities, timeline, tasks] = await Promise.all([
+    sb<any[]>(`/crm_activities?deal_id=eq.${d.id}&order=created_at.desc&limit=200`).catch(() => []),
+    dealTimeline(d).catch(() => []),
+    sb<any[]>(`/crm_tasks?deal_id=eq.${d.id}&order=done_at.desc.nullsfirst,due_at.asc.nullslast&limit=100`).catch(() => []),
+  ]);
+  return Response.json({ deal: view(d), activities: activities || [], timeline, tasks: tasks || [] });
 }
 
 /** PATCH → change fields; a stage change is logged on the timeline. */

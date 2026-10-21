@@ -18,6 +18,7 @@ const STAGE_TONE: Record<string, string> = {
 const NEXT: Record<string, string> = { new: "contacted", contacted: "prospect", prospect: "deal" };
 const KINDS: [string, string][] = [["note", "📝 Note"], ["call", "📞 Call"], ["whatsapp", "💬 WhatsApp"], ["meeting", "🤝 Meeting"], ["email", "✉️ Email"]];
 const PLAN_KEYS = ["starter", "growth", "scale", "enterprise"];
+const CHANNEL: Record<string, [string, string]> = { team: ["📝", "Team notes"], call: ["📞", "AI calls"], whatsapp: ["💬", "WhatsApp"], email: ["✉️", "Email"], instagram: ["📸", "Instagram"], messenger: ["💭", "Messenger"], task: ["✅", "Tasks"] };
 const day = (d: string | null) => (d ? new Date(d).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "");
 const ago = (d: string) => { const s = (Date.now() - Date.parse(d)) / 1000; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m ago` : s < 86400 ? `${Math.round(s / 3600)}h ago` : `${Math.round(s / 86400)}d ago`; };
 const localInput = (d: string | null) => { if (!d) return ""; const t = new Date(d); t.setMinutes(t.getMinutes() - t.getTimezoneOffset()); return t.toISOString().slice(0, 16); };
@@ -32,7 +33,10 @@ export default function HqCrmPage() {
   const [d, setD] = useState<any>(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
-  const [view, setView] = useState<"board" | "list">("board");
+  const [view, setView] = useState<"board" | "list" | "tasks" | "reports">("board");
+  const [hot, setHot] = useState<{ count: number; calls: any[] } | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropOn, setDropOn] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [owner, setOwner] = useState("all");
   const [industry, setIndustry] = useState("all");
@@ -46,7 +50,13 @@ export default function HqCrmPage() {
   const [busy, setBusy] = useState(false);
 
   const load = () => fetch("/api/hq/crm", { cache: "no-store" }).then(async (r) => { const j = await r.json(); if (!r.ok) throw new Error(j.error); setD(j); if (j.synced) setMsg(`${j.synced} new lead${j.synced === 1 ? "" : "s"} pulled from the Google Sheet.`); }).catch((e) => setErr(e.message));
-  useEffect(() => { load(); const deal = new URLSearchParams(window.location.search).get("deal"); if (deal) openDeal(deal); try { const v = localStorage.getItem("crm-view"); if (v === "list" || v === "board") setView(v); const o = localStorage.getItem("crm-owner"); if (o) setOwner(o); } catch {} }, []);
+  const loadHot = () => fetch("/api/hq/crm/hot-calls", { cache: "no-store" }).then((r) => r.json()).then((j) => setHot(j?.count ? j : null)).catch(() => {});
+  async function addHot() {
+    setBusy(true); setErr("");
+    try { const r = await fetch("/api/hq/crm/hot-calls", { method: "POST" }); const j = await r.json(); if (!r.ok) throw new Error(j.error); setMsg(`${j.added} hot AI call${j.added === 1 ? "" : "s"} added to New.`); setHot(null); load(); }
+    catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  }
+  useEffect(() => { load(); loadHot(); const deal = new URLSearchParams(window.location.search).get("deal"); if (deal) openDeal(deal); try { const v = localStorage.getItem("crm-view"); if (v === "list" || v === "board" || v === "tasks" || v === "reports") setView(v); const o = localStorage.getItem("crm-owner"); if (o) setOwner(o); } catch {} }, []);
   useEffect(() => { try { localStorage.setItem("crm-view", view); localStorage.setItem("crm-owner", owner); } catch {} }, [view, owner]);
 
   const staffName = (e: string | null) => { if (!e) return "Nobody"; const s = d?.staff?.find((x: any) => x.email === e); return s?.name || e.split("@")[0]; };
@@ -125,7 +135,7 @@ export default function HqCrmPage() {
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-wide text-signal"><Link href="/hq">RANA HQ</Link> · Sales CRM</div>
               <div className="text-[22px] font-display font-semibold">Sales leads</div>
-              <div className="text-[13px] text-ink-soft mt-0.5">New → Contacted → Prospect → Deal. Everyone sees every lead and every note.</div>
+              <div className="text-[13px] text-ink-soft mt-0.5">New → Contacted → Prospect → Deal. Drag a card to move it. Calls, WhatsApp, emails and Instagram/Facebook chats show on each lead.</div>
             </div>
             <div className="flex gap-2 flex-wrap">
               <button onClick={() => setSheetOpen(true)} className={btn} data-testid="crm-sheet-btn">🔗 Google Sheet{d?.sheet?.url ? " ✓" : ""}</button>
@@ -135,6 +145,12 @@ export default function HqCrmPage() {
           </div>
           {err && <div className="text-[13px] text-miss" data-testid="crm-error">{err} <button onClick={() => setErr("")} className="ml-2 opacity-70">×</button></div>}
           {msg && <div className="text-[13px] text-signal" data-testid="crm-msg">{msg} <button onClick={() => setMsg("")} className="ml-2 opacity-70">×</button></div>}
+          {hot && hot.count > 0 && (
+            <div className="border border-hot/50 bg-hot-tint rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3" data-testid="crm-hot-calls">
+              <div className="text-[13px]"><b>{hot.count} hot AI call{hot.count === 1 ? "" : "s"}</b> on RANA&apos;s own line {hot.count === 1 ? "isn't" : "aren't"} in the CRM yet<span className="text-ink-soft">{hot.calls[0] ? ` — latest: ${hot.calls[0].name || hot.calls[0].phone}` : ""}</span></div>
+              <div className="flex gap-2"><button onClick={() => setHot(null)} className={btn}>Later</button><button onClick={addHot} disabled={busy} className={primary} data-testid="crm-hot-add">Add {hot.count === 1 ? "it" : "them"} to New</button></div>
+            </div>
+          )}
 
           {t && (
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3" data-testid="crm-today">
@@ -163,7 +179,7 @@ export default function HqCrmPage() {
               {(d?.staff || []).map((s: any) => <option key={s.email} value={s.email}>{s.name || s.email}</option>)}
             </select>
             <div className="flex rounded-lg border border-line overflow-hidden text-[12.5px] font-semibold">
-              {(["board", "list"] as const).map((v) => <button key={v} onClick={() => setView(v)} className={`px-3 py-2 ${view === v ? "bg-ink text-paper" : "bg-raised"}`} data-testid={`crm-view-${v}`}>{v === "board" ? "Board" : "List"}</button>)}
+              {(["board", "list", "tasks", "reports"] as const).map((v) => <button key={v} onClick={() => setView(v)} className={`px-3 py-2 ${view === v ? "bg-ink text-paper" : "bg-raised"}`} data-testid={`crm-view-${v}`}>{v === "board" ? "Board" : v === "list" ? "List" : v === "tasks" ? "Tasks" : "Reports"}</button>)}
             </div>
             <label className="flex items-center gap-1.5 text-[12.5px] text-ink-soft ml-1"><input type="checkbox" checked={showDead} onChange={(e) => setShowDead(e.target.checked)} /> Show not interested</label>
             {focus && <button onClick={() => setFocus("")} className="text-[12.5px] text-signal font-semibold">Clear “{focus === "delayed" ? "going cold" : focus === "today" ? "call today" : "follow-up missed"}” ×</button>}
@@ -175,7 +191,11 @@ export default function HqCrmPage() {
             ))}
           </div>
 
-          {!d ? <div className="text-[13px] text-ink-soft">Loading…</div> : view === "board" ? (
+          {!d ? <div className="text-[13px] text-ink-soft">Loading…</div> : view === "tasks" ? (
+            <TasksView staff={d.staff || []} me={d.me} staffName={staffName} onOpenDeal={openDeal} />
+          ) : view === "reports" ? (
+            <ReportsView deals={deals} stages={d.stages} sources={d.sources} staffName={staffName} />
+          ) : view === "board" ? (
             <div className="grid gap-3 overflow-x-auto pb-3" style={{ gridTemplateColumns: `repeat(${stages.length}, minmax(240px, 1fr))` }} data-testid="crm-board">
               {stages.map((s: any) => {
                 const col = deals.filter((x: any) => x.stage === s.key).sort((a: any, b: any) => (a.next_action_at ? Date.parse(a.next_action_at) : 9e15) - (b.next_action_at ? Date.parse(b.next_action_at) : 9e15));
@@ -185,9 +205,12 @@ export default function HqCrmPage() {
                       <div className="text-[12.5px] font-semibold">{s.label} <span className="text-ink-soft font-normal">{col.length}</span></div>
                       <div className="text-[11px] text-ink-soft">{s.hint}</div>
                     </div>
-                    <div className="flex flex-col gap-2 min-h-[80px] rounded-xl bg-raised/50 border border-line p-2">
+                    <div onDragOver={(e) => { if (dragId) { e.preventDefault(); setDropOn(s.key); } }} onDragLeave={() => setDropOn((k) => (k === s.key ? null : k))}
+                      onDrop={(e) => { e.preventDefault(); const deal = (d.deals || []).find((y: any) => y.id === dragId); setDragId(null); setDropOn(null); if (deal && deal.stage !== s.key) move(deal, s.key); }}
+                      className={`flex flex-col gap-2 min-h-[80px] rounded-xl border p-2 ${dropOn === s.key ? "bg-signal/10 border-signal" : "bg-raised/50 border-line"}`} data-testid={`crm-drop-${s.key}`}>
                       {col.slice(0, 300).map((x: any) => (
-                        <div key={x.id} className={`rounded-lg border bg-raised p-3 flex flex-col gap-1 ${x.follow === "overdue" ? "border-miss/60" : x.delayed ? "border-hot/60" : "border-line"}`} data-testid="crm-card">
+                        <div key={x.id} draggable onDragStart={(e) => { setDragId(x.id); e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", x.id); } catch {} }} onDragEnd={() => { setDragId(null); setDropOn(null); }}
+                          className={`rounded-lg border bg-raised p-3 flex flex-col gap-1 cursor-grab active:cursor-grabbing ${dragId === x.id ? "opacity-50" : ""} ${x.follow === "overdue" ? "border-miss/60" : x.delayed ? "border-hot/60" : "border-line"}`} data-testid="crm-card">
                           <button onClick={() => openDeal(x.id)} className="text-left flex flex-col gap-1">
                             <div className="text-[13px] font-semibold leading-snug">{x.business}</div>
                             <div className="text-[11.5px] text-ink-soft truncate">{[x.contact_name, x.phone, x.city].filter(Boolean).join(" · ") || x.email || "—"}</div>
@@ -280,7 +303,7 @@ export default function HqCrmPage() {
         </Modal>
       )}
 
-      {open && <DealDrawer key={open.deal.id + open.deal.updated_at} data={open} meta={d} busy={busy} onClose={() => setOpen(null)} onSave={save} onMove={move} onLog={logActivity} onDelete={remove} staffName={staffName} />}
+      {open && <DealDrawer key={open.deal.id + open.deal.updated_at} data={open} meta={d} busy={busy} onClose={() => setOpen(null)} onSave={save} onMove={move} onLog={logActivity} onDelete={remove} staffName={staffName} onRefresh={() => openDeal(open.deal.id)} />}
     </div>
   );
 }
@@ -441,8 +464,12 @@ function SheetModal({ d, onClose, onChanged }: any) {
   );
 }
 
-function DealDrawer({ data, meta, busy, onClose, onSave, onMove, onLog, onDelete, staffName }: any) {
+function DealDrawer({ data, meta, busy, onClose, onSave, onMove, onLog, onDelete, staffName, onRefresh }: any) {
   const x = data.deal;
+  const [chan, setChan] = useState("all");
+  const timeline: any[] = data.timeline || [];
+  const shown = timeline.filter((t) => chan === "all" || t.channel === chan);
+  const chans = Array.from(new Set(timeline.map((t) => t.channel)));
   const [log, setLog] = useState({ kind: "note", text: "", nextAction: x.next_action || "", nextAt: localInput(x.next_action_at) });
   const blur = (k: string, cur: any) => (e: any) => { const v = e.target.value; if (v !== (cur ?? "")) onSave(x.id, { [k]: v }); };
   const list = listOf(x.plan);
@@ -488,15 +515,25 @@ function DealDrawer({ data, meta, busy, onClose, onSave, onMove, onLog, onDelete
           </div>
         </div>
 
+        <DealTasks dealId={x.id} tasks={data.tasks || []} staff={meta.staff} me={meta.me} staffName={staffName} onChanged={onRefresh} />
+
         <div className="flex flex-col gap-2" data-testid="crm-timeline">
-          <div className="text-[12px] font-semibold">Notes & history</div>
-          {data.activities.map((a: any) => (
-            <div key={a.id} className={`text-[12.5px] border-l-2 pl-3 ${a.kind === "system" || a.kind === "stage" ? "border-line text-ink-soft" : "border-signal/60"}`}>
-              <div className="text-[11px] text-ink-soft">{KINDS.find(([k]) => k === a.kind)?.[1] || (a.kind === "stage" ? "➜ Stage" : "•")} · {staffName(a.created_by)} · {day(a.created_at)}</div>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-[12px] font-semibold">Everything with this lead <span className="font-normal text-ink-soft">{timeline.length}</span></div>
+            {chans.length > 1 && (
+              <div className="flex flex-wrap gap-1">
+                {["all", ...chans].map((c) => <button key={c} onClick={() => setChan(c)} className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${chan === c ? "bg-ink text-paper border-ink" : "border-line text-ink-soft"}`} data-testid={`crm-tl-${c}`}>{CHANNEL[c]?.[1] || "All"}</button>)}
+              </div>
+            )}
+          </div>
+          {shown.map((a: any) => (
+            <div key={a.id} className={`text-[12.5px] border-l-2 pl-3 ${a.kind === "system" || a.kind === "stage" || a.kind === "task" ? "border-line text-ink-soft" : a.direction === "in" ? "border-hot/70" : "border-signal/60"}`} data-testid="crm-tl-item">
+              <div className="text-[11px] text-ink-soft">{a.channel === "team" ? (KINDS.find(([k]) => k === a.kind)?.[1] || (a.kind === "stage" ? "➜ Stage" : "•")) : `${CHANNEL[a.channel]?.[0] || "•"} ${a.title}`} · {a.by ? `${staffName(a.by)} · ` : ""}{day(a.at)}</div>
               <div className="whitespace-pre-wrap">{a.text}</div>
+              {a.link && <a href={a.link} target="_blank" rel="noreferrer" className="text-[11.5px] text-signal font-semibold">▶ Recording</a>}
             </div>
           ))}
-          {!notes.length && <div className="text-[12px] text-ink-soft">No notes yet.</div>}
+          {!timeline.length && !notes.length && <div className="text-[12px] text-ink-soft">Nothing yet. Calls, WhatsApp, emails and Instagram/Facebook chats with this number show here automatically.</div>}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -540,11 +577,188 @@ function DealDrawer({ data, meta, busy, onClose, onSave, onMove, onLog, onDelete
         )}
 
         <label className="text-[12px] font-semibold">Came from<select value={x.source} onChange={(e) => onSave(x.id, { source: e.target.value })} className={field}>{Object.entries(meta.sources).map(([k, l]: any) => <option key={k} value={k}>{l}</option>)}</select></label>
-        {x.notes && <div className="text-[12px]"><div className="font-semibold">Details from import</div><div className="whitespace-pre-wrap text-ink-soft">{x.notes}</div></div>}
+        <label className="text-[12px] font-semibold">About this lead <span className="font-normal text-ink-soft">(saved when you click away)</span>
+          <textarea defaultValue={x.notes || ""} onBlur={blur("notes", x.notes)} rows={3} className={field} placeholder="Who decides, what they need, budget, current setup…" data-testid="crm-notes" />
+        </label>
 
         <div className="pt-2 border-t border-line flex justify-between items-center">
           <span className="text-[11px] text-ink-soft">Owner: {staffName(x.owner)}</span>
           {meta.canDelete && <button onClick={() => onDelete(x.id, x.business)} className="text-miss text-[12px] font-semibold">Delete lead</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────── tasks ───────────── */
+
+const dueTone = (t: any) => (t.done_at ? "text-ink-soft line-through" : !t.due_at ? "" : Date.parse(t.due_at) < Date.now() ? "text-miss font-semibold" : new Date(t.due_at).toDateString() === new Date().toDateString() ? "text-hot font-semibold" : "");
+
+function TaskRow({ t, staffName, onToggle, onDelete, onOpenDeal }: any) {
+  return (
+    <div className="flex items-start gap-2.5 text-[12.5px] py-1.5" data-testid="crm-task">
+      <input type="checkbox" checked={!!t.done_at} onChange={() => onToggle(t)} className="mt-0.5" aria-label={`Mark "${t.title}" ${t.done_at ? "not done" : "done"}`} data-testid="crm-task-done" />
+      <div className="min-w-0 flex-1">
+        <div className={dueTone(t)}>{t.title}</div>
+        <div className="text-[11px] text-ink-soft">
+          {t.due_at ? day(t.due_at) : "No date"} · {staffName(t.owner)}
+          {t.deal && onOpenDeal && <> · <button onClick={() => onOpenDeal(t.deal.id)} className="text-signal font-semibold">{t.deal.business}</button></>}
+        </div>
+      </div>
+      {onDelete && <button onClick={() => onDelete(t)} className="text-ink-soft text-[12px]" aria-label="Delete task">×</button>}
+    </div>
+  );
+}
+
+async function taskCall(url: string, method: string, body?: any) {
+  const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "Something went wrong");
+  return j;
+}
+
+function NewTask({ staff, me, dealId, onAdded }: any) {
+  const [t, setT] = useState({ title: "", dueAt: inDays(1), owner: me || "" });
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
+  async function add() {
+    setBusy(true); setErr("");
+    try { await taskCall("/api/hq/crm/tasks", "POST", { title: t.title, dueAt: t.dueAt ? new Date(t.dueAt).toISOString() : null, owner: t.owner, dealId }); setT({ ...t, title: "" }); onAdded(); }
+    catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <input value={t.title} onChange={(e) => setT({ ...t, title: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter" && t.title.trim()) add(); }} className={`${field} mt-0`} placeholder="New task, e.g. Send proposal PDF" data-testid="crm-task-title" />
+      <div className="flex flex-wrap gap-2 items-center">
+        <input type="datetime-local" value={t.dueAt} onChange={(e) => setT({ ...t, dueAt: e.target.value })} className="border border-line rounded-lg px-3 py-2 text-[13px] bg-paper flex-1 min-w-[180px]" aria-label="Due" />
+        <select value={t.owner} onChange={(e) => setT({ ...t, owner: e.target.value })} className="border border-line rounded-lg px-3 py-2 text-[13px] bg-paper flex-1 min-w-[120px]" aria-label="Who">{staff.map((s: any) => <option key={s.email} value={s.email}>{s.name || s.email}</option>)}</select>
+        <button onClick={add} disabled={busy || !t.title.trim()} className={primary} data-testid="crm-task-add">Add task</button>
+      </div>
+      {err && <div className="text-[12px] text-miss">{err}</div>}
+    </div>
+  );
+}
+
+function DealTasks({ dealId, tasks, staff, me, staffName, onChanged }: any) {
+  const [err, setErr] = useState("");
+  const open = tasks.filter((t: any) => !t.done_at), done = tasks.filter((t: any) => t.done_at);
+  const toggle = (t: any) => taskCall(`/api/hq/crm/tasks/${t.id}`, "PATCH", { done: !t.done_at }).then(onChanged).catch((e) => setErr(e.message));
+  const del = (t: any) => taskCall(`/api/hq/crm/tasks/${t.id}`, "DELETE").then(onChanged).catch((e) => setErr(e.message));
+  return (
+    <div className="border border-line rounded-xl p-3 flex flex-col gap-1 bg-paper" data-testid="crm-deal-tasks">
+      <div className="text-[12px] font-semibold">Tasks {open.length ? <span className="font-normal text-ink-soft">{open.length} open</span> : null}</div>
+      {open.map((t: any) => <TaskRow key={t.id} t={t} staffName={staffName} onToggle={toggle} onDelete={del} />)}
+      {done.length > 0 && <details className="text-[12px]"><summary className="cursor-pointer text-ink-soft">{done.length} done</summary>{done.map((t: any) => <TaskRow key={t.id} t={t} staffName={staffName} onToggle={toggle} />)}</details>}
+      <NewTask staff={staff} me={me} dealId={dealId} onAdded={onChanged} />
+      {err && <div className="text-[12px] text-miss">{err}</div>}
+    </div>
+  );
+}
+
+function TasksView({ staff, me, staffName, onOpenDeal }: any) {
+  const [scope, setScope] = useState<"mine" | "all">("mine");
+  const [showDone, setShowDone] = useState(false);
+  const [list, setList] = useState<any[] | null>(null);
+  const [err, setErr] = useState("");
+  const load = () => fetch(`/api/hq/crm/tasks?scope=${scope}&done=${showDone ? 1 : 0}`, { cache: "no-store" }).then(async (r) => { const j = await r.json(); if (!r.ok) throw new Error(j.error); setList(j.tasks); }).catch((e) => setErr(e.message));
+  useEffect(() => { setList(null); load(); }, [scope, showDone]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = (t: any) => taskCall(`/api/hq/crm/tasks/${t.id}`, "PATCH", { done: !t.done_at }).then(load).catch((e) => setErr(e.message));
+  const del = (t: any) => taskCall(`/api/hq/crm/tasks/${t.id}`, "DELETE").then(load).catch((e) => setErr(e.message));
+  const now = Date.now(); const today = new Date().toDateString();
+  const groups: [string, any[]][] = showDone ? [["Done", list || []]] : [
+    ["Overdue", (list || []).filter((t) => t.due_at && Date.parse(t.due_at) < now)],
+    ["Today", (list || []).filter((t) => t.due_at && Date.parse(t.due_at) >= now && new Date(t.due_at).toDateString() === today)],
+    ["Coming up", (list || []).filter((t) => t.due_at && Date.parse(t.due_at) >= now && new Date(t.due_at).toDateString() !== today)],
+    ["No date", (list || []).filter((t) => !t.due_at)],
+  ];
+  return (
+    <div className="flex flex-col gap-4" data-testid="crm-tasks-view">
+      <div className="border border-line rounded-xl bg-raised p-4"><div className="text-[12px] font-semibold mb-2">New task</div><NewTask staff={staff} me={me} onAdded={load} /></div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex rounded-lg border border-line overflow-hidden text-[12.5px] font-semibold">
+          {(["mine", "all"] as const).map((v) => <button key={v} onClick={() => setScope(v)} className={`px-3 py-2 ${scope === v ? "bg-ink text-paper" : "bg-raised"}`}>{v === "mine" ? "My tasks" : "Everyone's"}</button>)}
+        </div>
+        <label className="flex items-center gap-1.5 text-[12.5px] text-ink-soft"><input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} /> Show done</label>
+      </div>
+      {err && <div className="text-[12.5px] text-miss">{err}</div>}
+      {!list ? <div className="text-[13px] text-ink-soft">Loading…</div> : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {groups.filter(([, l]) => l.length || !showDone).map(([label, l]) => (
+            <div key={label} className="border border-line rounded-xl bg-raised p-3" data-testid={`crm-tasks-${label.toLowerCase().replace(/\s/g, "-")}`}>
+              <div className={`text-[12.5px] font-semibold ${label === "Overdue" && l.length ? "text-miss" : label === "Today" && l.length ? "text-hot" : ""}`}>{label} <span className="text-ink-soft font-normal">{l.length}</span></div>
+              {l.map((t) => <TaskRow key={t.id} t={t} staffName={staffName} onToggle={toggle} onDelete={del} onOpenDeal={onOpenDeal} />)}
+              {!l.length && <div className="text-[12px] text-ink-soft py-1">Nothing here.</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ───────────── reports ───────────── */
+
+function Bars({ rows, total, tone = "bg-signal" }: { rows: [string, number, string?][]; total: number; tone?: string }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {rows.map(([label, n, note]) => (
+        <div key={label} className="grid grid-cols-[minmax(0,140px)_1fr_auto] items-center gap-2 text-[12.5px]">
+          <div className="truncate">{label}</div>
+          <div className="h-2.5 rounded bg-paper border border-line overflow-hidden"><div className={`h-full ${tone}`} style={{ width: `${total ? Math.max(2, (n / total) * 100) : 0}%` }} /></div>
+          <div className="tabular-nums text-ink-soft text-right">{n}{note ? ` · ${note}` : ""}</div>
+        </div>
+      ))}
+      {!rows.length && <div className="text-[12px] text-ink-soft">No leads yet.</div>}
+    </div>
+  );
+}
+
+function ReportsView({ deals, stages, sources, staffName }: any) {
+  const all: any[] = deals || [];
+  const won = all.filter((x) => x.stage === "deal");
+  const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "—");
+  const by = (key: (x: any) => string) => { const m: Record<string, any[]> = {}; all.forEach((x) => (m[key(x) || "—"] ||= []).push(x)); return Object.entries(m).sort((a, b) => b[1].length - a[1].length); };
+  const stageRows: [string, number, string?][] = stages.map((s: any) => [s.label, all.filter((x) => x.stage === s.key).length]);
+  const srcRows: [string, number, string?][] = by((x) => x.source).map(([k, l]) => [sources[k] || k, l.length, `${pct(l.filter((x: any) => x.stage === "deal").length, l.length)} won`]);
+  const ownRows: [string, number, string?][] = by((x) => x.owner).map(([k, l]) => [k === "—" ? "Nobody" : staffName(k), l.length, `${l.filter((x: any) => x.stage === "deal").length} won`]);
+  const indRows: [string, number, string?][] = by((x) => x.industry).map(([k, l]) => [indLabel(k), l.length, `${pct(l.filter((x: any) => x.stage === "deal").length, l.length)} won`]);
+  // New leads per week, last 8 weeks.
+  const weeks: [string, number][] = Array.from({ length: 8 }, (_, i) => {
+    const end = Date.now() - i * 7 * 86400e3, start = end - 7 * 86400e3;
+    const lbl = new Date(start).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+    return [lbl, all.filter((x) => { const t = Date.parse(x.created_at); return t >= start && t < end; }).length] as [string, number];
+  }).reverse();
+  const wMax = Math.max(1, ...weeks.map((w) => w[1]));
+  const pipeline = all.filter((x) => x.stage === "prospect").reduce((n, x) => n + (x.monthly || 0), 0);
+  const mrr = won.reduce((n, x) => n + (x.monthly || 0), 0);
+  const contacted = all.filter((x) => x.stage !== "new").length;
+  const card = "border border-line rounded-xl bg-raised p-4 flex flex-col gap-3 min-w-0";
+  return (
+    <div className="flex flex-col gap-4" data-testid="crm-reports">
+      <div className="text-[12px] text-ink-soft">Uses the filters above (owner, industry, search). {all.length} leads.</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {([["Leads", all.length, `${contacted} contacted (${pct(contacted, all.length)})`], ["Won", won.length, `${pct(won.length, all.length)} of all leads`], ["Won value", inr(mrr), "per month, after discounts"], ["Open pipeline", inr(pipeline), "per month, prospects with a plan"]] as [string, any, string][]).map(([l, v, sub]) => (
+          <div key={l} className="border border-line rounded-xl bg-raised px-4 py-3"><div className="text-[11.5px] text-ink-soft">{l}</div><div className="text-[22px] font-display font-semibold tabular-nums">{v}</div><div className="text-[11px] text-ink-soft">{sub}</div></div>
+        ))}
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className={card}><div className="text-[13px] font-semibold">Pipeline by stage</div><Bars rows={stageRows} total={all.length} /></div>
+        <div className={card}>
+          <div className="text-[13px] font-semibold">New leads per week</div>
+          <div className="flex items-end gap-2 h-[120px]" role="img" aria-label="New leads per week, last 8 weeks">
+            {weeks.map(([l, n]) => (
+              <div key={l} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                <div className="text-[10.5px] tabular-nums text-ink-soft">{n}</div>
+                <div className="w-full rounded-t bg-signal" style={{ height: `${(n / wMax) * 80}px`, minHeight: n ? 3 : 0 }} />
+                <div className="text-[10px] text-ink-soft truncate w-full text-center">{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className={card}><div className="text-[13px] font-semibold">Where leads come from <span className="font-normal text-ink-soft">and how many close</span></div><Bars rows={srcRows} total={all.length} /></div>
+        <div className={card}><div className="text-[13px] font-semibold">By industry</div><Bars rows={indRows} total={all.length} /></div>
+        <div className={card}><div className="text-[13px] font-semibold">By owner</div><Bars rows={ownRows} total={all.length} /></div>
+        <div className={card}>
+          <div className="text-[13px] font-semibold">Why leads say no</div>
+          <Bars rows={by((x) => (x.stage === "not_interested" ? String(x.lost_reason || "No reason given").slice(0, 40) : "")).filter(([k]) => k !== "—").slice(0, 8).map(([k, l]) => [k, l.length] as [string, number])} total={all.filter((x) => x.stage === "not_interested").length} tone="bg-miss" />
         </div>
       </div>
     </div>
