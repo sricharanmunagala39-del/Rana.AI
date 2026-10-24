@@ -67,7 +67,8 @@ function jsonLd(k: MarketKey) {
   const org = {
     "@type": "Organization", "@id": `${SITE}/#org`, name: "RANA AI", alternateName: ["Rana AI", "RANA"], url: SITE, logo: `${SITE}/apple-icon`, email: "hello@ranaai.in", sameAs: SOCIAL_LINKS.map(([, u]) => u),
     address: { "@type": "PostalAddress", addressLocality: "Hyderabad", addressRegion: "Telangana", addressCountry: "IN" },
-    contactPoint: [{ "@type": "ContactPoint", contactType: "sales", email: "hello@ranaai.in", availableLanguage: ["English", "Hindi", "Telugu"] }],
+    telephone: "+91-78997-93001",
+    contactPoint: [{ "@type": "ContactPoint", contactType: "sales", telephone: "+91-78997-93001", email: "hello@ranaai.in", availableLanguage: ["English", "Hindi", "Telugu"] }],
   };
   const app = {
     "@type": "SoftwareApplication", name: "RANA AI", applicationCategory: "BusinessApplication", operatingSystem: "Web", url: url(m.path),

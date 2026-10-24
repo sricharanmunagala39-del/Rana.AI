@@ -13,7 +13,7 @@ import { SCENARIOS, type DemoKey } from "./talkContent";
 import { captureUtm } from "./utm";
 import { VERTICAL_BY_KEY, art, type Vertical } from "./verticals";
 import ProofRunForm from "./ProofRunForm";
-import { LEGAL_LINKS, SOCIAL_LINKS } from "@/app/legal/legal";
+import { LEGAL, LEGAL_LINKS, SOCIAL_LINKS } from "@/app/legal/legal";
 
 // Public contact address (Zoho Mail inbox for ranaai.in).
 const CONTACT_EMAIL = "hello@ranaai.in";
@@ -461,6 +461,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
           </nav>
           <div className="hidden md:flex items-center gap-3">
             <MarketSwitcher market={market} />
+            <a href={`tel:${LEGAL.phoneTel}`} className="hidden xl:inline text-[13.5px] font-medium text-ink-soft hover:text-ink px-2 py-2" data-testid="nav-phone">📞 {LEGAL.phone}</a>
             <Link href="/login" className="text-[13.5px] font-medium text-ink-soft hover:text-ink px-3 py-2">Sign in</Link>
             <button onClick={openDemo("nav")} className="btn-glow rounded-full px-4 py-2 text-[13.5px] font-semibold" data-testid="nav-trial">Book a demo</button>
             <button onClick={() => setMenu(true)} className="lg:hidden font-mono text-[12px] border border-signal/60 text-signal rounded-full px-3.5 py-2" aria-label="Open menu">MENU +</button>
@@ -478,6 +479,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
             <button onClick={openDemo("menu")} className="btn-glow rounded-full px-5 py-3 text-[14px] font-semibold">Book a demo</button>
             {india && <button onClick={openProof} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Free proof run</button>}
           </div>
+          <a href={`tel:${LEGAL.phoneTel}`} className="text-[15px] text-ink-soft hover:text-signal" data-testid="menu-phone">📞 Call us: {LEGAL.phone}</a>
         </div>
       )}
 
@@ -713,7 +715,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
                 : <button onClick={openDemo("footer-cta")} className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold">Book a demo</button>}
               {v && <button onClick={openDemo("footer-cta")} className="btn-ghost rounded-full px-7 py-3.5 text-[15px] font-medium">Book a demo</button>}
             </div>
-            <div className="text-[13px] text-ink-soft mt-5">or write to <a href={`mailto:${CONTACT_EMAIL}`} className="text-signal">{CONTACT_EMAIL}</a></div>
+            <div className="text-[13px] text-ink-soft mt-5" data-testid="contact-phone">or call <a href={`tel:${LEGAL.phoneTel}`} className="text-signal">{LEGAL.phone}</a> · <a href={LEGAL.whatsapp} target="_blank" rel="noopener noreferrer" className="text-signal">WhatsApp us</a> · write to <a href={`mailto:${CONTACT_EMAIL}`} className="text-signal">{CONTACT_EMAIL}</a></div>
           </div>
         </section>
       </main>
@@ -748,7 +750,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
             {LEGAL_LINKS.map(([l, h]) => <Link key={h} href={h} className="hover:text-signal">{l}</Link>)}
             {SOCIAL_LINKS.map(([l, h]) => <a key={h} href={h} target="_blank" rel="noopener noreferrer" className="hover:text-signal">{l}</a>)}
           </nav>
-          <div>RANA AI · Hyderabad, India · {CONTACT_EMAIL}</div>
+          <div>RANA AI · Hyderabad, India · <a href={`tel:${LEGAL.phoneTel}`} className="hover:text-signal">{LEGAL.phone}</a> · {CONTACT_EMAIL}</div>
         </div>
       </footer>
     </div>
