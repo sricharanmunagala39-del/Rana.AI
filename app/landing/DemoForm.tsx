@@ -121,7 +121,7 @@ export default function DemoForm({ open, onClose, source, prefill }: { open: boo
             </label>
             {err && <div className="text-[13px] text-miss bg-miss/10 border border-miss/30 rounded-xl px-3 py-2">{err}</div>}
             <button type="submit" disabled={busy} className="btn-glow rounded-full py-3.5 text-[15px] font-semibold disabled:opacity-50">{busy ? "Sending…" : "Request my demo →"}</button>
-            <p className="text-[12px] text-ink-soft text-center">Prefer to talk? Call <a href="tel:+917899793001" className="text-signal">+91 78997 93001</a> or email <a href="mailto:hello@ranaai.in" className="text-signal">hello@ranaai.in</a></p>
+            <p className="text-[12px] text-ink-soft text-center">Prefer to talk to someone? Call sales on <a href="tel:+917899793001" className="text-signal tabular-nums whitespace-nowrap">+91 78997 93001</a> or email <a href="mailto:hello@ranaai.in" className="text-signal">hello@ranaai.in</a></p>
           </form>
         )}
       </div>
