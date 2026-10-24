@@ -20,11 +20,18 @@ export default function Contact() {
           </a>
         ))}
       </div>
+      <div className="card p-5 mt-4 flex flex-wrap items-center gap-x-6 gap-y-2" data-testid="contact-phone">
+        <div className="eyebrow">Phone &amp; WhatsApp</div>
+        <a href={`tel:${LEGAL.phoneTel}`} className="font-display text-[17px] font-semibold text-ink">{LEGAL.phone}</a>
+        <a href={LEGAL.whatsapp} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-signal">Message on WhatsApp</a>
+        <span className="text-[13px] text-ink-soft">Monday–Saturday, 10 am – 7 pm IST</span>
+      </div>
       <Sec h="Business details">
         <ul>
           <li>Legal name: {LEGAL.owner}</li>
           <li>Brand: {LEGAL.brand}</li>
           <li>Location: {LEGAL.city}</li>
+          <li>Phone: <a href={`tel:${LEGAL.phoneTel}`}>{LEGAL.phone}</a></li>
           <li>Website: <a href={LEGAL.site}>{LEGAL.site}</a></li>
         </ul>
       </Sec>

@@ -31,7 +31,7 @@ function jsonLd(p: SeoPageData) {
   const url = `${SITE}${p.path}`;
   const crumb = KIND_CRUMB[p.kind];
   const graph: any[] = [
-    { "@type": "Organization", "@id": `${SITE}/#org`, name: "RANA AI", alternateName: ["Rana AI", "RANA"], sameAs: SOCIAL_LINKS.map(([, u]) => u), url: SITE, logo: `${SITE}/apple-icon`, email: "hello@ranaai.in", address: { "@type": "PostalAddress", addressLocality: "Hyderabad", addressRegion: "Telangana", addressCountry: "IN" } },
+    { "@type": "Organization", "@id": `${SITE}/#org`, name: "RANA AI", alternateName: ["Rana AI", "RANA"], sameAs: SOCIAL_LINKS.map(([, u]) => u), url: SITE, logo: `${SITE}/apple-icon`, email: "hello@ranaai.in", telephone: "+91-78997-93001", address: { "@type": "PostalAddress", addressLocality: "Hyderabad", addressRegion: "Telangana", addressCountry: "IN" } },
     { "@type": "WebSite", "@id": `${SITE}/#website`, url: SITE, name: "RANA AI", publisher: { "@id": `${SITE}/#org` } },
     { "@type": "WebPage", "@id": `${url}#page`, url, name: p.h1, description: p.description, inLanguage: "en-IN", isPartOf: { "@id": `${SITE}/#website` }, about: { "@id": `${SITE}/#org` }, ...(p.checked ? { dateModified: "2026-09-30" } : {}) },
     { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: `${SITE}/` }, ...(crumb ? [{ "@type": "ListItem", position: 2, name: crumb[0], item: `${SITE}${crumb[1]}` }] : []), { "@type": "ListItem", position: crumb ? 3 : 2, name: p.label, item: url }] },

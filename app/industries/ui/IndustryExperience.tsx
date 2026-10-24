@@ -60,7 +60,7 @@ export function IndustryFooter() {
   return (
     <footer className="border-t border-white/[.06] mt-10">
       <div className="max-w-[1320px] mx-auto px-5 sm:px-8 py-8 flex flex-col md:flex-row gap-4 items-center justify-between text-[12.5px] text-ink-soft">
-        <div className="flex items-center gap-3"><Logo size={22} /><span>RANA AI · Hyderabad, India · hello@ranaai.in</span></div>
+        <div className="flex items-center gap-3"><Logo size={22} /><span>RANA AI · Hyderabad, India · <a href="tel:+917899793001" className="hover:text-signal">+91 78997 93001</a> · hello@ranaai.in</span></div>
         <nav className="flex flex-wrap gap-x-5 gap-y-2 justify-center font-mono text-[11.5px]">{LEGAL_LINKS.map(([l, h]) => <Link key={h} href={h} className="hover:text-signal">{l}</Link>)}</nav>
       </div>
     </footer>

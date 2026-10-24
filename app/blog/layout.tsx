@@ -34,7 +34,7 @@ export default function BlogLayout({ children }: { children: React.ReactNode }) 
             <Link href="/blog" className="hover:text-signal">Blog</Link>
             {LEGAL_LINKS.map(([l, h]) => <Link key={h} href={h} className="hover:text-signal">{l}</Link>)}
           </nav>
-          <p>RANA AI, {LEGAL.city}. Contact: <a className="text-signal" href={`mailto:${LEGAL.salesEmail}`}>{LEGAL.salesEmail}</a></p>
+          <p>RANA AI, {LEGAL.city}. Contact: <a className="text-signal" href={`tel:${LEGAL.phoneTel}`}>{LEGAL.phone}</a> · <a className="text-signal" href={`mailto:${LEGAL.salesEmail}`}>{LEGAL.salesEmail}</a></p>
         </div>
       </footer>
     </div>
