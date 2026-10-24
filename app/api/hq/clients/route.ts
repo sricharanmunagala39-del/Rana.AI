@@ -54,13 +54,19 @@ export async function POST(req: Request) {
   if (name.length < 2) return Response.json({ error: "Enter the company name." }, { status: 400 });
   if (!validEmail(email)) return Response.json({ error: "Enter the owner's email address." }, { status: 400 });
   if (await getUserByEmail(email)) return Response.json({ error: "That email already has a RANA login. Use a different email for this company's owner." }, { status: 409 });
-  const dupe = await sb<any[]>(`/clients?login_email=eq.${encodeURIComponent(email)}&select=id&limit=1`);
-  if (dupe?.length) return Response.json({ error: "That email already has a RANA workspace." }, { status: 409 });
+  const dupe = await sb<any[]>(`/clients?login_email=eq.${encodeURIComponent(email)}&select=id,name&limit=1`);
+  // A workspace left half-made by an earlier failed attempt (no logins yet) is finished now instead of blocking the retry.
+  let unfinished: any = null;
+  if (dupe?.length) {
+    const users = await sb<any[]>(`/users?client_id=eq.${dupe[0].id}&select=id&limit=1`);
+    if (users?.length) return Response.json({ error: "That email already has a RANA workspace." }, { status: 409 });
+    unfinished = dupe[0];
+  }
 
   const now = new Date();
   const trialDays = Math.min(60, Math.max(1, Number(b.trialDays) || PLANS.trial.trialDays || 14));
-  const [client] = await sb<any[]>(`/clients`, {
-    method: "POST",
+  const [client] = await sb<any[]>(unfinished ? `/clients?id=eq.${unfinished.id}` : `/clients`, {
+    method: unfinished ? "PATCH" : "POST",
     body: JSON.stringify({
       name, industry, company_name: name, login_email: email,
       login_password: hashPassword(tempPassword() + tempPassword()), // legacy column; nobody signs in with it
@@ -73,7 +79,13 @@ export async function POST(req: Request) {
     }),
   });
   const password = tempPassword();
-  await createUser({ clientId: client.id, email, name: String(b.ownerName || "").trim() || name, password, role: "owner", invitedBy: session!.email, mustChange: true });
+  try {
+    // invited_by is the HQ user's id (a uuid), never their email.
+    await createUser({ clientId: client.id, email, name: String(b.ownerName || "").trim() || name, password, role: "owner", invitedBy: session!.userId ?? null, mustChange: true });
+  } catch (e: any) {
+    console.error("[hq/clients] owner login failed", e?.message);
+    return Response.json({ error: "The workspace was created but its owner login couldn't be made. Try again — RANA will finish setting it up." }, { status: 500 });
+  }
   await audit(session!, "hq_client_created", { req, targetType: "client", targetId: client.id, detail: { name, plan, owner: email } });
   await audit({ clientId: client.id, email: session!.email }, "hq_client_created", { req, targetType: "client", targetId: client.id, detail: { by: "RANA HQ", plan } });
   // Email the owner their login (skipped quietly until email is set up; HQ still gets the WhatsApp-ready text).
