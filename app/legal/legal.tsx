@@ -9,6 +9,7 @@ export const LEGAL = {
   phone: "+91 78997 93001",
   phoneTel: "+917899793001",
   whatsapp: "https://wa.me/917899793001",
+  hours: "Mon–Sat · 10 am – 7 pm IST",
   billingEmail: "billing@ranaai.in",
   site: "https://ranaai.in",
   updated: "25 September 2026",

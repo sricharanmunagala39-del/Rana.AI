@@ -1,30 +1,26 @@
 import type { Metadata } from "next";
 import { Doc, Sec, LEGAL } from "../legal";
 
-export const metadata: Metadata = { title: "Contact Us", description: "Contact RANA AI — sales, customer support and billing emails, business details and grievance officer.", alternates: { canonical: "/legal/contact" } };
+export const metadata: Metadata = { title: "Contact Us", description: "Contact RANA AI — sales phone +91 78997 93001, WhatsApp, support and billing emails, business details and grievance officer.", alternates: { canonical: "/legal/contact" } };
 
 export default function Contact() {
-  const rows: [string, string, string][] = [
-    ["Sales & demos", LEGAL.salesEmail, "New business, pricing and demos"],
-    ["Customer support", LEGAL.email, "Help with your account, calls and AI employees"],
-    ["Billing", LEGAL.billingEmail, "Invoices, payments, refunds and cancellations"],
+  const rows: [string, string, string, string][] = [
+    ["Sales (phone)", LEGAL.phone, "Pricing, demos and new business · " + LEGAL.hours, `tel:${LEGAL.phoneTel}`],
+    ["WhatsApp", LEGAL.phone, "Chat with our team in working hours", LEGAL.whatsapp],
+    ["Sales & demos", LEGAL.salesEmail, "New business, pricing and demos", `mailto:${LEGAL.salesEmail}`],
+    ["Customer support", LEGAL.email, "Help with your account, calls and AI employees", `mailto:${LEGAL.email}`],
+    ["Billing", LEGAL.billingEmail, "Invoices, payments, refunds and cancellations", `mailto:${LEGAL.billingEmail}`],
   ];
   return (
-    <Doc title="Contact Us" intro={`${LEGAL.brand} is based in ${LEGAL.city}. We reply to every email within 1 working day (Monday–Saturday, 10 am – 7 pm IST).`}>
-      <div className="grid sm:grid-cols-3 gap-4">
-        {rows.map(([t, e, d]) => (
-          <a key={e} href={`mailto:${e}`} className="card p-5 block">
+    <Doc title="Contact Us" intro={`${LEGAL.brand} is based in ${LEGAL.city}. Call or WhatsApp sales on ${LEGAL.phone} (${LEGAL.hours}). We reply to every email within 1 working day.`}>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="contact-phone">
+        {rows.map(([t, e, d, href]) => (
+          <a key={t} href={href} {...(href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})} className="card p-5 block">
             <div className="eyebrow">{t}</div>
-            <div className="font-display text-[17px] font-semibold text-ink mt-2 break-all">{e}</div>
+            <div className="font-display text-[17px] font-semibold text-ink mt-2 break-all tabular-nums">{e}</div>
             <p className="text-[13px] text-ink-soft mt-1.5 leading-5">{d}</p>
           </a>
         ))}
-      </div>
-      <div className="card p-5 mt-4 flex flex-wrap items-center gap-x-6 gap-y-2" data-testid="contact-phone">
-        <div className="eyebrow">Phone &amp; WhatsApp</div>
-        <a href={`tel:${LEGAL.phoneTel}`} className="font-display text-[17px] font-semibold text-ink">{LEGAL.phone}</a>
-        <a href={LEGAL.whatsapp} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-signal">Message on WhatsApp</a>
-        <span className="text-[13px] text-ink-soft">Monday–Saturday, 10 am – 7 pm IST</span>
       </div>
       <Sec h="Business details">
         <ul>

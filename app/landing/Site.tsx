@@ -4,6 +4,7 @@ import Link from "next/link";
 import RanaCore from "@/components/RanaCore";
 import Integrations from "@/components/Integrations";
 import { Logo } from "@/components/Sidebar";
+import { PhoneIcon, ChatIcon, MailIcon } from "@/components/ContactIcons";
 import { INDUSTRY_CALLS, GLOBAL_CALLS, ENGINES_LINE, CALC, CALL_LANGUAGE_COUNT, plansFor, faqFor, type Line, type IndustryCall } from "./content";
 import { PLANS as PRICE_LIST, PRICE_BOOK, CURRENCIES, CURRENCY_SYMBOL as SYMBOL, money, moneyShort, amount, inr0, YEARLY_MONTHS_PAID, type Currency } from "@/lib/pricing";
 import { MARKETS, MARKET_KEYS, MARKET_COOKIE, marketForZone, type Market, type MarketKey } from "./markets";
@@ -461,7 +462,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
           </nav>
           <div className="hidden md:flex items-center gap-3">
             <MarketSwitcher market={market} />
-            <a href={`tel:${LEGAL.phoneTel}`} className="hidden xl:inline text-[13.5px] font-medium text-ink-soft hover:text-ink px-2 py-2" data-testid="nav-phone">📞 {LEGAL.phone}</a>
+            <a href={`tel:${LEGAL.phoneTel}`} className="hidden xl:inline-flex items-center gap-2 text-[13.5px] font-medium text-ink-soft hover:text-ink px-2 py-2 tabular-nums" aria-label={`Call sales ${LEGAL.phone}`} data-testid="nav-phone"><PhoneIcon size={15} />{LEGAL.phone}</a>
             <Link href="/login" className="text-[13.5px] font-medium text-ink-soft hover:text-ink px-3 py-2">Sign in</Link>
             <button onClick={openDemo("nav")} className="btn-glow rounded-full px-4 py-2 text-[13.5px] font-semibold" data-testid="nav-trial">Book a demo</button>
             <button onClick={() => setMenu(true)} className="lg:hidden font-mono text-[12px] border border-signal/60 text-signal rounded-full px-3.5 py-2" aria-label="Open menu">MENU +</button>
@@ -479,7 +480,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
             <button onClick={openDemo("menu")} className="btn-glow rounded-full px-5 py-3 text-[14px] font-semibold">Book a demo</button>
             {india && <button onClick={openProof} className="btn-ghost rounded-full px-5 py-3 text-[14px] font-medium">Free proof run</button>}
           </div>
-          <a href={`tel:${LEGAL.phoneTel}`} className="text-[15px] text-ink-soft hover:text-signal" data-testid="menu-phone">📞 Call us: {LEGAL.phone}</a>
+          <a href={`tel:${LEGAL.phoneTel}`} className="inline-flex items-center gap-2.5 text-[15px] text-ink-soft hover:text-signal tabular-nums" data-testid="menu-phone"><PhoneIcon size={16} />Sales: {LEGAL.phone}</a>
         </div>
       )}
 
@@ -715,7 +716,32 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
                 : <button onClick={openDemo("footer-cta")} className="btn-glow rounded-full px-7 py-3.5 text-[15px] font-semibold">Book a demo</button>}
               {v && <button onClick={openDemo("footer-cta")} className="btn-ghost rounded-full px-7 py-3.5 text-[15px] font-medium">Book a demo</button>}
             </div>
-            <div className="text-[13px] text-ink-soft mt-5" data-testid="contact-phone">or call <a href={`tel:${LEGAL.phoneTel}`} className="text-signal">{LEGAL.phone}</a> · <a href={LEGAL.whatsapp} target="_blank" rel="noopener noreferrer" className="text-signal">WhatsApp us</a> · write to <a href={`mailto:${CONTACT_EMAIL}`} className="text-signal">{CONTACT_EMAIL}</a></div>
+            <div className="grid sm:grid-cols-3 gap-3 mt-12 max-w-[880px] mx-auto text-left" data-testid="contact-phone">
+              <a href={`tel:${LEGAL.phoneTel}`} className="group rounded-2xl border border-white/[.08] bg-white/[.02] hover:border-signal/40 hover:bg-white/[.04] transition-colors px-5 py-4 flex items-start gap-3.5" data-testid="contact-call">
+                <span className="w-10 h-10 rounded-xl bg-signal/10 text-signal flex items-center justify-center shrink-0"><PhoneIcon size={18} /></span>
+                <span className="min-w-0">
+                  <span className="block text-[11.5px] font-medium uppercase tracking-[0.1em] text-ink-soft">Call sales</span>
+                  <span className="block text-[15.5px] font-semibold text-ink mt-1 tabular-nums group-hover:text-signal">{LEGAL.phone}</span>
+                  <span className="block text-[12.5px] text-ink-soft mt-0.5">{LEGAL.hours}</span>
+                </span>
+              </a>
+              <a href={LEGAL.whatsapp} target="_blank" rel="noopener noreferrer" className="group rounded-2xl border border-white/[.08] bg-white/[.02] hover:border-signal/40 hover:bg-white/[.04] transition-colors px-5 py-4 flex items-start gap-3.5" data-testid="contact-whatsapp">
+                <span className="w-10 h-10 rounded-xl bg-signal/10 text-signal flex items-center justify-center shrink-0"><ChatIcon size={18} /></span>
+                <span className="min-w-0">
+                  <span className="block text-[11.5px] font-medium uppercase tracking-[0.1em] text-ink-soft">WhatsApp</span>
+                  <span className="block text-[15.5px] font-semibold text-ink mt-1 tabular-nums group-hover:text-signal">Chat with our team</span>
+                  <span className="block text-[12.5px] text-ink-soft mt-0.5">Quick replies in working hours</span>
+                </span>
+              </a>
+              <a href={`mailto:${CONTACT_EMAIL}`} className="group rounded-2xl border border-white/[.08] bg-white/[.02] hover:border-signal/40 hover:bg-white/[.04] transition-colors px-5 py-4 flex items-start gap-3.5" data-testid="contact-email">
+                <span className="w-10 h-10 rounded-xl bg-signal/10 text-signal flex items-center justify-center shrink-0"><MailIcon size={18} /></span>
+                <span className="min-w-0">
+                  <span className="block text-[11.5px] font-medium uppercase tracking-[0.1em] text-ink-soft">Email</span>
+                  <span className="block text-[15.5px] font-semibold text-ink mt-1 tabular-nums group-hover:text-signal">{CONTACT_EMAIL}</span>
+                  <span className="block text-[12.5px] text-ink-soft mt-0.5">Reply within 1 working day</span>
+                </span>
+              </a>
+            </div>
           </div>
         </section>
       </main>
@@ -750,7 +776,7 @@ export default function Site({ marketKey = "in", vertical }: { marketKey?: Marke
             {LEGAL_LINKS.map(([l, h]) => <Link key={h} href={h} className="hover:text-signal">{l}</Link>)}
             {SOCIAL_LINKS.map(([l, h]) => <a key={h} href={h} target="_blank" rel="noopener noreferrer" className="hover:text-signal">{l}</a>)}
           </nav>
-          <div>RANA AI · Hyderabad, India · <a href={`tel:${LEGAL.phoneTel}`} className="hover:text-signal">{LEGAL.phone}</a> · {CONTACT_EMAIL}</div>
+          <div className="tabular-nums">RANA AI · Hyderabad, India · Sales <a href={`tel:${LEGAL.phoneTel}`} className="hover:text-signal">{LEGAL.phone}</a> · <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-signal">{CONTACT_EMAIL}</a></div>
         </div>
       </footer>
     </div>
